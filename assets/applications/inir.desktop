@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=iNtoo Shell
+Comment=iNtoo desktop shell session
+Exec=inir restart
+Icon=inir
+Terminal=false
+NoDisplay=true
+Categories=System;

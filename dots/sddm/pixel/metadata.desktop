@@ -1,0 +1,12 @@
+[SddmGreeterTheme]
+Name=ii-pixel
+Description=iNtoo SDDM login screen — Material You dynamic colors
+Author=iNtoo Project
+Type=sddm-theme
+Version=1.0
+Website=https://github.com/D0UP1G/iNtoo
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=ii-pixel
+Theme-API=2.0
+QtVersion=6
