@@ -14,9 +14,11 @@ Item {
     component CriticalPanelLoader: LazyLoader {
         required property string identifier
         property bool extraCondition: true
-        active: Config.ready && IrisGate.official
+        readonly property bool enabledPanel: Config.ready && IrisGate.official
             && (Config.options?.enabledPanels ?? []).includes(identifier)
             && extraCondition
+        loading: enabledPanel
+        activeAsync: enabledPanel
     }
 
     CriticalPanelLoader {
@@ -26,7 +28,8 @@ Item {
     }
 
     LazyLoader {
-        active: Config.ready && IrisGate.official
+        loading: Config.ready && IrisGate.official
+        activeAsync: Config.ready && IrisGate.official
         component: IrisReservations {}
     }
 

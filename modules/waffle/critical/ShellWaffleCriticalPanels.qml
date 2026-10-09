@@ -13,9 +13,11 @@ Item {
     component CriticalPanelLoader: LazyLoader {
         required property string identifier
         property bool extraCondition: true
-        active: Config.ready
+        readonly property bool enabledPanel: Config.ready
             && (Config.options?.enabledPanels ?? []).includes(identifier)
             && extraCondition
+        loading: enabledPanel
+        activeAsync: enabledPanel
     }
 
     CriticalPanelLoader {

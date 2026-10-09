@@ -33,7 +33,10 @@ main() {
   # runs side by side both restyled every app. The later one now waits and finds nothing left to do.
   if command -v flock >/dev/null 2>&1; then
     exec 9>"$STATE_DIR/user/generated/applycolor.lock"
-    flock -w 120 9 || true
+    flock -w 120 9 || {
+      printf 'Timed out waiting for the theme application lock\n' >&2
+      exit 1
+    }
   fi
 
   local force=0 arg
@@ -92,12 +95,26 @@ main() {
     exit 1
   fi
 
-  local cpu_count max_jobs running failed
+  local cpu_count max_jobs running failed available_kb memory_cap low_power
   cpu_count="$(nproc 2>/dev/null || printf '4')"
+  available_kb="$(awk '/^MemAvailable:/ { print $2; exit }' /proc/meminfo 2>/dev/null || true)"
+  [[ "$available_kb" =~ ^[0-9]+$ ]] || available_kb=0
+  memory_cap=4
+  if (( available_kb > 0 && available_kb < 1572864 )); then
+    memory_cap=1
+  elif (( available_kb > 0 && available_kb < 3145728 )); then
+    memory_cap=2
+  fi
+  low_power=0
+  if command -v jq >/dev/null 2>&1 && [[ -f "$CONFIG_FILE" ]]; then
+    [[ "$(jq -r '.performance.lowPower // false' "$CONFIG_FILE" 2>/dev/null || true)" == "true" ]] && low_power=1
+  fi
   max_jobs="${INIR_THEME_MAX_JOBS:-$((cpu_count / 2))}"
-  [[ "$max_jobs" =~ ^[0-9]+$ ]] || max_jobs=2
-  (( max_jobs < 2 )) && max_jobs=2
+  [[ "$max_jobs" =~ ^[0-9]+$ ]] || max_jobs=1
+  (( max_jobs < 1 )) && max_jobs=1
   (( max_jobs > 4 )) && max_jobs=4
+  (( max_jobs > memory_cap )) && max_jobs=$memory_cap
+  (( low_power )) && max_jobs=1
 
   run_one_module() {
     local module_path="$1"

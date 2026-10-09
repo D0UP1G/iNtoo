@@ -62,7 +62,7 @@ Item {
         property bool retainAfterUse: false
         property bool used: false
         property int closeGraceMs: 300
-        property int retainIdleMs: 5 * 60 * 1000
+        property int retainIdleMs: MemoryPressureService.lowMemory ? 15000 : 5 * 60 * 1000
         property bool resident: open || keepLoaded
         property Timer closeGrace: Timer {
             interval: onDemandLoader.closeGraceMs
@@ -71,6 +71,13 @@ Item {
         property Timer retainIdle: Timer {
             interval: onDemandLoader.retainIdleMs
             onTriggered: onDemandLoader.resident = onDemandLoader.open || onDemandLoader.keepLoaded
+        }
+        Connections {
+            target: MemoryPressureService
+            function onLowMemoryChanged(): void {
+                if (!onDemandLoader.open && !onDemandLoader.keepLoaded && onDemandLoader.resident)
+                    onDemandLoader.retainIdle.restart()
+            }
         }
         readonly property bool enabledPanel: Config.ready
             && (Config.options?.enabledPanels ?? []).includes(identifier)

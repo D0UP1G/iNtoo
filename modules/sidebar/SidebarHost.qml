@@ -104,7 +104,7 @@ Scope {
     readonly property int contentIdleUnloadMs: {
         const override = Number(Quickshell.env("INIR_SIDEBAR_IDLE_UNLOAD_MS"))
         return Number.isFinite(override) && override >= 250
-            ? Math.round(override) : 300000
+            ? Math.round(override) : MemoryPressureService.lowMemory ? 30000 : 300000
     }
 
     onRoleOpenChanged: Qt.callLater(() => {
@@ -137,6 +137,14 @@ Scope {
         } else {
             renderSuspendTimer.restart()
             if (root._contentResident)
+                contentUnloadTimer.restart()
+        }
+    }
+
+    Connections {
+        target: MemoryPressureService
+        function onLowMemoryChanged(): void {
+            if (!root.presentationOpen && root._contentResident)
                 contentUnloadTimer.restart()
         }
     }

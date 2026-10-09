@@ -542,9 +542,10 @@ Item {
                             const wins = NiriService.windows?.filter(w => w.workspace_id === niriWorkspace.id) ?? []
                             if (wins.length === 0) return null
                             return wins.find(w => w.is_focused) || wins[0]
-                        } else {
+                        } else if (CompositorService.isHyprland) {
                             return HyprlandData.biggestWindowForWorkspace(button.workspaceValue)
                         }
+                        return null
                     }
                     property var mainAppIconSource: {
                         const appClass = CompositorService.isNiri 

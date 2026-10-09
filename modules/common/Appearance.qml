@@ -91,7 +91,8 @@ Singleton {
     property bool _gameModeMinimalMode: _gameModeActive && (GameMode?.minimalMode ?? true)
 
     // Master switches for effects and animations
-    property bool effectsEnabled: !Config.options?.performance?.lowPower && !_gameModeDisablesEffects
+    property bool effectsEnabled: !Config.options?.performance?.lowPower
+        && !(MemoryPressureService?.lowMemory ?? false) && !_gameModeDisablesEffects
     property bool animationsEnabled: !_gameModeDisablesAnimations && !(Config.options?.performance?.reduceAnimations ?? false)
     property bool nativeBlurSupported: false
 

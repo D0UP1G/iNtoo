@@ -7,10 +7,9 @@ import Quickshell.Io
 import qs.modules.common
 import qs.services
 
-// Memory pressure monitoring for JSGCHeap accumulation (#164).
-// Qt's V4 JS engine creates memfd mappings that persist as "(deleted)" after
-// Loader teardown. This service monitors that accumulation and notifies the
-// user when a restart would help reclaim memory.
+// System memory pressure plus JSGCHeap mapping diagnostics (#164).
+// Deleted mappings are reported as counts only; MemAvailable drives low-memory
+// behavior because a mapping count does not measure resident memory.
 Singleton {
     id: root
 
@@ -19,10 +18,17 @@ Singleton {
     readonly property bool notifyEnabled: Config.options?.performance?.memoryWarningNotification ?? false
     readonly property int deletedMappingsThreshold: Config.options?.performance?.jsgcThreshold ?? 300
     readonly property int checkIntervalMs: 300000  // check every 5 min
+    readonly property int lowMemoryThresholdKb: Math.max(256, Number(
+        Config.options?.performance?.lowMemoryThresholdMb ?? 768)) * 1024
+    readonly property int lowMemoryRecoveryKb: root.lowMemoryThresholdKb + 256 * 1024
 
     // ── State ─────────────────────────────────────────────────────────────
     property int currentDeletedMappings: 0
     property int currentTotalMappings: 0
+    property int memoryAvailableKb: 0
+    property int residentSetKb: 0
+    property int proportionalSetKb: 0
+    property bool lowMemory: false
     property bool notificationShown: false
     property bool userDismissed: false
 
@@ -64,6 +70,11 @@ Singleton {
             deletedMappings: root.currentDeletedMappings,
             totalMappings: root.currentTotalMappings,
             threshold: root.deletedMappingsThreshold,
+            availableMemoryKb: root.memoryAvailableKb,
+            shellRssKb: root.residentSetKb,
+            shellPssKb: root.proportionalSetKb,
+            lowMemoryThresholdKb: root.lowMemoryThresholdKb,
+            lowMemory: root.lowMemory,
             notificationShown: root.notificationShown,
             userDismissed: root.userDismissed,
             enabled: root.enabled,
@@ -87,16 +98,17 @@ Singleton {
         if (root.notificationShown || root.userDismissed) return
         
         root.notificationShown = true
-        const mbEstimate = Math.round(root.currentDeletedMappings * 0.5)  // ~0.5 MB per mapping
+        const availableMb = Math.round(root.memoryAvailableKb / 1024)
+        const rssMb = Math.round(root.residentSetKb / 1024)
 
         Quickshell.execDetached([
             "/usr/bin/notify-send",
             "iNtoo",
-            Translation.tr("Memory usage is high (~%1 MB accumulated). A restart would free it. Run: inir memory restart").arg(mbEstimate),
+            Translation.tr("Available memory is low (%1 MB); iNtoo uses %2 MB. Close unused panels or apps.").arg(availableMb).arg(rssMb),
             "-u", "critical",
             "-a", "Shell",
         ])
-        _log("notified user, estimated leak:", mbEstimate, "MB")
+        _log("notified user, available:", availableMb, "MB; shell RSS:", rssMb, "MB")
     }
 
     // ── Timers ────────────────────────────────────────────────────────────
@@ -114,26 +126,30 @@ Singleton {
         // /proc/$PPID, not /proc/self: this runs in an sh child of the shell, so
         // /proc/self is that sh process (zero JSGCHeap mappings) and the counter
         // always read 0 — the threshold could never trip. $PPID is the shell.
-        command: ["sh", "-c", "grep -c 'JSGCHeap.*deleted' /proc/$PPID/maps 2>/dev/null || echo 0; grep -c JSGCHeap /proc/$PPID/maps 2>/dev/null || echo 0"]
+        command: ["sh", "-c", "p=$PPID; awk '/^MemAvailable:/ {print $2}' /proc/meminfo; awk '/^VmRSS:/ {print $2}' /proc/$p/status; awk '/^Pss:/ {print $2}' /proc/$p/smaps_rollup 2>/dev/null; awk '/JSGCHeap.*deleted/ {d++} /JSGCHeap/ {t++} END {print d+0; print t+0}' /proc/$p/maps"]
         stdout: SplitParser {
             property int lineNum: 0
             onRead: line => {
                 const val = parseInt(line.trim()) || 0
-                if (lineNum === 0) {
-                    root.currentDeletedMappings = val
-                } else {
-                    root.currentTotalMappings = val
-                }
+                if (lineNum === 0) root.memoryAvailableKb = val
+                else if (lineNum === 1) root.residentSetKb = val
+                else if (lineNum === 2) root.proportionalSetKb = val
+                else if (lineNum === 3) root.currentDeletedMappings = val
+                else if (lineNum === 4) root.currentTotalMappings = val
                 lineNum++
             }
         }
         onExited: (code, status) => {
             _mapsReader.stdout.lineNum = 0
             
-            if (root.currentDeletedMappings >= root.deletedMappingsThreshold) {
-                _log("threshold exceeded:", root.currentDeletedMappings, ">=", root.deletedMappingsThreshold)
-                root._notifyUser()
-            }
+            const wasLow = root.lowMemory
+            root.lowMemory = wasLow
+                ? root.memoryAvailableKb < root.lowMemoryRecoveryKb
+                : root.memoryAvailableKb < root.lowMemoryThresholdKb
+            if (root.lowMemory !== wasLow)
+                _log("low-memory mode", root.lowMemory ? "enabled" : "disabled",
+                    "available:", Math.round(root.memoryAvailableKb / 1024), "MB")
+            if (root.lowMemory) root._notifyUser()
         }
     }
 

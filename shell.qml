@@ -44,11 +44,7 @@ ShellRoot {
     // Deferred singletons — initialized after first frame to reduce boot contention
     // Tier 3: T+500ms (display/interaction services)
     property var _gameModeService
-    property var _windowPreviewService
-    property var _weatherService
-    property var _voiceSearchService
     property var _fontSyncService
-    property var _cavaThemeService
     // Screen Time must exist for the whole enabled session, not only after its
     // sidebar page is first opened. It is explicitly materialized after the
     // first frame and when the user enables tracking later.
@@ -60,34 +56,16 @@ ShellRoot {
     }
     // Tier 4: T+1500ms (background features - updates, sync, content services)
     property var _shellUpdatesService
-    property var _autostartService
-    property var _niriAnimationPresetsService
-    property var _calendarSyncService
-    property var _todoService
-    property var _notepadService
 
     function _ensureDeferredFamilyServices(): void {
-        const family = Config.options?.panelFamily ?? "ii"
         root._gameModeService = GameMode
-        root._fontSyncService = FontSyncService
-        if (family !== "iris") {
-            root._windowPreviewService = WindowPreviewService
-            root._weatherService = Weather
-            root._voiceSearchService = VoiceSearch
-            root._cavaThemeService = CavaTheme
-        }
+        if (Config.options?.appearance?.typography?.syncWithSystem ?? true)
+            root._fontSyncService = FontSyncService
     }
 
     function _ensureLateFamilyServices(): void {
-        const family = Config.options?.panelFamily ?? "ii"
-        root._shellUpdatesService = ShellUpdates
-        root._autostartService = Autostart
-        root._niriAnimationPresetsService = NiriAnimationPresets
-        if (family !== "iris") {
-            root._calendarSyncService = CalendarSync
-            root._todoService = Todo
-            root._notepadService = Notepad
-        }
+        if ((Config.options?.enabledPanels ?? []).includes("iiShellUpdate"))
+            root._shellUpdatesService = ShellUpdates
     }
 
     // Boot phase timing (ms since epoch). Written to ~/.cache/inir/last-boot.json
@@ -722,6 +700,108 @@ ShellRoot {
     LazyLoader { active: Config.ready; source: "modules/tilingOverlay/TilingOverlayRouter.qml" }
     LazyLoader { active: Config.ready; source: "modules/wallpaperSelector/WallpaperSelectorRouter.qml" }
 
+    // Family QML is parsed only after its config is selected. Parsing happens on
+    // an asynchronous QQmlComponent before LazyLoader creates any windows.
+    component FamilyPanelHostLoader: Item {
+        id: familyHost
+        required property string family
+        required property string sourcePath
+        property bool criticalHost: false
+        property bool deferredHost: false
+        readonly property bool selected: Config.ready
+            && (Config.options?.panelFamily ?? "ii") === familyHost.family
+            && (!familyHost.deferredHost || GlobalStates.deferredPanelsReady)
+        property var candidate: null
+        property string loadedPath: ""
+
+        function release(): void {
+            if (familyHost.candidate) {
+                familyHost.candidate.destroy()
+                familyHost.candidate = null
+            }
+            if (familyHost.loadedPath.length > 0) {
+                host.loading = false
+                host.activeAsync = false
+                host.component = null
+                familyHost.loadedPath = ""
+            }
+            loadGuard.stop()
+        }
+
+        function load(): void {
+            if (!familyHost.selected) {
+                familyHost.release()
+                return
+            }
+            if (familyHost.loadedPath === familyHost.sourcePath || familyHost.candidate)
+                return
+
+            if (familyHost.criticalHost) loadGuard.start()
+            const component = Qt.createComponent(Quickshell.shellPath(familyHost.sourcePath), Component.Asynchronous)
+            familyHost.candidate = component
+            const finish = () => {
+                if (familyHost.candidate !== component) return
+                if (component.status === Component.Loading) return
+                familyHost.candidate = null
+                if (component.status === Component.Error) {
+                    loadGuard.stop()
+                    console.warn("[FamilyLoader] Could not compile", familyHost.family,
+                        component.errorString())
+                    component.destroy()
+                    if (familyHost.criticalHost)
+                        root.rejectPanelFamily(familyHost.family)
+                    return
+                }
+                if (!familyHost.selected) {
+                    loadGuard.stop()
+                    component.destroy()
+                    return
+                }
+                familyHost.loadedPath = familyHost.sourcePath
+                host.component = component
+                host.activeAsync = true
+            }
+            if (component.status === Component.Loading)
+                component.statusChanged.connect(finish)
+            else
+                finish()
+        }
+
+        LazyLoader {
+            id: host
+            onActiveChanged: {
+                if (active && familyHost.criticalHost) {
+                    loadGuard.stop()
+                    root._lastGoodPanelFamily = familyHost.family
+                    console.info("[FamilyLoader] ready", familyHost.family)
+                }
+            }
+        }
+        Timer {
+            id: loadGuard
+            interval: 20000
+            onTriggered: {
+                if (familyHost.criticalHost && familyHost.selected && !host.active) {
+                    console.warn("[FamilyLoader]", familyHost.family, "critical panels did not become ready")
+                    familyHost.release()
+                    root.rejectPanelFamily(familyHost.family)
+                }
+            }
+        }
+        onSelectedChanged: familyHost.load()
+        Component.onCompleted: familyHost.load()
+    }
+
+    property string _lastGoodPanelFamily: "ii"
+    function rejectPanelFamily(family: string): void {
+        if ((Config.options?.panelFamily ?? "ii") !== family) return
+        const fallback = root._lastGoodPanelFamily !== family ? root._lastGoodPanelFamily
+            : family === "ii" ? "waffle" : "ii"
+        console.warn("[FamilyLoader] Switching back to", fallback, "after", family, "failed to load")
+        Config.setNestedValue("panelFamily", fallback)
+        root.finishFamilyTransition()
+    }
+
     // Same reason as the routers: both panel files declared these, so every
     // family switch registered them twice and Quickshell kept whichever won the
     // race — sometimes the handler belonging to the family being torn down.
@@ -845,50 +925,12 @@ ShellRoot {
         }
     }
 
-    LazyLoader {
-        loading: Config.ready && (Config.options?.panelFamily ?? "ii") === "ii"
-        activeAsync: Config.ready && (Config.options?.panelFamily ?? "ii") === "ii"
-        source: "modules/ii/critical/ShellIiCriticalPanels.qml"
-    }
-
-    LazyLoader {
-        readonly property bool enabled: Config.ready
-            && GlobalStates.deferredPanelsReady
-            && (Config.options?.panelFamily ?? "ii") === "ii"
-        loading: enabled
-        activeAsync: enabled
-        source: "ShellIiPanels.qml"
-    }
-
-    LazyLoader {
-        loading: Config.ready && (Config.options?.panelFamily ?? "ii") === "waffle"
-        activeAsync: Config.ready && (Config.options?.panelFamily ?? "ii") === "waffle"
-        source: "modules/waffle/critical/ShellWaffleCriticalPanels.qml"
-    }
-
-    LazyLoader {
-        readonly property bool enabled: Config.ready
-            && GlobalStates.deferredPanelsReady
-            && (Config.options?.panelFamily ?? "ii") === "waffle"
-        loading: enabled
-        activeAsync: enabled
-        source: "ShellWafflePanels.qml"
-    }
-
-    LazyLoader {
-        loading: Config.ready && (Config.options?.panelFamily ?? "ii") === "iris"
-        activeAsync: Config.ready && (Config.options?.panelFamily ?? "ii") === "iris"
-        source: "modules/iris/critical/ShellIrisCriticalPanels.qml"
-    }
-
-    LazyLoader {
-        readonly property bool enabled: Config.ready
-            && GlobalStates.deferredPanelsReady
-            && (Config.options?.panelFamily ?? "ii") === "iris"
-        loading: enabled
-        activeAsync: enabled
-        source: "ShellIrisPanels.qml"
-    }
+    FamilyPanelHostLoader { family: "ii"; sourcePath: "modules/ii/critical/ShellIiCriticalPanels.qml"; criticalHost: true }
+    FamilyPanelHostLoader { family: "ii"; sourcePath: "ShellIiPanels.qml"; deferredHost: true }
+    FamilyPanelHostLoader { family: "waffle"; sourcePath: "modules/waffle/critical/ShellWaffleCriticalPanels.qml"; criticalHost: true }
+    FamilyPanelHostLoader { family: "waffle"; sourcePath: "ShellWafflePanels.qml"; deferredHost: true }
+    FamilyPanelHostLoader { family: "iris"; sourcePath: "modules/iris/critical/ShellIrisCriticalPanels.qml"; criticalHost: true }
+    FamilyPanelHostLoader { family: "iris"; sourcePath: "ShellIrisPanels.qml"; deferredHost: true }
 
     // Close confirmation dialog (always loaded, handles IPC)
     LazyLoader { active: Config.ready; source: "modules/closeConfirm/CloseConfirm.qml" }

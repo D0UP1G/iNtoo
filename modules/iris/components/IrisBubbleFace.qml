@@ -22,7 +22,7 @@ Item {
     property string screenName: ""
     readonly property real d: IrisStyle.density
 
-    readonly property var player: MprisController.activePlayer
+    readonly property var player: root.kind === "media" ? MprisController.activePlayer : null
     property bool playing: root.player?.isPlaying ?? false
     // Every face builds every kind's body; the live readings below feed only the kind that shows. A hidden body
     // that follows a reading still redraws the whole chassis on each change.
@@ -58,10 +58,11 @@ Item {
     property bool coverHidden: false
     readonly property alias artwork: cover
 
-    readonly property string timerKind: TimerService.pomodoroRunning ? "pomodoro"
+    readonly property string timerKind: root.kind !== "timer" && root.kind !== "tools" ? ""
+        : TimerService.pomodoroRunning ? "pomodoro"
         : TimerService.countdownRunning ? "countdown"
         : TimerService.stopwatchRunning ? "stopwatch" : ""
-    readonly property bool timerPaused: root.timerKind === "pomodoro" ? TimerService.pomodoroPaused
+    readonly property bool timerPaused: root.kind !== "timer" ? false : root.timerKind === "pomodoro" ? TimerService.pomodoroPaused
         : root.timerKind === "countdown" ? TimerService.countdownPaused : TimerService.stopwatchPaused
     readonly property real timerProgress: root.kind !== "timer" ? 0 : root.timerKind === "pomodoro"
         ? 1 - TimerService.pomodoroSecondsLeft / Math.max(1, TimerService.pomodoroLapDuration)
@@ -70,11 +71,32 @@ Item {
     readonly property string timerGlyph: root.timerKind === "pomodoro" && TimerService.pomodoroBreak ? "coffee"
         : root.timerKind === "stopwatch" ? "timer" : "hourglass_top"
 
-    readonly property var trayItems: SystemTray.items.values.filter(item => item && item.id
+    readonly property var trayItems: root.kind !== "tray" && root.kind !== "trayApp" ? [] : SystemTray.items.values.filter(item => item && item.id
         && (!(Config.options?.iris?.tray?.hidePassive ?? false) || item.status !== Status.Passive))
     property int trayCount: root.trayItems.length
     readonly property bool trayShowsApps: String(Config.options?.iris?.tray?.face ?? "apps") === "apps"
         && root.trayItems.length > 0
+    readonly property var weatherData: root.kind === "weather" ? Weather.data : null
+    readonly property bool notificationsSilent: root.kind === "focus" ? Notifications.silent : false
+    readonly property int notificationCount: root.kind === "notifications" ? (Notifications.list?.length ?? 0) : 0
+    readonly property bool networkWired: root.kind === "network" ? Network.ethernet : false
+    readonly property bool networkWifiEnabled: root.kind === "network" ? Network.wifiEnabled : false
+    readonly property string networkName: root.kind === "network" ? Network.networkName : ""
+    readonly property string networkGlyph: root.kind === "network" ? Network.materialSymbol : ""
+    readonly property bool bluetoothEnabled: root.kind === "bluetooth" ? BluetoothStatus.enabled : false
+    readonly property int bluetoothDeviceCount: root.kind === "bluetooth" ? BluetoothStatus.activeDeviceCount : 0
+    readonly property date displayedDate: root.kind === "clock" || root.kind === "calendar" ? DateTime.clock.date : new Date(0)
+    readonly property bool batteryCharging: root.kind === "battery" ? Battery.isCharging : false
+    readonly property bool batteryCritical: root.kind === "battery" ? Battery.isCritical : false
+    readonly property bool batteryLow: root.kind === "battery" ? Battery.isLow : false
+    readonly property real batteryLevel: root.kind === "battery" ? Math.max(0, Math.min(1, Battery.percentage)) : 0
+    readonly property bool audioMuted: root.kind === "sound" ? (Audio.sink?.audio?.muted ?? false)
+        : root.kind === "mic" ? Audio.micMuted : false
+    readonly property real audioLevel: root.kind === "sound" ? (Audio.value ?? 0)
+        : root.kind === "mic" ? (Audio.micVolume ?? 0) : 0
+    readonly property var workspaceList: root.kind === "workspaces"
+        ? (NiriService.allWorkspaces ?? []).filter(ws => ws.output === root.screenName) : []
+    readonly property int updateCount: root.kind === "updates" ? Updates.count : 0
 
     property bool pressed: false
     property bool hovered: false
@@ -154,7 +176,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - 12 * root.d - 2 * root.platedInset
             height: width
-            source: MediaArtwork.displaySource
+            source: root.kind === "media" ? MediaArtwork.displaySource : ""
             circular: true
         }
         Rectangle {
@@ -314,22 +336,22 @@ Item {
             visible: root.kind === "sound" || root.kind === "mic"
             anchors.fill: parent
             anchors.margins: 3 * root.d + root.platedInset
-            readonly property bool muted: root.kind === "mic" ? Audio.micMuted : (Audio.sink?.audio?.muted ?? false)
+            readonly property bool muted: root.audioMuted
             tint: muted ? (root.kind === "mic" ? root.dangerInk : root.inkMuted) : root.ink
-            progress: muted || !soundRing.visible ? 0 : Math.min(1, root.kind === "mic" ? (Audio.micVolume ?? 0) : (Audio.value ?? 0))
+            progress: muted || !soundRing.visible ? 0 : Math.min(1, root.audioLevel)
             Behavior on progress { enabled: soundRing.visible; NumberAnimation { duration: IrisStyle.duration(110); easing.type: IrisStyle.feedbackEasing } }
         }
         Glyph {
             visible: root.kind === "sound" || root.kind === "mic"
             anchors.centerIn: parent
-            text: root.kind === "mic" ? (Audio.micMuted ? "mic_off" : "mic")
-                : (Audio.sink?.audio?.muted ?? false) ? "volume_off" : "volume_up"
+            text: root.kind === "mic" ? (root.audioMuted ? "mic_off" : "mic")
+                : root.audioMuted ? "volume_off" : "volume_up"
             iconSize: 15 * root.d
-            color: root.kind === "mic" && Audio.micMuted ? root.dangerInk : root.ink
+            color: root.kind === "mic" && root.audioMuted ? root.dangerInk : root.ink
         }
         Column {
             id: weatherFace
-            readonly property string raw: String(Weather.data?.temp ?? "")
+            readonly property string raw: String(root.weatherData?.temp ?? "")
             readonly property bool ready: !weatherFace.raw.startsWith("--") && weatherFace.raw.length > 0
             readonly property string degrees: {
                 const value = parseFloat(weatherFace.raw)
@@ -341,7 +363,7 @@ Item {
             spacing: -Math.round(2 * root.d)
             Glyph {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Icons.getWeatherIcon(Weather.data?.wCode, Weather.isNightNow()) ?? "cloud"
+                text: Icons.getWeatherIcon(root.weatherData?.wCode, root.kind === "weather" ? Weather.isNightNow() : false) ?? "cloud"
                 iconSize: (weatherFace.ready ? 13 : 19) * root.d
             }
             FaceText {
@@ -361,14 +383,14 @@ Item {
             spacing: -Math.round(3 * root.d)
             FaceText {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: Qt.locale().toString(DateTime.clock.date, "ddd")
+                text: Qt.locale().toString(root.displayedDate, "ddd")
                 color: IrisStyle.identity.red
                 font.pixelSize: 8.5 * IrisStyle.typeScale
                 font.weight: IrisStyle.weight(Font.Bold)
             }
             FaceText {
                 anchors.horizontalCenter: parent.horizontalCenter
-                text: DateTime.clock.date.getDate()
+                text: root.displayedDate.getDate()
                 font.family: IrisStyle.fontNumbers
                 font.features: ({ "tnum": 1 })
                 font.pixelSize: 16 * IrisStyle.typeScale
@@ -380,7 +402,7 @@ Item {
             visible: root.kind === "clock"
             anchors.fill: parent
             anchors.margins: 3 * root.d + root.platedInset
-            readonly property var now: root.kind === "clock" ? DateTime.clock.date : new Date(0)
+            readonly property var now: root.displayedDate
             readonly property real minutes: clockFace.now.getMinutes() + clockFace.now.getSeconds() / 60
             readonly property real hours: (clockFace.now.getHours() % 12) + clockFace.minutes / 60
             Repeater {
@@ -437,10 +459,10 @@ Item {
             visible: root.kind === "battery"
             anchors.fill: parent
             anchors.margins: 3 * root.d + root.platedInset
-            readonly property real level: root.kind === "battery" ? Math.max(0, Math.min(1, Battery.percentage)) : 0
-            tint: Battery.isCharging ? root.legible(IrisStyle.identity.green, 3)
-                : Battery.isCritical ? root.dangerInk
-                : Battery.isLow ? root.highlight : root.ink
+            readonly property real level: root.batteryLevel
+            tint: root.batteryCharging ? root.legible(IrisStyle.identity.green, 3)
+                : root.batteryCritical ? root.dangerInk
+                : root.batteryLow ? root.highlight : root.ink
             progress: batteryRing.level
             Behavior on progress { enabled: batteryRing.visible; NumberAnimation { duration: IrisStyle.duration(220); easing.type: IrisStyle.feedbackEasing } }
         }
@@ -449,7 +471,7 @@ Item {
             anchors.centerIn: parent
             spacing: -Math.round(3 * root.d)
             Glyph {
-                visible: Battery.isCharging
+                visible: root.batteryCharging
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: "bolt"
                 fill: 1
@@ -461,7 +483,7 @@ Item {
                 text: Math.round(batteryRing.level * 100)
                 font.family: IrisStyle.fontNumbers
                 font.features: ({ "tnum": 1 })
-                font.pixelSize: (Battery.isCharging ? 10.5 : 12.5) * IrisStyle.typeScale
+                font.pixelSize: (root.batteryCharging ? 10.5 : 12.5) * IrisStyle.typeScale
                 font.weight: IrisStyle.weight(Font.Bold)
                 color: batteryRing.tint
             }
@@ -471,25 +493,25 @@ Item {
             anchors.fill: parent
             anchors.margins: 3 * root.d + root.platedInset
             radius: Math.min(width / 2, Math.max(0, IrisStyle.pieceRadius(root.width) - anchors.margins))
-            color: Notifications.silent ? IrisStyle.identity.indigo : "transparent"
+            color: root.notificationsSilent ? IrisStyle.identity.indigo : "transparent"
             Behavior on color { ColorAnimation { duration: IrisStyle.duration(180); easing.type: IrisStyle.feedbackEasing } }
             Glyph {
                 anchors.centerIn: parent
                 text: IrisPieces.glyphOf("focus", "")
-                fill: Notifications.silent ? 1 : 0
+                fill: root.notificationsSilent ? 1 : 0
                 iconSize: 17 * root.d
-                color: Notifications.silent ? IrisStyle.onTint : root.ink
+                color: root.notificationsSilent ? IrisStyle.onTint : root.ink
             }
         }
         Item {
             id: networkFace
             visible: root.kind === "network"
             anchors.fill: parent
-            readonly property bool wired: Network.ethernet
-            readonly property bool linked: networkFace.wired || (Network.wifiEnabled && Network.networkName.length > 0)
+            readonly property bool wired: root.networkWired
+            readonly property bool linked: networkFace.wired || (root.networkWifiEnabled && root.networkName.length > 0)
             Glyph {
                 anchors.centerIn: parent
-                text: networkFace.wired ? "lan" : !Network.wifiEnabled ? "wifi_off" : Network.materialSymbol
+                text: networkFace.wired ? "lan" : !root.networkWifiEnabled ? "wifi_off" : root.networkGlyph
                 iconSize: 18 * root.d
                 color: networkFace.linked ? root.ink : root.inkMuted
             }
@@ -503,16 +525,16 @@ Item {
                 spacing: -Math.round(2 * root.d)
                 Glyph {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: IrisPieces.glyphOf("bluetooth", !BluetoothStatus.enabled ? "bluetooth_disabled"
-                        : BluetoothStatus.activeDeviceCount > 0 ? "bluetooth_connected" : "")
-                    iconSize: (BluetoothStatus.activeDeviceCount > 0 ? 13 : 18) * root.d
-                    color: !BluetoothStatus.enabled ? root.inkMuted
-                        : BluetoothStatus.activeDeviceCount > 0 ? root.faceAccent : root.ink
+                    text: IrisPieces.glyphOf("bluetooth", !root.bluetoothEnabled ? "bluetooth_disabled"
+                        : root.bluetoothDeviceCount > 0 ? "bluetooth_connected" : "")
+                    iconSize: (root.bluetoothDeviceCount > 0 ? 13 : 18) * root.d
+                    color: !root.bluetoothEnabled ? root.inkMuted
+                        : root.bluetoothDeviceCount > 0 ? root.faceAccent : root.ink
                 }
                 FaceText {
-                    visible: BluetoothStatus.activeDeviceCount > 0
+                    visible: root.bluetoothDeviceCount > 0
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: BluetoothStatus.activeDeviceCount
+                    text: root.bluetoothDeviceCount
                     color: root.faceAccent
                     font.family: IrisStyle.fontNumbers
                     font.features: ({ "tnum": 1 })
@@ -547,7 +569,7 @@ Item {
             visible: root.kind === "workspaces"
             anchors.centerIn: parent
             spacing: Math.round(2 * root.d)
-            readonly property var list: (NiriService.allWorkspaces ?? []).filter(ws => ws.output === root.screenName)
+            readonly property var list: root.workspaceList
             readonly property var active: workspacesFace.list.find(ws => ws.is_active) ?? null
             FaceText {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -578,7 +600,7 @@ Item {
             visible: root.kind === "updates" && !root.inline
             anchors.centerIn: parent
             spacing: Math.round(1.5 * root.d)
-            readonly property int count: Updates.count
+            readonly property int count: root.updateCount
             Glyph {
                 visible: updatesFace.count <= 0
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -611,7 +633,7 @@ Item {
             sourceComponent: Item {
                 ColorQuantizer {
                     id: vizArt
-                    source: IrisStyle.visualizerColour === "art" ? MediaArtwork.displaySource : ""
+                    source: root.kind === "media" && IrisStyle.visualizerColour === "art" ? MediaArtwork.displaySource : ""
                     depth: 2
                     rescaleSize: 48
                 }
@@ -764,7 +786,7 @@ Item {
         }
         Column {
             id: notificationFace
-            readonly property int count: Notifications.list?.length ?? 0
+            readonly property int count: root.notificationCount
             visible: root.kind === "notifications" && !root.inline
             anchors.centerIn: parent
             anchors.verticalCenterOffset: notificationFace.count > 0 ? root.d : 0
@@ -796,7 +818,7 @@ Item {
                 visible: root.kind !== "calendar"
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.kind === "notifications" ? IrisPieces.glyphOf("notifications", inlineFace.count > 0 ? "notifications_active" : "")
-                    : root.kind === "weather" ? (Icons.getWeatherIcon(Weather.data?.wCode, Weather.isNightNow()) ?? "cloud")
+                    : root.kind === "weather" ? (Icons.getWeatherIcon(root.weatherData?.wCode, Weather.isNightNow()) ?? "cloud")
                     : IrisPieces.glyphOf("updates", "")
                 fill: root.kind === "notifications" && inlineFace.count === 0 ? 0 : 1
                 iconSize: 17 * root.d
@@ -804,14 +826,14 @@ Item {
             FaceText {
                 visible: root.kind === "calendar"
                 anchors.verticalCenter: parent.verticalCenter
-                text: Qt.locale().toString(DateTime.clock.date, "ddd").replace(/\.$/, "")
+                text: Qt.locale().toString(root.displayedDate, "ddd").replace(/\.$/, "")
                 color: root.inkMuted
                 font.pixelSize: IrisStyle.typeLabel
                 font.weight: IrisStyle.weight(Font.Medium)
             }
             FaceText {
                 readonly property string figure: root.kind === "weather" ? weatherFace.degrees
-                    : root.kind === "calendar" ? String(DateTime.clock.date.getDate())
+                    : root.kind === "calendar" ? String(root.displayedDate.getDate())
                     : inlineFace.count > 99 ? "99+" : inlineFace.count > 0 ? String(inlineFace.count) : ""
                 visible: figure.length > 0
                 anchors.verticalCenter: parent.verticalCenter

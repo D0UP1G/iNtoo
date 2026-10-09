@@ -1077,7 +1077,8 @@ Scope {
                     }
                 }
 
-                // Above the banners and the Dock, under the Island it grows out of.
+                // These full-screen tools exist only on the output that owns them,
+                // and only while open. They otherwise retain a loader per monitor.
                 Loader {
                     id: spotlightLoader
                     z: 2.5
@@ -1086,17 +1087,22 @@ Scope {
                     active: Config.ready && GlobalStates.deferredPanelsReady
                         && (Config.options?.enabledPanels ?? []).includes("irisPalette")
                         && (Config.options?.iris?.modules?.palette ?? true)
+                        && GlobalStates.searchOpen
+                        && barWindow.screen?.name === GlobalStates.focusedScreen?.name
                     asynchronous: true
                     sourceComponent: IrisPalette { screen: barWindow.screen }
                 }
 
-                // Resident like Spotlight: built on open it cost ~90 ms before the first frame and grew from outside the Island.
                 Loader {
                     id: galleryLoader
                     z: 2.5
                     anchors.fill: parent
                     anchors.margins: IrisFrame.band
+                    readonly property string targetOutput: GlobalStates.wallpaperSelectorTargetMonitor
+                        || (GlobalStates.focusedScreen?.name ?? "")
                     active: Config.ready && GlobalStates.deferredPanelsReady
+                        && GlobalStates.wallpaperSelectorOpen
+                        && barWindow.screen?.name === galleryLoader.targetOutput
                     asynchronous: true
                     sourceComponent: IrisWallpaperPicker { screen: barWindow.screen }
                 }
@@ -1107,7 +1113,11 @@ Scope {
                     z: 2.5
                     anchors.fill: parent
                     anchors.margins: IrisFrame.band
-                    active: Config.ready && GlobalStates.deferredPanelsReady && (Config.options?.iris?.orbit?.enable ?? false)
+                    active: Config.ready && GlobalStates.deferredPanelsReady
+                        && (Config.options?.iris?.orbit?.enable ?? false)
+                        && GlobalStates.irisOrbitOpen
+                        && (!(GlobalStates.irisOrbitOutput ?? "")
+                            || barWindow.screen?.name === GlobalStates.irisOrbitOutput)
                     asynchronous: true
                     sourceComponent: IrisOrbit { screen: barWindow.screen }
                 }

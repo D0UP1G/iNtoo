@@ -1205,6 +1205,7 @@ Singleton {
                 property bool memoryMonitoring: true
                 property int jsgcThreshold: 300
                 property bool memoryWarningNotification: false
+                property int lowMemoryThresholdMb: 768
                 // Delegate shaped panel blur to Niri via ext-background-effect-v1.
                 // The request is only activated on Niri; QML blur remains the fallback.
                 property bool compositorBlur: true

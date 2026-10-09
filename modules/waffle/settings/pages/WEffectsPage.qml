@@ -76,10 +76,21 @@ WSettingsPage {
             onCheckedChanged: Config.setNestedValue("performance.lowPower", checked)
         }
         WSettingsSwitch {
-            label: Translation.tr("Notify when a restart would free memory")
+            label: Translation.tr("Notify when memory is low")
             icon: "alert"
             checked: Config.options?.performance?.memoryWarningNotification ?? false
             onCheckedChanged: Config.setNestedValue("performance.memoryWarningNotification", checked)
+        }
+        WSettingsSlider {
+            label: Translation.tr("Low-memory threshold")
+            icon: "memory"
+            value: Config.options?.performance?.lowMemoryThresholdMb ?? 768
+            from: 512
+            to: 2048
+            stepSize: 256
+            suffix: " MB"
+            tooltipContent: Translation.tr("Enable low-memory mode when available memory falls below this amount")
+            onMoved: Config.setNestedValue("performance.lowMemoryThresholdMb", Math.round(value))
         }
     }
 }

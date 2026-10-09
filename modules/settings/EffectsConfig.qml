@@ -151,9 +151,27 @@ ContentPage {
             }
             SettingsSwitch {
                 buttonIcon: "memory"
-                text: Translation.tr("Notify when a restart would free memory")
+                text: Translation.tr("Notify when memory is low")
                 checked: Config.options?.performance?.memoryWarningNotification ?? false
                 onCheckedChanged: Config.setNestedValue("performance.memoryWarningNotification", checked)
+            }
+            StyledText {
+                text: Translation.tr("Enable low-memory mode below")
+                font.pixelSize: Appearance.font.pixelSize.normal
+                color: Appearance.colors.colOnLayer1
+            }
+            StyledSlider {
+                Layout.fillWidth: true
+                from: 512
+                to: 2048
+                stepSize: 256
+                value: Config.options?.performance?.lowMemoryThresholdMb ?? 768
+                configuration: StyledSlider.Configuration.S
+                settingsSearchLabel: Translation.tr("Low-memory threshold")
+                settingsSearchKeywords: ["memory", "low memory", "ram", "performance"]
+                onPressedChanged: {
+                    if (!pressed) Config.setNestedValue("performance.lowMemoryThresholdMb", Math.round(value))
+                }
             }
         }
     }

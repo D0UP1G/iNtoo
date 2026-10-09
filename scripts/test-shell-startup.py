@@ -82,8 +82,8 @@ class ShellStartupTests(unittest.TestCase):
         self.config = json.loads((ROOT / "defaults/config.json").read_text())
         self.config["panelFamily"] = "iris"
         # A nonempty, unknown panel id keeps shell.qml from adding defaults.
-        # Keep hardware-dependent panels closed while the actual component
-        # tree compiles and the deferred startup phases run.
+        # Family-specific panels are selected below so these checks compile
+        # and instantiate the same critical surfaces users actually see.
         self.config["enabledPanels"] = ["audit-no-panels"]
         self.config["shellUpdates"] = {"enable": False}
         self.config["idle"] = {"enable": False}
@@ -166,11 +166,18 @@ class ShellStartupTests(unittest.TestCase):
 
     def shell_family(self, family):
         self.config["panelFamily"] = family
+        self.config["enabledPanels"] = {
+            "ii": ["iiBackground", "iiBar"],
+            "waffle": ["wBackground", "wBar", "wBackdrop"],
+            "iris": ["irisBar"],
+        }[family]
         self.write_config()
         (self.base / "config/illogical-impulse").symlink_to("inir", target_is_directory=True)
-        log = self.run_qml(SOURCE, seconds=5, wayland=True)
+        log = self.run_qml(SOURCE, seconds=18, wayland=True)
         self.assertRegex(log, r"\[Boot\].*Config.ready", log)
         self.assertRegex(log, r"\[Boot\].*shellEntryReady", log)
+        self.assertIn(f"[FamilyLoader] ready {family}", log, log)
+        self.assertNotRegex(log, r"(?:Type \w+ unavailable|Failed to create LazyLoader component|Cannot assign to non-existent property)", log)
         self.assertNotRegex(log, r"(?:TypeError|ReferenceError):", log)
         # The boot report is written only after the deferred phases finish.
         reports = list((self.base / "cache").rglob("last-boot.json"))

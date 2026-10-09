@@ -27,13 +27,15 @@ Item {
     readonly property string stillUrl: root.active ? Wallpapers.stillUrlFor(root.path) : ""
     readonly property bool motion: root.shown
         && (Config.options?.background?.enableAnimation ?? true)
+        && !(Config.options?.performance?.lowPower ?? false)
+        && !(MemoryPressureService?.lowMemory ?? false)
         && !GlobalStates.screenLocked && !Appearance._gameModeActive && !Wallpapers.batteryPauseActive
         && Wallpapers.videoMotionAllowedOn(root.monitorName)
     readonly property bool shown: root.live && (root.QsWindow.window?.visible ?? false)
     readonly property bool playsVideo: root.active && root.isVideo && root.shown
-    readonly property bool animated: root.playsVideo || (root.active && root.isGif && root.shown)
+    readonly property bool animated: root.playsVideo || (root.active && root.isGif && root.shown && root.motion)
     readonly property bool videoFrame: root.playsVideo && (videoLoader.item?.hasFrame ?? false)
-    readonly property bool ready: root.isGif ? gif.status === AnimatedImage.Ready
+    readonly property bool ready: root.isGif && root.motion ? gif.status === AnimatedImage.Ready
         : still.status === Image.Ready || root.videoFrame
 
     readonly property real dim: Wallpapers.desktopDim
@@ -48,7 +50,7 @@ Item {
         Image {
             id: still
             anchors.fill: parent
-            visible: !root.isGif && !root.videoFrame && root.stillUrl.length > 0
+            visible: (!root.isGif || !root.motion) && !root.videoFrame && root.stillUrl.length > 0
             source: root.stillUrl
             fillMode: root.fillMode
             asynchronous: root.asynchronous
@@ -61,9 +63,10 @@ Item {
         AnimatedImage {
             id: gif
             anchors.fill: parent
-            visible: root.isGif && status === AnimatedImage.Ready
-            source: root.active && root.isGif ? "file://" + FileUtils.trimFileProtocol(root.path) : ""
+            visible: root.isGif && root.motion && status === AnimatedImage.Ready
+            source: root.active && root.isGif && root.motion ? "file://" + FileUtils.trimFileProtocol(root.path) : ""
             fillMode: root.fillMode
+            sourceSize: root.decodeSize
             asynchronous: true
             cache: false
             playing: visible && root.motion

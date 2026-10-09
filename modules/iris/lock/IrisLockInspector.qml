@@ -86,7 +86,6 @@ Item {
                 IrisMark {
                     Layout.alignment: Qt.AlignVCenter
                     implicitSize: Math.round(22 * root.d)
-                    color: IrisStyle.accent
                 }
                 ColumnLayout {
                     Layout.fillWidth: true
