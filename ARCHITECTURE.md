@@ -204,6 +204,14 @@ These are **stability boundaries** — prefer add-only changes, verify all depen
 
 ## IPC System
 
+The shared `assistant` IPC router loads `modules/mascotAssistant/` on demand
+for Super+S. `services/MascotAssistant.qml` retains the in-memory transcript and
+owns the Python/OpenCode process independently of the window lifetime.
+`scripts/ai/mascot-assistant.py` accepts a JSON request over stdin, streams reply
+events, and creates a fresh OpenCode session with per-message tool permissions.
+Saved shell history is attached only when selected; terminal output is not captured.
+See [docs/ASSISTANT.md](docs/ASSISTANT.md).
+
 Handlers registered via `IpcHandler { target: "name" }` in QML.
 
 Called externally: `inir <target> <function> [args]`

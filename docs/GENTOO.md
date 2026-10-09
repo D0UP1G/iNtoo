@@ -1,5 +1,11 @@
 # Gentoo installation
 
+The Super+S desktop companion uses OpenCode. Setup installs `net-libs/nodejs`
+with `npm` through Portage, then installs `opencode-ai@1` in a user-owned npm
+prefix and links the CLI into `XDG_BIN_HOME` (normally `~/.local/bin`). An existing
+OpenCode installation is preserved. Connect your model provider with
+`opencode auth login`; see [the assistant guide](ASSISTANT.md).
+
 iNtoo's setup script detects Gentoo and uses Portage. Niri and Quickshell are installed from GURU; the current Niri ebuild is keyworded for amd64. Quickshell's Gentoo installation instructions also point to that overlay. See the [Quickshell Gentoo guide](https://quickshell.org/docs/v0.3.0/guide/install-setup/#gentoo) and the [Gentoo Wayland compositor list](https://wiki.gentoo.org/wiki/Wayland_compositor).
 
 ## Install with setup

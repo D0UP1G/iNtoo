@@ -32,6 +32,7 @@
 - Panels, docks, overview, notifications, media controls, clipboard tools, and settings
 - Wallpaper-driven theming with presets and integrations for desktop applications
 - Niri-first behavior, with Gentoo installation and session support
+- [Super+S desktop companion](docs/ASSISTANT.md) with an OpenCode chat and optional system actions
 
 ## Install on Gentoo
 

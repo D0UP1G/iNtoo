@@ -199,7 +199,7 @@ if [[ -n "${ONLY_MISSING_DEPS:-}" ]]; then
   declare -A cmd_to_pkg=(
     [qs]="quickshell" [niri]="niri" [nmcli]="NetworkManager" [wpctl]="wireplumber"
     [jq]="jq" [rsync]="rsync" [curl]="curl" [git]="git" [python3]="python3"
-    [fish]="fish" [magick]="ImageMagick" [grim]="grim" [cliphist]="cliphist"
+    [fish]="fish" [magick]="ImageMagick" [grim]="grim" [cliphist]="cliphist" [opencode]="npm"
     [wl-copy]="wl-clipboard" [wl-paste]="wl-clipboard" [fuzzel]="fuzzel"
     [hyprpicker]="hyprpicker" [playerctl]="playerctl" [notify-send]="libnotify"
     [flock]="util-linux" [wlsunset]="wlsunset" [easyeffects]="easyeffects"

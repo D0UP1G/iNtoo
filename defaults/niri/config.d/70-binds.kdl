@@ -38,6 +38,7 @@ binds {
 
     // iNtoo app launcher / overview.
     Mod+Space repeat=false { spawn "inir" "overview" "toggle"; }
+    Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }
 
     // Clipboard history overlay.
     Mod+V { spawn "inir" "clipboard" "toggle"; }

@@ -2,13 +2,14 @@
 # Auto-generated from QML IpcHandler declarations + docs/IPC.md metadata.
 # Do not edit manually.
 # Regenerate: python3 scripts/lib/generate-ipc-registry.py
-# IPC.md hash: e58667d0ec49e25f
-# Targets: 69
+# IPC.md hash: b41983dc0f5347e6
+# Targets: 70
 
 declare -gA IPC_TARGET_DESC=(
   [ai]="Shared multi-provider AI service. It supports Gemini, OpenAI-compatible chat and Responses APIs, Mistral and Anthropic; live provider catalogs are normalized into capability-aware model records. Catalog visibility is separate from execution readiness, so public model lists remain browseable without pretending an API key exists. OpenCode Zen and Go resolve their current model lists and per-model API routes dynamically. Normal shell tools use typed actions and approval cards, while arbitrary commands are isolated in Advanced mode."
   [altSwitcher]="Alt+Tab window switcher. Works across workspaces, unlike some other implementations we won't name."
   [appCatalog]="App catalog service. Browse, search, and install curated applications."
+  [assistant]="Desktop companion with a compact OpenCode chat, available in every panel family."
   [audio]="Volume and mute control."
   [autostart]="Niri login autostart manager. Reads and writes the managed section of \`~/.config/niri/config.d/50-startup.kdl\` (delimited by \`// >>> inir-managed-autostart >>>\` / \`// <<< inir-managed-autostart <<<\`). Base iNtoo lines and any hand-written \`spawn-at-startup\` lines outside the markers are preserved verbatim; toggling an entry comments the line out instead of deleting it. Safe no-op on non-Niri compositors (the page shows a guard instead)."
   [background]="Desktop background and widget controls."
@@ -44,7 +45,7 @@ declare -gA IPC_TARGET_DESC=(
   [osd]="On-screen feedback for any family. The active family's OSD or Island decides where it is drawn."
   [osdVolume]="On-screen volume indicator."
   [osk]="On-screen keyboard."
-  [overlay]="Floating tools (Super+G): notes, images, crosshair, recorder, resources and other pinnable desktop tools."
+  [overlay]="Floating tools (Mod+G): notes, images, crosshair, recorder, resources and other pinnable desktop tools."
   [overview]="Toggle the workspace overview panel. The one with all your windows looking tiny and organized."
   [packageSearch]="Package search service. Searches pacman repos and installed packages."
   [panelFamily]="Switch between the three shell families: Material ii (default), Waffle (Windows 11-like), and Island (the Island family)."
@@ -81,6 +82,7 @@ declare -gA IPC_TARGET_FAMILY=(
   [ai]="shared"
   [altSwitcher]="shared"
   [appCatalog]="shared"
+  [assistant]="shared"
   [audio]="shared"
   [autostart]="waffle"
   [background]="shared"
@@ -153,6 +155,7 @@ declare -gA IPC_TARGET_FUNCTIONS=(
   [ai]="ensureInitialized diagnose refreshCatalog catalog providers run runGet"
   [altSwitcher]="opens open close toggle next previous"
   [appCatalog]="refresh search install list"
+  [assistant]="toggle open close current"
   [audio]="volumeUp volumeDown mute playEvent micMute"
   [autostart]="status addCommand addApp removeLast reload"
   [background]="widgetDesign widgetMaterial widgetSearch toggleEditMode toggleWidgetManager setEditMode editState applyOrganicEdgePreset applyOrganicEdgeComposition applyOrganicEdgeMaterial applyOrganicEdgeResponse organicEdgeState setOrganicEdgeEnabled quickControlsPage quickControlsGeometry widgetSnapshot legibilityState desktopItemsState focusWidget promoteWidget resetLayerOrder setWidgetEnabled clockDebugState clockDebugSetMode clockDebugSetRegion clockDebugSetLayout clockDebugRestore"
@@ -239,6 +242,10 @@ declare -gA IPC_FUNCTION_DESC=(
   ["appCatalog:search"]="Filter catalog entries by query"
   ["appCatalog:install"]="Install app by catalog ID"
   ["appCatalog:list"]="List catalog apps with install status and descriptions"
+  ["assistant:toggle"]="Toggle the mascot and chat (Super+S)"
+  ["assistant:open"]="Open the companion"
+  ["assistant:close"]="Close the companion; a running reply continues"
+  ["assistant:current"]="Return \`open\` or \`closed\`"
   ["audio:volumeUp"]="Increase volume"
   ["audio:volumeDown"]="Decrease volume"
   ["audio:mute"]="Toggle speaker mute"
@@ -843,6 +850,7 @@ declare -gA IPC_FUNCTION_VALUES=(
 declare -gA IPC_TARGET_EXAMPLE=(
   [altSwitcher]='Alt+Tab { spawn "inir" "altSwitcher" "next"; }
 Alt+Shift+Tab { spawn "inir" "altSwitcher" "previous"; }'
+  [assistant]='Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }'
   [background]='Super+W { spawn "inir" "background" "toggleEditMode"; }'
   [cheatsheet]='Super+Slash { spawn "inir" "cheatsheet" "toggle"; }'
   [clipboard]='Super+V repeat=false { spawn "inir" "clipboard" "toggle"; }'
@@ -860,7 +868,7 @@ Mod+Alt+N { spawn "inir" "mpris" "next"; }
 Mod+Alt+P { spawn "inir" "mpris" "previous"; }'
   [niriAnimations]='Super+Alt+A { spawn "inir" "niriAnimations" "apply" "snappy"; }'
   [osd]='Mod+Shift+K { spawn "inir" "osd" "keyboard"; }'
-  [overlay]='Super+G { spawn "inir" "overlay" "toggle"; }'
+  [overlay]='Mod+G { spawn "inir" "overlay" "toggle"; }'
   [overview]='Mod+Space { spawn "inir" "overview" "toggle"; }'
   [panelFamily]='Mod+Shift+W { spawn "inir" "panelFamily" "cycle"; }'
   [pill]='Super+V repeat=false { spawn "inir" "pill" "toggle" "clipboard"; }'
@@ -880,8 +888,8 @@ Ctrl+Alt+A { spawn "inir" "wallpaperSelector" "openLauncher" "animated"; }'
   [ytmusic]='Mod+M+Space { spawn "inir" "ytmusic" "playPause"; }'
 )
 
-IPC_ALL_TARGETS=(ai altSwitcher appCatalog audio autostart background bar brightness cheatsheet clipboard cliphistService closeConfirm colorMode connections controlPanel coverflowSelector customWidgets dashboard dev equalizer gamemode globalActions globalStyle iris keyboard lock mascotMood mediaControls memory minimize mpris network niriAnimations notifications orbit osd osdVolume osk overlay overview packageSearch panelFamily pill recordingOsd region search session settings settingsNav shellLayout shellUpdate sidebarLeft sidebarRight taskview tiling voiceSearch vpn wactionCenter waffleAltSwitcher wallpaperLauncher wallpaperSelector wbar widgetStacks widgetpower wnotificationCenter workspaceStrip wwidgets ytmusic zoom)
-IPC_SHARED_TARGETS=(ai altSwitcher appCatalog audio background bar brightness cheatsheet clipboard cliphistService closeConfirm colorMode connections controlPanel coverflowSelector dashboard dev gamemode globalActions globalStyle iris keyboard lock mascotMood mediaControls memory minimize mpris network niriAnimations notifications orbit osd osdVolume osk overlay overview packageSearch panelFamily pill region session settings settingsNav shellLayout shellUpdate sidebarLeft sidebarRight taskview tiling voiceSearch vpn wallpaperLauncher wallpaperSelector workspaceStrip ytmusic zoom)
+IPC_ALL_TARGETS=(ai altSwitcher appCatalog assistant audio autostart background bar brightness cheatsheet clipboard cliphistService closeConfirm colorMode connections controlPanel coverflowSelector customWidgets dashboard dev equalizer gamemode globalActions globalStyle iris keyboard lock mascotMood mediaControls memory minimize mpris network niriAnimations notifications orbit osd osdVolume osk overlay overview packageSearch panelFamily pill recordingOsd region search session settings settingsNav shellLayout shellUpdate sidebarLeft sidebarRight taskview tiling voiceSearch vpn wactionCenter waffleAltSwitcher wallpaperLauncher wallpaperSelector wbar widgetStacks widgetpower wnotificationCenter workspaceStrip wwidgets ytmusic zoom)
+IPC_SHARED_TARGETS=(ai altSwitcher appCatalog assistant audio background bar brightness cheatsheet clipboard cliphistService closeConfirm colorMode connections controlPanel coverflowSelector dashboard dev gamemode globalActions globalStyle iris keyboard lock mascotMood mediaControls memory minimize mpris network niriAnimations notifications orbit osd osdVolume osk overlay overview packageSearch panelFamily pill region session settings settingsNav shellLayout shellUpdate sidebarLeft sidebarRight taskview tiling voiceSearch vpn wallpaperLauncher wallpaperSelector workspaceStrip ytmusic zoom)
 IPC_II_TARGETS=(equalizer)
 IPC_WAFFLE_TARGETS=(autostart customWidgets recordingOsd search wactionCenter waffleAltSwitcher wbar widgetStacks widgetpower wnotificationCenter wwidgets)
 

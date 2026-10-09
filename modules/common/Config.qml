@@ -735,6 +735,9 @@ Singleton {
             }
 
             property JsonObject mascot: JsonObject {
+                property JsonObject assistant: JsonObject {
+                    property string model: "" // Empty: use OpenCode's configured model
+                }
                 property bool enable: false // Show the iNtoo mascot illustration across shell surfaces (empty states, About, etc.)
                 property JsonObject surfaces: JsonObject {
                     // Where the static mascot may appear; each maps to a group of placements

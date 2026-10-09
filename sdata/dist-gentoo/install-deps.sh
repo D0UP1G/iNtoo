@@ -47,6 +47,7 @@ gentoo_configure_session_use() {
     printf '%s\n' 'dev-qt/qt5compat gui qml' 'dev-qt/qtmultimedia qml'
     printf '%s\n' 'app-text/tessdata_fast l10n_en l10n_es l10n_ru l10n_ja l10n_zh'
     printf '%s\n' 'media-libs/lsp-plugins lv2'
+    printf '%s\n' 'net-libs/nodejs npm'
   } >> "$tmp"
   if [[ -d "$use_path" || ! -e "$use_path" ]]; then
     v pkg_sudo install -d -m 0755 "$use_path" || { rm -f "$tmp"; return 1; }
@@ -182,6 +183,7 @@ gentoo_install_selected() {
       [qs]="gui-apps/quickshell::guru" [niri]="gui-wm/niri::guru"
       [jq]="app-misc/jq" [rsync]="net-misc/rsync" [curl]="net-misc/curl"
       [git]="dev-vcs/git" [python3]="dev-lang/python" [fish]="app-shells/fish"
+      [opencode]="net-libs/nodejs"
       [magick]="media-gfx/imagemagick" [grim]="gui-apps/grim"
       [slurp]="gui-apps/slurp" [wl-copy]="gui-apps/wl-clipboard"
       [wl-paste]="gui-apps/wl-clipboard" [fuzzel]="gui-apps/fuzzel::guru"
@@ -225,7 +227,7 @@ gentoo_install_selected() {
         continue
       fi
       [[ "$atom" == *"::guru" ]] && needs_guru=true
-      case "$cmd" in niri|pipewire|wireplumber|wpctl|loginctl|ocr-*|lsp-plugins-lv2) needs_session=true ;; esac
+      case "$cmd" in niri|pipewire|wireplumber|wpctl|loginctl|ocr-*|lsp-plugins-lv2|opencode) needs_session=true ;; esac
       [[ "$cmd" == "quickshell-qml-modules" ]] && needs_quickshell=true
       [[ " ${requested[*]} " == *" ${atom} "* ]] || requested+=("$atom")
     done
@@ -268,6 +270,7 @@ gentoo_install_selected() {
     kde-frameworks/kirigami kde-frameworks/syntax-highlighting kde-apps/kdialog
     kde-plasma/plasma-integration
     app-misc/jq app-shells/fish dev-lang/python dev-vcs/git
+    net-libs/nodejs
     net-misc/curl net-misc/wget net-misc/rsync
     sys-devel/bc sys-apps/ripgrep x11-misc/xdg-utils
     gui-apps/wl-clipboard gui-apps/grim gui-apps/slurp

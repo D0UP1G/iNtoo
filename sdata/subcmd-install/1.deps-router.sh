@@ -76,3 +76,8 @@ case "$OS_GROUP_ID" in
     source ./sdata/dist-generic/install-deps.sh
     ;;
 esac
+
+_inir_deps_status=$?
+[[ "$_inir_deps_status" -eq 0 ]] || return "$_inir_deps_status"
+source ./sdata/lib/install-opencode.sh
+install_opencode

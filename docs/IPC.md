@@ -39,6 +39,23 @@ For low-level debugging, `inir ipc <target> <function>` still works.
 
 Everything iNtoo can do, exposed for your scripting pleasure.
 
+### assistant
+
+Desktop companion with a compact OpenCode chat, available in every panel family.
+
+| Function | Description |
+|----------|-------------|
+| `toggle` | Toggle the mascot and chat (Super+S) |
+| `open` | Open the companion |
+| `close` | Close the companion; a running reply continues |
+| `current` | Return `open` or `closed` |
+
+```kdl
+Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }
+```
+
+See [the assistant guide](ASSISTANT.md) for provider setup and command history.
+
 ### dev
 
 Development navigation for loading lazy surfaces and internal views without

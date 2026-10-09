@@ -1519,6 +1519,9 @@
         }
     },
     "mascot": {
+        "assistant": {
+            "model": ""
+        },
         "enable": false,
         "surfaces": {
             "emptyStates": true,

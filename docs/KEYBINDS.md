@@ -11,6 +11,7 @@ Change them. Break them. Make them yours. We won't judge.
 | Key | Action |
 |-----|--------|
 | `Mod+Space` | iNtoo overview / app launcher |
+| `Mod+S` | Mascot assistant / OpenCode chat |
 | `Mod+Tab` | Niri overview (native compositor) |
 | `Mod+G` | Floating tools (notes, images, crosshair, resources) |
 | `Alt+Tab` | Niri Recent Windows (next) |

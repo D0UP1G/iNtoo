@@ -28,6 +28,7 @@ if [[ -n "${ONLY_MISSING_DEPS:-}" ]]; then
     [curl]="curl"
     [git]="git"
     [python3]="python"
+    [opencode]="npm"
     [wlsunset]="wlsunset"
     [dunstify]="dunst"
     [fish]="fish"

@@ -113,6 +113,7 @@ check_dependencies() {
         "curl:curl"
         "git:git"
         "python3:python3"
+        "opencode:OpenCode companion"
         "fish:fish"
         "magick:ImageMagick"
         "grim:grim"
