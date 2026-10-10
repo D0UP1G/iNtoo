@@ -61,6 +61,11 @@ Singleton {
                 lockedModelCount: (root.lockedModelList ?? []).length,
                 modelList: root.modelList ?? [],
                 currentTool: root.currentTool ?? "",
+                defaultProvider: root.defaultProviderId,
+                defaultApiFormat: Config.options?.ai?.defaultApiFormat ?? "",
+                defaultModelPin: root.defaultProviderPin,
+                defaultProviderModelCount: root.defaultProviderModels().length,
+                currentModelIsDefaultProvider: root.isDefaultModelId(root.currentModelId),
                 availableTools: [...(root.availableTools ?? [])],
                 safeActionCount: root._aiSafeActions("").length,
                 temperature: root.temperature,
@@ -744,23 +749,93 @@ Singleton {
     // - api_format: The API format of the model. Can be "openai" or "gemini". Default is "openai".
     // - extraParams: Extra parameters to be passed to the model. This is a JSON object.
     // Models loaded dynamically from config.json ai.extraModels
-    property var models: (Config.options?.policies?.ai ?? 0) === 2 ? {} : ({})
+    property var models: ({})
     property var modelList: Object.keys(root.models)
     readonly property var runnableModelList: root.modelList.filter(id => root.modelCanRun(root.models[id]))
     readonly property var lockedModelList: root.modelList.filter(id => !root.modelCanRun(root.models[id]))
     property string currentModelId: ""
 
+    readonly property string defaultProviderId: Config.options?.ai?.defaultProvider ?? ""
+    readonly property string defaultProviderPin: Config.options?.ai?.defaultModel ?? ""
+
+    function modelMatchesPin(model, id: string): bool {
+        if (root.defaultProviderPin.length === 0) return true
+        const pin = root.defaultProviderPin.toLowerCase()
+        if ((model?.model ?? "").toLowerCase() === pin) return true
+        if ((id ?? "").toLowerCase() === pin) return true
+        return root.safeModelName(model?.model ?? "") === root.safeModelName(pin)
+    }
+
+    function defaultProviderModels(): var {
+        if (root.defaultProviderId.length === 0) return []
+        return root.runnableModelList.filter(id => {
+            const model = root.models[id]
+            if ((model.provider_id ?? "") !== root.defaultProviderId) return false
+            return root.modelMatchesPin(model, id)
+        })
+    }
+
+    function isDefaultModelId(id: string): bool {
+        const model = root.models[id]
+        if (!model || root.defaultProviderId.length === 0) return false
+        if ((model.provider_id ?? "") !== root.defaultProviderId) return false
+        return root.modelMatchesPin(model, id)
+    }
+
+    function _defaultProviderModelId(): string {
+        const candidates = root.defaultProviderModels()
+        if (candidates.length === 0) return ""
+        if (root.defaultProviderPin.length > 0) return candidates[0]
+        let best = candidates[0]
+        let bestScore = root._profileScore(root.models[best], "auto")
+        for (let i = 1; i < candidates.length; ++i) {
+            const score = root._profileScore(root.models[candidates[i]], "auto")
+            if (score > bestScore) {
+                best = candidates[i]
+                bestScore = score
+            }
+        }
+        return best
+    }
+
+    function setDefaultProvider(providerId: string, apiFormat: string): void {
+        const id = String(providerId ?? "").trim().toLowerCase()
+        if (id.length === 0) {
+            root.clearDefaultProvider()
+            return
+        }
+        const preset = AiProviderPresets.byId(id)
+        const format = String(apiFormat ?? "").trim()
+        Config.setNestedValue("ai.defaultProvider", id)
+        Config.setNestedValue("ai.defaultApiFormat",
+            format.length > 0 ? format : (preset?.api_format ?? ""))
+        Config.setNestedValue("ai.defaultModel", "")
+        root._syncCurrentModel()
+        const resolved = root._defaultProviderModelId()
+        if (resolved.length > 0) root.setModel(resolved, false, true)
+    }
+
+    function clearDefaultProvider(): void {
+        Config.setNestedValue("ai.defaultProvider", "")
+        Config.setNestedValue("ai.defaultModel", "")
+        Config.setNestedValue("ai.defaultApiFormat", "")
+        root._syncCurrentModel()
+    }
+
+    // An explicit session choice lives in Persistent.ai.model and outranks every
+    // heuristic. The configured default provider is resolved before the generic
+    // score so a late catalog refresh cannot pin an unrelated fallback model.
     function _resolvedCurrentModelId(): string {
         const saved = Persistent.states?.ai?.model ?? ""
         if (saved && root.models[saved] && root.modelCanRun(root.models[saved])) return saved
+        const preferred = root._defaultProviderModelId()
+        if (preferred.length > 0) return preferred
         if (root.currentModelId && root.models[root.currentModelId]
                 && root.modelCanRun(root.models[root.currentModelId])) return root.currentModelId
         const recommended = root.recommendedModelIds("auto", 1)
         if (recommended.length > 0) return recommended[0]
         if (root.runnableModelList.length > 0) return root.runnableModelList[0]
-        if (saved && root.models[saved]) return saved
-        if (root.currentModelId && root.models[root.currentModelId]) return root.currentModelId
-        return root.modelList[0] ?? ""
+        return ""
     }
 
     function _syncCurrentModel(): void {
@@ -780,6 +855,16 @@ Singleton {
     property var _loadedExtraModelIds: []
     property var _loadedCatalogModelIds: []
     property string _extraModelsSignature: ""
+    property string _defaultProviderSignature: ""
+
+    // configChanged fires on every global save; re-resolving the model on each
+    // one would rescore the whole catalog, so react only to the default keys.
+    function _syncDefaultProviderSelection(): void {
+        const signature = `${root.defaultProviderId}|${root.defaultProviderPin}`
+        if (signature === root._defaultProviderSignature) return
+        root._defaultProviderSignature = signature
+        root._syncCurrentModel()
+    }
 
     readonly property var profileDefinitions: [
         { id: "auto", name: Translation.tr("Auto"), icon: "auto_awesome", description: Translation.tr("Choose a compatible model for each request") },
@@ -945,7 +1030,10 @@ Singleton {
     Connections {
         target: Config
         function onReadyChanged() { root._syncExtraModels() }
-        function onConfigChanged() { root._syncExtraModels() }
+        function onConfigChanged() {
+            root._syncExtraModels()
+            root._syncDefaultProviderSelection()
+        }
     }
 
     Connections {

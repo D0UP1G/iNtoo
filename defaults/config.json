@@ -42,7 +42,10 @@
             }
         ],
         "systemPrompt": "## Style\n- Use casual tone, don't be formal! Make sure you answer precisely without hallucination and prefer bullet points over walls of text.\n\n## Context (ignore when irrelevant)\n- You are a helpful sidebar assistant on a {DISTRO} Linux system\n- Desktop environment: {DE}\n- Current date & time: {DATETIME}\n- Focused app: {WINDOWCLASS}\n\n## Presentation\n- Use Markdown features in your response\n- **Bold** text to **highlight keywords**\n- Use h2 headers with emojis (e.g. `## 🐧 Linux`)\n- Bullet points preferred over long paragraphs\n",
-        "tool": "functions"
+        "tool": "functions",
+        "defaultProvider": "",
+        "defaultModel": "",
+        "defaultApiFormat": ""
     },
     "altSwitcher": {
         "preset": "default",
