@@ -19,6 +19,13 @@ with `--skip-deps`, install it separately. Override the model in Settings → Ma
 `mascot.assistant.model` to a `provider/model` identifier in
 `~/.config/inir/config.json`.
 
+Settings → Mascot also chooses the provider independently of the model. Set
+`mascot.assistant.provider` to a provider id (for example `openai`, `anthropic` or
+`google`) and optionally `mascot.assistant.apiBase` to any OpenAI-compatible base URL;
+`mascot.assistant.apiFormat` picks the protocol (`openai`, `anthropic` or `google`).
+An empty provider keeps the provider encoded in the `provider/model` string. Credentials
+stay in OpenCode's own store — run `inir assistant auth` once per provider.
+
 **Command history** attaches up to 20 saved commands per available Bash, Zsh or
 Fish history file to the next request. The first-message shortcut enables this
 option and asks the assistant to explain the commands. Terminal output and exit

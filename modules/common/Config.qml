@@ -741,6 +741,9 @@ Singleton {
             property JsonObject mascot: JsonObject {
                 property JsonObject assistant: JsonObject {
                     property string model: "ollama/qwen3.5:0.8b"
+                    property string provider: "" // "" infers the provider from the model prefix
+                    property string apiBase: "" // "" keeps the provider's own endpoint
+                    property string apiFormat: "openai" // openai | anthropic | google, used with apiBase
                 }
                 property bool enable: false // Show the iNtoo mascot illustration across shell surfaces (empty states, About, etc.)
                 property JsonObject surfaces: JsonObject {

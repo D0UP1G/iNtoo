@@ -33,7 +33,10 @@ Singleton {
             conversation: root.messages.slice(-20),
             includeHistory: includeHistory,
             allowActions: allowActions,
-            model: Config.options?.mascot?.assistant?.model ?? ""
+            model: Config.options?.mascot?.assistant?.model ?? "",
+            provider: Config.options?.mascot?.assistant?.provider ?? "",
+            apiBase: Config.options?.mascot?.assistant?.apiBase ?? "",
+            apiFormat: Config.options?.mascot?.assistant?.apiFormat ?? "openai"
         }) + "\n";
         root.append("user", message.trim());
         root.busy = true;

@@ -116,6 +116,28 @@ print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
                 companion.ensure_ollama_model("qwen3.5:0.8b")
         self.assertIn("Ollama is not installed", str(raised.exception))
 
+    def test_explicit_provider_configures_endpoint_and_model(self):
+        self.capture_stub()
+        result, _events = self.request(provider="deepseek", apiBase="https://api.deepseek.com/v1",
+                                       apiFormat="openai", model="deepseek-chat")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        capture = json.loads((self.home / "capture.json").read_text())
+        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
+                         "deepseek/deepseek-chat")
+        provider = capture["config"]["provider"]["deepseek"]
+        self.assertEqual(provider["options"]["baseURL"], "https://api.deepseek.com/v1")
+        self.assertEqual(provider["npm"], "@ai-sdk/openai-compatible")
+        self.assertIn("deepseek-chat", provider["models"])
+
+    def test_provider_without_base_keeps_opencode_endpoint(self):
+        self.capture_stub()
+        result, _events = self.request(provider="openai", model="gpt-4.1-mini")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        capture = json.loads((self.home / "capture.json").read_text())
+        self.assertNotIn("provider", capture["config"])
+        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
+                         "openai/gpt-4.1-mini")
+
     def test_model_and_empty_message_errors(self):
         self.capture_stub()
         for values in ({"model": "invalid model"}, {"message": " "}):

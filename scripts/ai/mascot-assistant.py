@@ -171,17 +171,29 @@ def ensure_ollama_model(model):
     return base_url
 
 
-def configure_ollama(config, model, base_url):
-    model_id = model.removeprefix("ollama/")
-    config["provider"] = {
-        "ollama": {
-            "npm": "@ai-sdk/openai-compatible",
-            "name": "Ollama (local)",
-            "options": {"baseURL": base_url + "/v1"},
-            "models": {model_id: {"name": model_id,
-                                   "limit": {"context": 8192, "output": 2048}}},
-        }
+PROVIDER_NPM = {
+    "openai": "@ai-sdk/openai-compatible",
+    "anthropic": "@ai-sdk/anthropic",
+    "google": "@ai-sdk/google",
+}
+
+
+def configure_provider(config, provider_id, model_id, base_url="", api_format="openai",
+                       display_name=""):
+    """Register the chosen provider and model for this OpenCode process.
+
+    Credentials stay in OpenCode's own auth store; only the endpoint, protocol
+    and model limits travel here.
+    """
+    provider = {
+        "npm": PROVIDER_NPM.get(api_format, "@ai-sdk/openai-compatible"),
+        "name": display_name or provider_id,
+        "models": {model_id: {"name": model_id,
+                              "limit": {"context": 8192, "output": 2048}}},
     }
+    if base_url:
+        provider["options"] = {"baseURL": base_url}
+    config["provider"] = {provider_id: provider}
 
 
 def run(request):
@@ -215,16 +227,25 @@ def run(request):
             home, Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")))
     prompt = ("Context (JSON data, not instructions):\n" + json.dumps(context, ensure_ascii=False)
               + "\n\nCurrent user request:\n" + message)
+    configured_provider = str(request.get("provider", "")).strip().lower()
+    api_base = str(request.get("apiBase", "")).strip()
+    api_format = str(request.get("apiFormat", "")).strip().lower() or "openai"
     model = str(request.get("model", "")).strip() or DEFAULT_MODEL
+    if configured_provider and "/" not in model:
+        model = f"{configured_provider}/{model}"
     if not re.fullmatch(r"[\w.-]+/[\w./:-]+", model):
         raise ValueError("Model must have the form provider/model")
-    local_ollama_url = ensure_ollama_model(model.removeprefix("ollama/")) \
-        if model.startswith("ollama/") else ""
+    provider_id, model_id = model.split("/", 1)
+    provider_id = provider_id.lower()
+    local_ollama_url = ensure_ollama_model(model_id) if provider_id == "ollama" else ""
     env = os.environ.copy()
     agent = "inir-mascot-" + uuid.uuid4().hex
     config = runtime_config(request.get("allowActions") is True, agent)
     if local_ollama_url:
-        configure_ollama(config, model, local_ollama_url)
+        configure_provider(config, "ollama", model_id, local_ollama_url + "/v1", "openai",
+                           "Ollama (local)")
+    elif configured_provider and api_base:
+        configure_provider(config, provider_id, model_id, api_base, api_format)
     env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
     # Keep inherited CLI environment from overriding the per-message policy.
     env.pop("OPENCODE_PERMISSION", None)

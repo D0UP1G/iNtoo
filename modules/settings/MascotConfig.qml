@@ -8,6 +8,9 @@ ContentPage {
     settingsPageIndex: 19
     settingsPageName: Translation.tr("Mascot")
 
+    readonly property string assistantProvider: Config.options?.mascot?.assistant?.provider ?? ""
+    readonly property bool customEndpoint: assistantProvider.length > 0 && assistantProvider !== "ollama"
+
     SettingsCardSection {
         expanded: true
         icon: "pets"
@@ -21,15 +24,69 @@ ContentPage {
                 color: Appearance.colors.colOnSecondaryContainer
                 wrapMode: Text.Wrap
             }
-            MaterialTextField {
-                Layout.fillWidth: true
-                placeholderText: Translation.tr("Assistant model; default: ollama/qwen3.5:0.8b")
-                text: Config.options?.mascot?.assistant?.model ?? ""
-                onEditingFinished: Config.setNestedValue("mascot.assistant.model", text.trim())
+
+            ContentSubsection {
+                title: Translation.tr("Provider")
+                tooltip: Translation.tr("Which provider answers. Connect its credentials once with: inir assistant auth")
+
+                ConfigSelectionArray {
+                    enableSettingsSearch: false
+                    currentValue: Config.options?.mascot?.assistant?.provider ?? ""
+                    onSelected: newValue => Config.setNestedValue("mascot.assistant.provider", newValue)
+                    options: [
+                        { displayName: Translation.tr("From model name"), icon: "auto_awesome", value: "" },
+                        { displayName: "Ollama", icon: "ollama-symbolic", value: "ollama" },
+                        { displayName: "OpenAI", icon: "openai-symbolic", value: "openai" },
+                        { displayName: "Anthropic", icon: "anthropic-symbolic", value: "anthropic" },
+                        { displayName: "Google", icon: "google-gemini-symbolic", value: "google" },
+                        { displayName: "Groq", icon: "spark-symbolic", value: "groq" },
+                        { displayName: "Mistral", icon: "mistral-symbolic", value: "mistral" },
+                        { displayName: "OpenCode", icon: "code", value: "opencode" }
+                    ]
+                }
             }
+
+            ContentSubsection {
+                title: Translation.tr("Model")
+                tooltip: Translation.tr("provider/model, for example ollama/qwen3.5:0.8b or gpt-4.1-mini")
+
+                MaterialTextField {
+                    Layout.fillWidth: true
+                    placeholderText: Translation.tr("Assistant model; default: ollama/qwen3.5:0.8b")
+                    text: Config.options?.mascot?.assistant?.model ?? ""
+                    onEditingFinished: Config.setNestedValue("mascot.assistant.model", text.trim())
+                }
+            }
+
+            ContentSubsection {
+                visible: root.customEndpoint
+                title: Translation.tr("API endpoint")
+                tooltip: Translation.tr("Optional OpenAI-compatible base URL. Leave empty to use the provider's own endpoint.")
+
+                MaterialTextField {
+                    Layout.fillWidth: true
+                    placeholderText: "https://api.deepseek.com/v1"
+                    text: Config.options?.mascot?.assistant?.apiBase ?? ""
+                    onEditingFinished: Config.setNestedValue("mascot.assistant.apiBase", text.trim())
+                }
+
+                ConfigSelectionArray {
+                    enableSettingsSearch: false
+                    currentValue: Config.options?.mascot?.assistant?.apiFormat ?? "openai"
+                    onSelected: newValue => Config.setNestedValue("mascot.assistant.apiFormat", newValue)
+                    options: [
+                        { displayName: Translation.tr("OpenAI compatible"), icon: "smart_toy", value: "openai" },
+                        { displayName: "Anthropic", icon: "psychology", value: "anthropic" },
+                        { displayName: "Google", icon: "auto_awesome", value: "google" }
+                    ]
+                }
+            }
+
             StyledText {
                 Layout.fillWidth: true
-                text: Translation.tr("Default: local Ollama Qwen 3.5 0.8B. The model downloads on first use; no API key is needed.")
+                text: root.assistantProvider === "ollama" || root.assistantProvider.length === 0
+                    ? Translation.tr("Default: local Ollama Qwen 3.5 0.8B. The model downloads on first use; no API key is needed.")
+                    : Translation.tr("Credentials come from OpenCode's own store. Run `inir assistant auth` once per provider.")
                 color: Appearance.colors.colSubtext
                 wrapMode: Text.WordWrap
             }
