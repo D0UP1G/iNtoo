@@ -119,6 +119,7 @@ Singleton {
     readonly property string configDir: FileUtils.trimFileProtocol(Quickshell.shellPath("."))
     property string repoPath: configDir  // Will be updated after reading version.json
     property string pendingRepoPath: ""
+    readonly property string upstreamRepository: "https://github.com/D0UP1G/iNToo.git"
     property bool repoPathLoaded: false
     readonly property string manifestPath: configDir + "/.inir-manifest"
     property string installMode: "unknown"
@@ -827,7 +828,11 @@ Singleton {
     Process {
         id: fetchProc
         running: false
-        command: [...root._gitCmd, "fetch", "origin", "--quiet", "--no-tags"]
+        command: [
+            "/usr/bin/bash", "-c",
+            "git -C " + root.shellQuote(root.repoPath) + " remote set-url origin " + root.shellQuote(root.upstreamRepository) +
+            " && git -C " + root.shellQuote(root.repoPath) + " fetch origin --quiet --no-tags"
+        ]
         onExited: (exitCode, exitStatus) => {
             if (exitCode !== 0) {
                 root.isChecking = false
@@ -850,6 +855,7 @@ Singleton {
                 }
                 return
             }
+            print("[ShellUpdates] Update source: " + root.upstreamRepository)
             // Success - reset error counters
             root.consecutiveFetchErrors = 0
             root.fetchErrorNotificationShown = false
