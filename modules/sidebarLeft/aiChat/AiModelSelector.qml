@@ -87,6 +87,7 @@ Item {
                 hasKey: Ai.hasApiKeyForModel(model),
                 isLocal: local,
                 isFree: free,
+                isDefault: Ai.isDefaultModelId(id),
                 capabilities,
                 contextTokens: model.context_tokens ?? 0,
                 status: state.status ?? model.catalog_status ?? "available",
@@ -458,6 +459,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: {
                                     const parts = []
+                                    if (modelRow.isDefault) parts.push(Translation.tr("default"))
                                     if (modelRow.modelData.providerName.length > 0)
                                         parts.push(modelRow.modelData.providerName)
                                     const context = root.contextLabel(modelRow.modelData.contextTokens)
@@ -474,6 +476,29 @@ Item {
                                     : Appearance.colMetadataText
                                 elide: Text.ElideRight
                                 wrapMode: Text.NoWrap
+                            }
+                        }
+                        MaterialSymbol {
+                            id: defaultStar
+                            readonly property bool isDefault: modelRow.modelData.isDefault
+                            visible: isDefault || modelRow.buttonHovered
+                            text: isDefault ? "star" : "star_border"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: isDefault
+                                ? Appearance.colors.colPrimary : Appearance.colSecondaryActionIcon
+
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                onClicked: {
+                                    if (defaultStar.isDefault) Ai.clearDefaultProvider()
+                                    else Ai.setDefaultProviderForModel(Ai.models[modelRow.modelData.id])
+                                }
+                            }
+                            StyledToolTip {
+                                text: defaultStar.isDefault
+                                    ? Translation.tr("Default provider — click to clear")
+                                    : Translation.tr("Use as the default provider")
                             }
                         }
                         MaterialSymbol {

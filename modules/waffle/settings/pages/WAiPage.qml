@@ -76,6 +76,23 @@ WSettingsPage {
                     .arg(AiProviderCatalog.browseableProviderCount)
         }
 
+        WSettingsInfoBar {
+            severity: (Config.options?.ai?.defaultProvider ?? "").length > 0
+                ? WSettingsInfoBar.Severity.Success : WSettingsInfoBar.Severity.Info
+            message: {
+                const providerId = Config.options?.ai?.defaultProvider ?? ""
+                if (providerId.length === 0)
+                    return Translation.tr("No default provider: new sessions pick a connected model automatically.")
+                const preset = AiProviderPresets.byId(providerId)
+                const format = Config.options?.ai?.defaultApiFormat ?? ""
+                const pinned = Config.options?.ai?.defaultModel ?? ""
+                return Translation.tr("Default provider: %1 · API: %2%3")
+                    .arg(preset?.name ?? providerId)
+                    .arg(format.length > 0 ? format : Translation.tr("provider default"))
+                    .arg(pinned.length > 0 ? " · " + pinned : "")
+            }
+        }
+
         WSettingsButton {
             label: Translation.tr("Live model catalogs")
             description: Translation.tr("Refresh provider availability, model IDs, context and capabilities")
@@ -94,6 +111,26 @@ WSettingsPage {
         icon: "apps"
 
         readonly property var extraModels: Config.options?.ai?.extraModels ?? []
+        readonly property string defaultProviderValue: {
+            const providerId = Config.options?.ai?.defaultProvider ?? ""
+            if (providerId.length === 0) return ""
+            if (providerId !== "custom") return providerId
+            return "custom::" + (Config.options?.ai?.defaultModel ?? "")
+        }
+        readonly property var defaultProviderOptions: {
+            const options = [{ value: "", displayName: Translation.tr("Automatic") }]
+            for (const preset of AiProviderPresets.presets)
+                options.push({ value: preset.id, displayName: preset.name })
+            for (const model of (providersCard.extraModels ?? [])) {
+                const providerId = model?.provider_id ?? ""
+                if (providerId.length > 0 && providerId !== "custom") continue
+                options.push({
+                    value: "custom::" + (model?.model ?? ""),
+                    displayName: model?.name ?? model?.model ?? Translation.tr("Custom"),
+                })
+            }
+            return options
+        }
         readonly property var formatLabels: ({
             "openai": "OpenAI",
             "gemini": "Gemini",
@@ -115,11 +152,13 @@ WSettingsPage {
                 ?? resolvedPreset?.model ?? entry?.model ?? ""
             providerForm.selectedFormat = resolvedPreset?.api_format ?? entry?.api_format ?? "openai"
             providerApiKeyInput.text = ""
+            providerForm.resetDefaultChoice()
             providerForm.expanded = true
         }
 
         function closeForm() {
             providerForm.expanded = false
+            providerForm.resetDefaultChoice()
             providerForm.editingIndex = -1
             providerNameInput.text = ""
             providerEndpointInput.text = ""
@@ -138,6 +177,28 @@ WSettingsPage {
             text: Translation.tr("Choose a provider. iNtoo discovers its current models and API protocol automatically.")
             font.pixelSize: Looks.font.pixelSize.small
             color: Looks.colors.subfg
+        }
+
+        WSettingsDropdown {
+            label: Translation.tr("Default provider")
+            description: Translation.tr("New sessions start with this provider and its API protocol")
+            options: providersCard.defaultProviderOptions
+            currentValue: providersCard.defaultProviderValue
+            onSelected: newValue => {
+                const value = String(newValue ?? "")
+                if (value.length === 0) {
+                    Ai.clearDefaultProvider()
+                    return
+                }
+                if (value.startsWith("custom::")) {
+                    const code = value.substring("custom::".length)
+                    const entry = (providersCard.extraModels ?? []).find(model => (model?.model ?? "") === code)
+                    Ai.setDefaultProvider("custom", entry?.api_format ?? "openai", code)
+                    return
+                }
+                const preset = AiProviderPresets.byId(value)
+                Ai.setDefaultProvider(value, preset?.api_format ?? "")
+            }
         }
 
         Repeater {
@@ -291,7 +352,15 @@ WSettingsPage {
             spacing: 4
 
             property bool expanded: false
+            property bool setAsDefault: false
             property int editingIndex: -1
+
+            // A click on the switch severs its `checked` binding, so the
+            // control is reset together with the form state.
+            function resetDefaultChoice(): void {
+                setAsDefault = false
+                providerDefaultSwitch.checked = false
+            }
             property string selectedFormat: "openai"
             property string presetId: ""
             property string presetKeyId: ""
@@ -377,6 +446,14 @@ WSettingsPage {
                 ]
             }
 
+            WSettingsSwitch {
+                id: providerDefaultSwitch
+                label: Translation.tr("Set as default provider")
+                description: Translation.tr("New sessions start with this provider and its API protocol")
+                checked: providerForm.setAsDefault
+                onCheckedChanged: providerForm.setAsDefault = checked
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 Layout.leftMargin: 0
@@ -454,6 +531,13 @@ WSettingsPage {
                             KeyringStorage.setNestedField(["apiKeys", keyId], apiKey)
                         if (providerForm.presetId.length > 0)
                             Qt.callLater(() => AiProviderCatalog.refreshProvider(providerForm.presetId))
+
+                        if (providerForm.setAsDefault) {
+                            const providerId = preset ? preset.id
+                                : (providerForm.presetId.length > 0 ? providerForm.presetId : "custom")
+                            Ai.setDefaultProvider(providerId, providerForm.selectedFormat,
+                                providerId === "custom" ? modelCode : "")
+                        }
 
                         providersCard.closeForm()
                     }

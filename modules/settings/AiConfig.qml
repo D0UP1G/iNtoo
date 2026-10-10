@@ -99,6 +99,26 @@ ContentPage {
             }
 
             StatusRow {
+                readonly property string providerId: Config.options?.ai?.defaultProvider ?? ""
+                readonly property var providerPreset: AiProviderPresets.byId(providerId)
+                readonly property string apiFormat: Config.options?.ai?.defaultApiFormat ?? ""
+                readonly property string pinnedModel: Config.options?.ai?.defaultModel ?? ""
+                statusIcon: "star"
+                ok: providerId.length > 0
+                label: providerId.length > 0
+                    ? Translation.tr("Default provider: %1").arg(providerPreset?.name ?? providerId)
+                    : Translation.tr("No default provider")
+                detail: {
+                    if (providerId.length === 0)
+                        return Translation.tr("New sessions pick a connected model automatically. Choose a provider below.")
+                    const format = apiFormat.length > 0 ? apiFormat : Translation.tr("provider default")
+                    return pinnedModel.length > 0
+                        ? Translation.tr("API: %1 · model: %2").arg(format).arg(pinnedModel)
+                        : Translation.tr("API: %1").arg(format)
+                }
+            }
+
+            StatusRow {
                 statusIcon: "key"
                 ok: Ai.currentModelHasApiKey
                 label: Ai.currentModelHasApiKey
@@ -211,6 +231,7 @@ ContentPage {
                         providerForm._presetKeyId = ""
                         providerModelInput.text = ""
                         providerApiKeyInput.text = ""
+                        providerForm.resetDefaultChoice()
                         providerForm.expanded = true
                     }
 
@@ -300,6 +321,7 @@ ContentPage {
                             providerForm._presetId = preset.id ?? ""
                             providerForm._presetKeyId = preset.keyId ?? ""
                             providerApiKeyInput.text = ""
+                            providerForm.resetDefaultChoice()
                             providerForm.expanded = true
                         }
 
@@ -362,6 +384,34 @@ ContentPage {
                                 iconSize: Appearance.font.pixelSize.large
                                 color: providerCard.connected
                                     ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                            }
+
+                            Item {
+                                id: presetDefaultButton
+                                readonly property bool isDefault: (Config.options?.ai?.defaultProvider ?? "") === providerCard.preset.id
+                                Layout.preferredWidth: 28
+                                Layout.preferredHeight: 28
+
+                                MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    text: presetDefaultButton.isDefault ? "star" : "star_border"
+                                    iconSize: 18
+                                    color: presetDefaultButton.isDefault
+                                        ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                                }
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        if (presetDefaultButton.isDefault) Ai.clearDefaultProvider()
+                                        else Ai.setDefaultProvider(providerCard.preset.id, providerCard.preset.api_format ?? "")
+                                    }
+                                }
+                                StyledToolTip {
+                                    text: presetDefaultButton.isDefault
+                                        ? Translation.tr("Default provider — click to clear")
+                                        : Translation.tr("Use as the default provider")
+                                }
                             }
                         }
 
@@ -467,6 +517,39 @@ ContentPage {
                             }
 
                             RippleButton {
+                                readonly property bool isDefault: {
+                                    const configured = Config.options?.ai?.defaultProvider ?? ""
+                                    const pinned = Config.options?.ai?.defaultModel ?? ""
+                                    const providerId = Ai.providerIdForModel(providerItem.modelData)
+                                    if (configured !== providerId) return false
+                                    if (providerId !== "custom") return true
+                                    return pinned === (providerItem.modelData?.model ?? "")
+                                }
+                                implicitWidth: 28
+                                implicitHeight: 28
+                                buttonRadius: 14
+                                colBackground: "transparent"
+                                colBackgroundHover: Appearance.colors.colLayer1Hover
+                                onClicked: {
+                                    if (isDefault) Ai.clearDefaultProvider()
+                                    else Ai.setDefaultProviderForModel(providerItem.modelData)
+                                }
+
+                                contentItem: MaterialSymbol {
+                                    anchors.centerIn: parent
+                                    text: isDefault ? "star" : "star_border"
+                                    iconSize: 14
+                                    color: isDefault ? Appearance.colors.colPrimary : Appearance.colors.colSubtext
+                                }
+
+                                StyledToolTip {
+                                    text: isDefault
+                                        ? Translation.tr("Default provider — click to clear")
+                                        : Translation.tr("Use as the default provider")
+                                }
+                            }
+
+                            RippleButton {
                                 implicitWidth: 28
                                 implicitHeight: 28
                                 buttonRadius: 14
@@ -489,6 +572,7 @@ ContentPage {
                                     providerForm._presetKeyId = preset?.keyId ?? m?.key_id ?? ""
                                     providerModelInput.text = liveModels[0]?.remoteId ?? preset?.model ?? m?.model ?? ""
                                     providerApiKeyInput.text = ""
+                                    providerForm.resetDefaultChoice()
                                     providerForm.expanded = true
                                 }
 
@@ -575,7 +659,15 @@ ContentPage {
                 Layout.topMargin: 4
 
                 property bool expanded: false
+                property bool setAsDefault: false
                 property int editingIndex: -1
+
+                // A click on the switch severs its `checked` binding, so the
+                // control is reset together with the form state.
+                function resetDefaultChoice(): void {
+                    setAsDefault = false
+                    providerDefaultSwitch.checked = false
+                }
                 property string titleText: Translation.tr("Add AI Provider")
                 property string saveLabelText: Translation.tr("Add")
                 property string selectedFormat: "openai"
@@ -782,6 +874,17 @@ ContentPage {
                         }
                     }
 
+                    ConfigSwitch {
+                        id: providerDefaultSwitch
+                        buttonIcon: "star"
+                        text: Translation.tr("Set as default provider")
+                        checked: providerForm.setAsDefault
+                        onCheckedChanged: providerForm.setAsDefault = checked
+                        StyledToolTip {
+                            text: Translation.tr("New sessions start with this provider and its API protocol.")
+                        }
+                    }
+
                     RowLayout {
                         Layout.fillWidth: true
                         spacing: 8
@@ -796,6 +899,7 @@ ContentPage {
                             colBackgroundHover: Appearance.colors.colLayer1Hover
                             onClicked: {
                                 providerForm.expanded = false
+                                providerForm.resetDefaultChoice()
                                 providerForm.editingIndex = -1
                                 providerNameInput.text = ""
                                 providerEndpointInput.text = ""
@@ -877,7 +981,15 @@ ContentPage {
                                 if (providerForm._presetId.length > 0)
                                     Qt.callLater(() => AiProviderCatalog.refreshProvider(providerForm._presetId))
 
+                                if (providerForm.setAsDefault) {
+                                    const providerId = preset ? preset.id
+                                        : (providerForm._presetId.length > 0 ? providerForm._presetId : "custom")
+                                    Ai.setDefaultProvider(providerId, providerForm.selectedFormat,
+                                        providerId === "custom" ? modelCode : "")
+                                }
+
                                 providerForm.expanded = false
+                                providerForm.resetDefaultChoice()
                                 providerForm.editingIndex = -1
                                 providerNameInput.text = ""
                                 providerEndpointInput.text = ""

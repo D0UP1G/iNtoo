@@ -798,7 +798,7 @@ Singleton {
         return best
     }
 
-    function setDefaultProvider(providerId: string, apiFormat: string): void {
+    function setDefaultProvider(providerId: string, apiFormat: string, modelPin): void {
         const id = String(providerId ?? "").trim().toLowerCase()
         if (id.length === 0) {
             root.clearDefaultProvider()
@@ -806,19 +806,42 @@ Singleton {
         }
         const preset = AiProviderPresets.byId(id)
         const format = String(apiFormat ?? "").trim()
-        Config.setNestedValue("ai.defaultProvider", id)
-        Config.setNestedValue("ai.defaultApiFormat",
-            format.length > 0 ? format : (preset?.api_format ?? ""))
-        Config.setNestedValue("ai.defaultModel", "")
+        Config.setNestedValues({
+            "ai.defaultProvider": id,
+            "ai.defaultApiFormat": format.length > 0 ? format : (preset?.api_format ?? ""),
+            "ai.defaultModel": String(modelPin ?? "").trim(),
+        })
         root._syncCurrentModel()
         const resolved = root._defaultProviderModelId()
         if (resolved.length > 0) root.setModel(resolved, false, true)
     }
 
+    // Legacy configured rows predate provider_id; their endpoint or key id is
+    // what identifies the curated provider they belong to.
+    function providerIdForModel(model): string {
+        const explicit = String(model?.provider_id ?? "")
+        if (explicit.length > 0 && explicit !== "custom") return explicit
+        const match = AiProviderPresets.presets.find(preset =>
+            (preset.endpoint ?? "") === (model?.endpoint ?? "")
+            || (preset.keyId ?? "") === (model?.key_id ?? ""))
+        return match?.id ?? "custom"
+    }
+
+    function setDefaultProviderForModel(model): void {
+        if (!model) return
+        const providerId = root.providerIdForModel(model)
+        // Custom endpoints share the "custom" provider id, so their pinned model
+        // code is what keeps the default unambiguous.
+        root.setDefaultProvider(providerId, model.api_format ?? "",
+            providerId === "custom" ? (model.model ?? "") : "")
+    }
+
     function clearDefaultProvider(): void {
-        Config.setNestedValue("ai.defaultProvider", "")
-        Config.setNestedValue("ai.defaultModel", "")
-        Config.setNestedValue("ai.defaultApiFormat", "")
+        Config.setNestedValues({
+            "ai.defaultProvider": "",
+            "ai.defaultModel": "",
+            "ai.defaultApiFormat": "",
+        })
         root._syncCurrentModel()
     }
 
