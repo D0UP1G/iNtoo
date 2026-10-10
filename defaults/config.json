@@ -1520,7 +1520,7 @@
     },
     "mascot": {
         "assistant": {
-            "model": ""
+            "model": "ollama/qwen3.5:0.8b"
         },
         "enable": false,
         "surfaces": {

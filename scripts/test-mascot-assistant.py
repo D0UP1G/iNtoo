@@ -72,7 +72,8 @@ if "--version" in sys.argv:
         self.stub('''import json, os, sys
 from pathlib import Path
 Path(os.environ["CAPTURE"]).write_text(json.dumps({"input": sys.stdin.read(), "argv": sys.argv,
-    "config": json.loads(os.environ["OPENCODE_CONFIG_CONTENT"]), "cwd": os.getcwd(), "pwd": os.environ["PWD"]}))
+    "config": json.loads(os.environ["OPENCODE_CONFIG_CONTENT"]), "cwd": os.getcwd(), "pwd": os.environ["PWD"],
+    "database": os.environ["OPENCODE_DB"]}))
 print(json.dumps({"type": "text", "part": {"text": "Hello"}}), flush=True)
 print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
 ''')
@@ -88,25 +89,32 @@ print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
         self.assertIn("$(touch /tmp/should-not-exist)", capture["input"])
         self.assertNotIn("Literal", " ".join(capture["argv"]))
         self.assertEqual(capture["cwd"], capture["pwd"])
+        self.assertEqual(capture["database"], str(self.home / "state/inir/assistant/opencode.db"))
         self.assertEqual(capture["config"]["permission"], {"*": "deny"})
         agent = capture["argv"][capture["argv"].index("--agent") + 1]
         self.assertEqual(capture["config"]["agent"][agent]["permission"], {"*": "deny"})
 
     def test_actions_do_not_carry_into_next_message(self):
         self.capture_stub()
-        self.request(allowActions=True)
+        self.request(allowActions=True, model="test/model")
         capture = json.loads((self.home / "capture.json").read_text())
         self.assertEqual(capture["config"]["permission"]["bash"], "allow")
-        self.request()
+        self.request(model="test/model")
         capture = json.loads((self.home / "capture.json").read_text())
         self.assertEqual(capture["config"]["permission"], {"*": "deny"})
 
     def test_history_is_attached_when_requested(self):
         (self.home / ".bash_history").write_text("echo HISTORY_MARKER\n")
         self.capture_stub()
-        self.request(includeHistory=True)
+        self.request(includeHistory=True, model="test/model")
         capture = json.loads((self.home / "capture.json").read_text())
         self.assertIn("HISTORY_MARKER", capture["input"])
+
+    def test_ollama_default_requires_the_runtime(self):
+        with patch.dict(os.environ, self.env, clear=True):
+            with self.assertRaises(RuntimeError) as raised:
+                companion.ensure_ollama_model("qwen3.5:0.8b")
+        self.assertIn("Ollama is not installed", str(raised.exception))
 
     def test_model_and_empty_message_errors(self):
         self.capture_stub()
@@ -125,12 +133,31 @@ print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("needs OpenCode 1.x", events[0]["text"])
 
+    def test_assistant_auth_uses_the_private_database(self):
+        executable = self.bin / "opencode"
+        executable.write_text("#!" + sys.executable + "\n" + '''import json, os, sys
+from pathlib import Path
+Path(os.environ["CAPTURE"]).write_text(json.dumps({"database": os.environ.get("OPENCODE_DB"), "args": sys.argv[1:]}))
+''')
+        executable.chmod(0o755)
+        result = subprocess.run([str(ROOT / "scripts/inir"), "assistant", "auth"],
+                                env=self.env, text=True, capture_output=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actual = json.loads((self.home / "capture.json").read_text())
+        self.assertEqual(actual["database"], str(self.home / "state/inir/assistant/opencode.db"))
+        self.assertEqual(actual["args"], ["auth", "login"])
+
     def test_nonzero_and_empty_output_report_errors(self):
-        for body in ("import sys; print('provider unavailable', file=sys.stderr); sys.exit(1)", "pass"):
+        for body in (
+            "import sys; print('provider unavailable', file=sys.stderr); sys.exit(1)",
+            "import sys; print('\\033[91mError\\033[0m: database unavailable', file=sys.stderr); sys.exit(1)",
+            "pass",
+        ):
             self.stub(body)
             result, events = self.request()
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(events[-1]["type"], "error")
+            self.assertNotIn("\x1b", events[-1]["text"])
 
     def test_cancellation_terminates_opencode(self):
         self.stub('''import os, time
@@ -141,7 +168,7 @@ time.sleep(30)
         child = subprocess.Popen([sys.executable, str(BRIDGE)], env=self.env, text=True,
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
-            child.stdin.write('{"message":"Hello"}\n')
+            child.stdin.write('{"message":"Hello","model":"test/model"}\n')
             child.stdin.flush()
             capture = self.home / "capture.json"
             deadline = time.monotonic() + 5

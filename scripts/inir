@@ -2582,6 +2582,45 @@ run_runtime_script() {
     exec "$script_path" "$@"
 }
 
+run_assistant_command() {
+    local action="${1:-}"
+    shift || true
+    if [[ "$action" == "-h" || "$action" == "--help" || -z "$action" ]]; then
+        cat <<'EOF'
+Usage: inir assistant <command>
+
+Commands:
+  toggle|open|close|current  Control the desktop companion
+  auth                       Connect a provider for the companion
+EOF
+        return 0
+    fi
+    if [[ "$action" != "auth" ]]; then
+        run_ipc_target_command assistant "$action" "$@"
+        return $?
+    fi
+
+    local opencode_bin
+    opencode_bin="$(command -v opencode 2>/dev/null || true)"
+    if [[ -z "$opencode_bin" ]]; then
+        for opencode_bin in \
+            "${XDG_BIN_HOME:-$HOME/.local/bin}/opencode" \
+            "$HOME/.opencode/bin/opencode"; do
+            [[ -x "$opencode_bin" ]] && break
+            opencode_bin=""
+        done
+    fi
+    if [[ -z "$opencode_bin" || ! -x "$opencode_bin" ]]; then
+        printf 'OpenCode is not installed. Run ./setup install or install opencode-ai.\n' >&2
+        return 1
+    fi
+
+    local assistant_home="${XDG_STATE_HOME:-$HOME/.local/state}/inir/assistant"
+    (umask 077; mkdir -p "$assistant_home") || return 1
+    chmod 700 "$assistant_home" || return 1
+    OPENCODE_DB="$assistant_home/opencode.db" exec "$opencode_bin" auth login "$@"
+}
+
 normalize_ipc_target() {
     # Try registry aliases first (comprehensive, auto-generated).
     if source_ipc_registry 2>/dev/null && [[ -n "${IPC_KEBAB_ALIASES[$1]+_}" ]]; then
@@ -4663,6 +4702,9 @@ case "$command_name" in
         ;;
     theme)
         run_theme_command "$@"
+        ;;
+    assistant)
+        run_assistant_command "$@"
         ;;
     bind)
         run_bind_command "$@"

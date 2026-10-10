@@ -5,6 +5,11 @@
 
 printf "${STY_CYAN}[$0]: 1. Install dependencies${STY_RST}\n"
 
+install_ollama_for_setup=true
+if [[ -n "${ONLY_MISSING_DEPS:-}" && " ${ONLY_MISSING_DEPS} " != *" ollama "* ]]; then
+  install_ollama_for_setup=false
+fi
+
 #####################################################################################
 # Route to the appropriate installer based on OS
 #####################################################################################
@@ -81,3 +86,7 @@ _inir_deps_status=$?
 [[ "$_inir_deps_status" -eq 0 ]] || return "$_inir_deps_status"
 source ./sdata/lib/install-opencode.sh
 install_opencode
+if $install_ollama_for_setup; then
+  source ./sdata/lib/install-ollama.sh
+  install_ollama
+fi

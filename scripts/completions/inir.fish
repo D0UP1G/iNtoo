@@ -120,6 +120,7 @@ complete -c inir -n '__inir_at_function assistant' -a toggle -d 'Toggle the masc
 complete -c inir -n '__inir_at_function assistant' -a open -d 'Open the companion'
 complete -c inir -n '__inir_at_function assistant' -a close -d 'Close the companion; a running reply continues'
 complete -c inir -n '__inir_at_function assistant' -a current -d 'Return open or closed'
+complete -c inir -n '__inir_at_function assistant' -a auth -d 'Connect the provider for the desktop companion'
 complete -c inir -n '__inir_at_target' -a audio -d 'Volume and mute control'
 complete -c inir -n '__inir_at_function audio' -a volumeUp -d 'Increase volume'
 complete -c inir -n '__inir_at_function audio' -a volumeDown -d 'Decrease volume'

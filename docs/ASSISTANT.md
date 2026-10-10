@@ -11,15 +11,13 @@ The dependency installation phase installs OpenCode 1.x through the official
 are kept. `--skip-deps` also skips OpenCode installation. Package-managed installs
 must supply OpenCode themselves. OpenCode 2 is not supported by this adapter.
 
-Connect your preferred provider:
-
-```bash
-opencode auth login
-```
-
-The companion uses OpenCode's configured model. Override it in Settings → Mascot,
-or set `mascot.assistant.model` to a `provider/model` identifier in
-`~/.config/inir/config.json`. An empty value uses OpenCode's default.
+The companion defaults to the local Ollama model `qwen3.5:0.8b` (0.8B parameters).
+On the first message, it starts Ollama if needed and downloads the model automatically.
+The download is about 1.2 GB and requires internet access; inference then runs locally
+without an API key. `./setup install` offers to install [Ollama](https://ollama.com/download);
+with `--skip-deps`, install it separately. Override the model in Settings → Mascot, or set
+`mascot.assistant.model` to a `provider/model` identifier in
+`~/.config/inir/config.json`.
 
 **Command history** attaches up to 20 saved commands per available Bash, Zsh or
 Fish history file to the next request. The first-message shortcut enables this
@@ -36,9 +34,12 @@ Chat mode disables tools, including tools inherited from the global OpenCode
 configuration. An isolated workspace avoids loading project instructions. The
 assistant reports when an operation needs an interactive command or root access.
 
-OpenCode still uses its normal provider configuration and stores its sessions
-locally. The desktop transcript is in memory, but sending a message can persist
-it in OpenCode's session store and send it to your configured model provider.
+The assistant uses its own OpenCode database at
+`$XDG_STATE_HOME/inir/assistant/opencode.db` (or
+`~/.local/state/inir/assistant/opencode.db`). This keeps it separate from
+OpenCode 2.x databases, whose schema is incompatible with the 1.x CLI used by
+the assistant. The desktop transcript is in memory, but sending a message can persist
+it in the assistant's OpenCode database and send it to the selected model provider.
 Requests are not published with OpenCode's share feature.
 
 For existing installations, migration `046-mascot-assistant-keybind` adds the

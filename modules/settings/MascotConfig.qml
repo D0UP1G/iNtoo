@@ -23,13 +23,13 @@ ContentPage {
             }
             MaterialTextField {
                 Layout.fillWidth: true
-                placeholderText: Translation.tr("OpenCode model (provider/model); empty uses OpenCode's default")
+                placeholderText: Translation.tr("Assistant model; default: ollama/qwen3.5:0.8b")
                 text: Config.options?.mascot?.assistant?.model ?? ""
                 onEditingFinished: Config.setNestedValue("mascot.assistant.model", text.trim())
             }
             StyledText {
                 Layout.fillWidth: true
-                text: Translation.tr("Connect a provider in your terminal: opencode auth login")
+                text: Translation.tr("Default: local Ollama Qwen 3.5 0.8B. The model downloads on first use; no API key is needed.")
                 color: Appearance.colors.colSubtext
                 wrapMode: Text.WordWrap
             }

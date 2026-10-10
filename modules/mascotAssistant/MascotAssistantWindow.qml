@@ -34,9 +34,9 @@ PanelWindow {
     }
 
     function submit(): void {
-        if (MascotAssistant.send(input.text, history.checked, actions.checked)) {
+        if (MascotAssistant.send(input.text, history.includeHistory, actions.allowActions)) {
             input.clear();
-            actions.checked = false;
+            actions.allowActions = false;
         }
     }
 
@@ -255,12 +255,12 @@ PanelWindow {
                     Layout.fillWidth: true
                     RippleButton {
                         id: history
-                        property bool checked: false
+                        property bool includeHistory: false
                         Accessible.name: Translation.tr("Command history")
                         contentItem: RowLayout {
                             spacing: 5
                             MaterialSymbol {
-                                text: history.checked ? "check_box" : "check_box_outline_blank"
+                                text: history.includeHistory ? "check_box" : "check_box_outline_blank"
                                 iconSize: 18
                                 color: Appearance.colors.colPrimary
                             }
@@ -271,17 +271,17 @@ PanelWindow {
                         }
                         ToolTip.visible: hovered
                         ToolTip.text: Translation.tr("Attach saved commands from Bash, Zsh and Fish. Terminal output is not included.")
-                        onClicked: checked = !checked
+                        onClicked: includeHistory = !includeHistory
                     }
                     RippleButton {
                         id: actions
-                        property bool checked: false
+                        property bool allowActions: false
                         enabled: !MascotAssistant.busy
                         Accessible.name: Translation.tr("Allow system actions")
                         contentItem: RowLayout {
                             spacing: 5
                             MaterialSymbol {
-                                text: actions.checked ? "check_box" : "check_box_outline_blank"
+                                text: actions.allowActions ? "check_box" : "check_box_outline_blank"
                                 iconSize: 18
                                 color: Appearance.colors.colPrimary
                             }
@@ -292,7 +292,7 @@ PanelWindow {
                         }
                         ToolTip.visible: hovered
                         ToolTip.text: Translation.tr("Allow OpenCode to run commands and edit files for the next message.")
-                        onClicked: checked = !checked
+                        onClicked: allowActions = !allowActions
                     }
                 }
                 RippleButton {
@@ -300,7 +300,7 @@ PanelWindow {
                     visible: MascotAssistant.messages.length === 0
                     buttonText: Translation.tr("Explain my recent terminal commands")
                     onClicked: {
-                        history.checked = true;
+                        history.includeHistory = true;
                         input.text = Translation.tr("Explain my recent terminal commands");
                         root.submit();
                     }

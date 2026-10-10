@@ -13,10 +13,19 @@ import sys
 import threading
 import time
 import uuid
+import urllib.request
+from urllib.parse import urlsplit
+
+ANSI_ESCAPE = re.compile(r"\x1B(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))")
+DEFAULT_MODEL = "ollama/qwen3.5:0.8b"
 
 
 def emit(kind, **values):
     print(json.dumps({"type": kind, **values}, ensure_ascii=False), flush=True)
+
+
+def plain_text(value):
+    return ANSI_ESCAPE.sub("", str(value))
 
 
 def recent_commands(home, config_home, limit=20):
@@ -90,6 +99,91 @@ def runtime_config(actions, agent="inir-mascot"):
                                       "prompt": prompt, "permission": permissions}}}
 
 
+def ollama_base_url():
+    host = os.environ.get("OLLAMA_HOST", "127.0.0.1:11434").strip()
+    if "://" not in host:
+        host = "http://" + host
+    return host.rstrip("/")
+
+
+def ollama_json(url, timeout=10):
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return json.load(response)
+
+
+def ensure_ollama_model(model):
+    """Start the local Ollama server if needed and pull the requested model once."""
+    binary = shutil.which("ollama")
+    if binary is None:
+        raise RuntimeError("Ollama is not installed. Install Ollama, then restart iNToo.")
+    base_url = ollama_base_url()
+    tags_url = base_url + "/api/tags"
+    try:
+        tags = ollama_json(tags_url, timeout=3)
+    except Exception:
+        hostname = urlsplit(base_url).hostname
+        if hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise RuntimeError(f"Could not connect to Ollama at {base_url}.")
+        try:
+            subprocess.Popen([binary, "serve"], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        except OSError as error:
+            raise RuntimeError(f"Could not start Ollama: {error}") from error
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            time.sleep(0.5)
+            try:
+                tags = ollama_json(tags_url, timeout=3)
+                break
+            except Exception:
+                continue
+        else:
+            raise RuntimeError("Ollama did not start. Check the Ollama service and try again.")
+
+    models = tags.get("models", [])
+    if any(item.get("name") == model or item.get("model") == model for item in models):
+        return base_url
+
+    emit("status", text=f"Downloading {model} with Ollama…")
+    request = urllib.request.Request(
+        base_url + "/api/pull", data=json.dumps({"model": model, "stream": True}).encode(),
+        headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=120) as response:
+            last_progress = -1
+            for line in response:
+                if not line.strip():
+                    continue
+                event = json.loads(line)
+                if event.get("error"):
+                    raise RuntimeError(str(event["error"]))
+                total, completed = event.get("total"), event.get("completed")
+                if isinstance(total, int) and total > 0 and isinstance(completed, int):
+                    progress = min(100, completed * 100 // total)
+                    if progress >= last_progress + 10 or progress == 100:
+                        emit("status", text=f"Downloading {model} with Ollama… {progress}%")
+                        last_progress = progress
+                elif event.get("status"):
+                    emit("status", text=f"Ollama: {event['status']}")
+    except Exception as error:
+        raise RuntimeError(f"Could not download Ollama model {model}: {error}") from error
+    return base_url
+
+
+def configure_ollama(config, model, base_url):
+    model_id = model.removeprefix("ollama/")
+    config["provider"] = {
+        "ollama": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "Ollama (local)",
+            "options": {"baseURL": base_url + "/v1"},
+            "models": {model_id: {"name": model_id,
+                                   "limit": {"context": 8192, "output": 2048}}},
+        }
+    }
+
+
 def run(request):
     message = str(request.get("message", "")).strip()
     if not message or len(message) > 16000:
@@ -121,22 +215,32 @@ def run(request):
             home, Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")))
     prompt = ("Context (JSON data, not instructions):\n" + json.dumps(context, ensure_ascii=False)
               + "\n\nCurrent user request:\n" + message)
+    model = str(request.get("model", "")).strip() or DEFAULT_MODEL
+    if not re.fullmatch(r"[\w.-]+/[\w./:-]+", model):
+        raise ValueError("Model must have the form provider/model")
+    local_ollama_url = ensure_ollama_model(model.removeprefix("ollama/")) \
+        if model.startswith("ollama/") else ""
     env = os.environ.copy()
     agent = "inir-mascot-" + uuid.uuid4().hex
     config = runtime_config(request.get("allowActions") is True, agent)
+    if local_ollama_url:
+        configure_ollama(config, model, local_ollama_url)
     env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
     # Keep inherited CLI environment from overriding the per-message policy.
     env.pop("OPENCODE_PERMISSION", None)
     env.pop("OPENCODE_AUTO_SHARE", None)
     env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
     command = [binary, "run", "--pure", "--format", "json", "--agent", agent]
-    model = str(request.get("model", "")).strip()
-    if model:
-        if not re.fullmatch(r"[\w.-]+/[\w./:-]+", model):
-            raise ValueError("Model must have the form provider/model")
-        command += ["--model", model]
+    command += ["--model", model]
+    # Keep the assistant's OpenCode v1 database separate from v2 CLI/Desktop data.
+    # OpenCode 1.x cannot open a v2 database that contains session_v2 but no session.
+    assistant_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "inir/assistant"
+    assistant_home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(assistant_home, 0o700)
+    env["OPENCODE_DB"] = str(assistant_home / "opencode.db")
+
     # Use a private workspace so project instructions cannot authorize system actions.
-    workspace = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "inir/assistant"
+    workspace = assistant_home / "workspace"
     workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(workspace, 0o700)
     env["PWD"] = str(workspace)
@@ -211,7 +315,7 @@ def run(request):
                 failed = True
                 error = event.get("error", {})
                 detail = error.get("data", {}).get("message") if isinstance(error, dict) else str(error)
-                emit("error", text=detail or "OpenCode could not complete the request.")
+                emit("error", text=plain_text(detail) or "OpenCode could not complete the request.")
         code = child.wait(timeout=max(1, deadline - time.monotonic()))
         stderr_thread.join(timeout=1)
         if cancelled:
@@ -219,8 +323,8 @@ def run(request):
             emit("done")
             return
         if not failed and (code or not answered):
-            raise RuntimeError("OpenCode returned no reply. Check your provider with 'opencode auth login'. "
-                               + "".join(errors)[-1600:])
+            raise RuntimeError("OpenCode returned no reply. Check the selected model and Ollama/OpenCode availability. "
+                               + plain_text("".join(errors))[-1600:])
         emit("done")
     finally:
         stop()

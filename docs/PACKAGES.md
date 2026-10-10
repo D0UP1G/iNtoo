@@ -209,7 +209,7 @@ Not installed by default, but useful. The shell handles their absence gracefully
 | Package | Purpose | Used by |
 |---------|---------|---------|
 | `warp-cli` | Cloudflare WARP VPN toggle | Quick toggles panel |
-| `ollama` | Local LLM for AI chat | Sidebar AI assistant |
+| `ollama` | Local LLM runtime (official installer, offered by `./setup install`) | Sidebar AI assistant, Super+S mascot assistant |
 | `opencode` | OpenCode 1.x CLI (`opencode-ai@1` via npm) | Super+S mascot assistant |
 | `whisper-cpp` | Local speech-to-text, no API key needed | Voice input and voice search |
 | `cava` | Audio visualizer | Bar widget (optional) |

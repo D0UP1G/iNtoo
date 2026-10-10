@@ -736,7 +736,7 @@ Singleton {
 
             property JsonObject mascot: JsonObject {
                 property JsonObject assistant: JsonObject {
-                    property string model: "" // Empty: use OpenCode's configured model
+                    property string model: "ollama/qwen3.5:0.8b"
                 }
                 property bool enable: false // Show the iNtoo mascot illustration across shell surfaces (empty states, About, etc.)
                 property JsonObject surfaces: JsonObject {

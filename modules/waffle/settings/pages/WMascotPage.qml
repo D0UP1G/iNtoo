@@ -15,12 +15,12 @@ WSettingsPage {
 
         WSettingsInfoBar {
             severity: WSettingsInfoBar.Severity.Info
-            message: Translation.tr("Open the companion with Super+S. It uses original in-project graphics. The upstream iNiR mascot artwork is not included in iNtoo. Connect a provider in your terminal: opencode auth login")
+            message: Translation.tr("Open the companion with Super+S. It uses local Ollama Qwen 3.5 0.8B by default. The model downloads on first use; no API key is needed.")
         }
         WSettingsTextField {
-            label: Translation.tr("OpenCode model")
+            label: Translation.tr("Assistant model")
             icon: "smart_toy"
-            placeholderText: Translation.tr("provider/model; empty uses OpenCode's default")
+            placeholderText: Translation.tr("provider/model; default: ollama/qwen3.5:0.8b")
             text: Config.options?.mascot?.assistant?.model ?? ""
             onEditingFinished: newText => Config.setNestedValue("mascot.assistant.model", newText.trim())
         }

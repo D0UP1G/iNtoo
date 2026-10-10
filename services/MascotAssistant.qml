@@ -93,7 +93,7 @@ Singleton {
         }
         onExited: code => {
             if (!root.receivedEvent && code !== 0)
-                root.append("error", Translation.tr("The assistant could not start. Check Python and OpenCode."));
+                root.append("error", Translation.tr("The assistant could not start. Check Python, OpenCode, and Ollama."));
             root.busy = false;
             root.status = "";
         }
