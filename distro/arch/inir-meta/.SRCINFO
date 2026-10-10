@@ -1,6 +1,6 @@
 pkgbase = inir-meta
 	pkgdesc = Full iNtoo desktop experience meta-package
-	pkgver = 2.32.0
+	pkgver = 2.32.2
 	pkgrel = 1
 	url = https://github.com/D0UP1G/iNtoo
 	arch = any
