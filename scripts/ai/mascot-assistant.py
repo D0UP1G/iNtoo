@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 
 ANSI_ESCAPE = re.compile(r"\x1B(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1B\\))")
 DEFAULT_MODEL = "ollama/qwen3.5:0.8b"
+MODEL_PATTERN = re.compile(r"[\w.-]+/[\w./:-]+")
 
 
 def emit(kind, **values):
@@ -196,10 +197,7 @@ def configure_provider(config, provider_id, model_id, base_url="", api_format="o
     config["provider"] = {provider_id: provider}
 
 
-def run(request):
-    message = str(request.get("message", "")).strip()
-    if not message or len(message) > 16000:
-        raise ValueError("Message must contain 1–16000 characters")
+def opencode_binary():
     home = Path.home()
     binary = shutil.which("opencode")
     if binary is None:
@@ -221,6 +219,91 @@ def run(request):
         raise RuntimeError("Could not determine the OpenCode version. Run 'opencode --version'.")
     if version_match.group(1) != "1":
         raise RuntimeError("The desktop companion currently needs OpenCode 1.x; install opencode-ai@1.")
+    return binary
+
+
+def resolve_model(request):
+    provider = str(request.get("provider", "")).strip().lower()
+    model = str(request.get("model", "")).strip()
+    if not model:
+        if provider and provider != "ollama":
+            raise ValueError(f"Choose a model for {provider} before sending a message.")
+        model = DEFAULT_MODEL
+    if provider:
+        if "/" not in model:
+            model = f"{provider}/{model}"
+        elif model.split("/", 1)[0].lower() != provider:
+            raise ValueError(f"The model does not match the selected provider {provider}. "
+                             f"Choose a model in the form {provider}/model.")
+    if not MODEL_PATTERN.fullmatch(model):
+        raise ValueError("Model must have the form provider/model")
+    provider_id, model_id = model.split("/", 1)
+    return provider_id.lower(), model_id
+
+
+def opencode_environment(config):
+    env = os.environ.copy()
+    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
+    # Keep inherited CLI environment from overriding the per-message policy.
+    env.pop("OPENCODE_PERMISSION", None)
+    env.pop("OPENCODE_AUTO_SHARE", None)
+    env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+    home = Path.home()
+    # Keep OpenCode 1.x separate from the v2 CLI/Desktop database.
+    assistant_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "inir/assistant"
+    assistant_home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(assistant_home, 0o700)
+    env["OPENCODE_DB"] = str(assistant_home / "opencode.db")
+    # Project instructions must not authorize system actions.
+    workspace = assistant_home / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(workspace, 0o700)
+    env["PWD"] = str(workspace)
+    return env, workspace
+
+
+def discover_models(request):
+    """List OpenCode models and installed Ollama models without pulling any."""
+    models = {DEFAULT_MODEL}
+    errors = []
+    try:
+        tags = ollama_json(ollama_base_url() + "/api/tags", timeout=2)
+        for item in tags.get("models", []):
+            model = "ollama/" + str(item.get("name") or item.get("model") or "")
+            if MODEL_PATTERN.fullmatch(model):
+                models.add(model)
+    except (OSError, ValueError):
+        pass  # Ollama may be stopped; the default model still works on first use.
+    try:
+        config = runtime_config(False)
+        if request.get("provider") and request.get("apiBase"):
+            provider_id, model_id = resolve_model(request)
+            configure_provider(config, provider_id, model_id, request["apiBase"],
+                               request.get("apiFormat", "openai"))
+        env, workspace = opencode_environment(config)
+        result = subprocess.run([opencode_binary(), "models", "--pure"],
+                                env=env, cwd=workspace, capture_output=True,
+                                text=True, timeout=30, check=False)
+        if result.returncode:
+            raise RuntimeError(plain_text(result.stderr or result.stdout)[-1200:]
+                               or "OpenCode could not list models.")
+        for line in plain_text(result.stdout).splitlines():
+            model = line.strip()
+            if MODEL_PATTERN.fullmatch(model):
+                models.add(model)
+    except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
+        errors.append(str(error))
+    emit("catalog", models=sorted(models), error="\n".join(errors))
+
+
+def run(request):
+    message = str(request.get("message", "")).strip()
+    if not message or len(message) > 16000:
+        raise ValueError("Message must contain 1–16000 characters")
+    provider_id, model_id = resolve_model(request)
+    model = f"{provider_id}/{model_id}"
+    home = Path.home()
+    binary = opencode_binary()
     context = {"conversation": request.get("conversation", [])[-20:]}
     if request.get("includeHistory") is True:
         context["saved_command_history"] = recent_commands(
@@ -230,15 +313,7 @@ def run(request):
     configured_provider = str(request.get("provider", "")).strip().lower()
     api_base = str(request.get("apiBase", "")).strip()
     api_format = str(request.get("apiFormat", "")).strip().lower() or "openai"
-    model = str(request.get("model", "")).strip() or DEFAULT_MODEL
-    if configured_provider and "/" not in model:
-        model = f"{configured_provider}/{model}"
-    if not re.fullmatch(r"[\w.-]+/[\w./:-]+", model):
-        raise ValueError("Model must have the form provider/model")
-    provider_id, model_id = model.split("/", 1)
-    provider_id = provider_id.lower()
     local_ollama_url = ensure_ollama_model(model_id) if provider_id == "ollama" else ""
-    env = os.environ.copy()
     agent = "inir-mascot-" + uuid.uuid4().hex
     config = runtime_config(request.get("allowActions") is True, agent)
     if local_ollama_url:
@@ -246,25 +321,9 @@ def run(request):
                            "Ollama (local)")
     elif configured_provider and api_base:
         configure_provider(config, provider_id, model_id, api_base, api_format)
-    env["OPENCODE_CONFIG_CONTENT"] = json.dumps(config)
-    # Keep inherited CLI environment from overriding the per-message policy.
-    env.pop("OPENCODE_PERMISSION", None)
-    env.pop("OPENCODE_AUTO_SHARE", None)
-    env["OPENCODE_DISABLE_PROJECT_CONFIG"] = "true"
+    env, workspace = opencode_environment(config)
     command = [binary, "run", "--pure", "--format", "json", "--agent", agent]
     command += ["--model", model]
-    # Keep the assistant's OpenCode v1 database separate from v2 CLI/Desktop data.
-    # OpenCode 1.x cannot open a v2 database that contains session_v2 but no session.
-    assistant_home = Path(os.environ.get("XDG_STATE_HOME", home / ".local/state")) / "inir/assistant"
-    assistant_home.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(assistant_home, 0o700)
-    env["OPENCODE_DB"] = str(assistant_home / "opencode.db")
-
-    # Use a private workspace so project instructions cannot authorize system actions.
-    workspace = assistant_home / "workspace"
-    workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(workspace, 0o700)
-    env["PWD"] = str(workspace)
     command += ["--dir", str(workspace)]
     child = subprocess.Popen(command, cwd=workspace, env=env, stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -360,7 +419,10 @@ def main():
         request = json.loads(raw)
         if not isinstance(request, dict):
             raise ValueError("Expected a JSON request")
-        run(request)
+        if "--list-models" in sys.argv[1:]:
+            discover_models(request)
+        else:
+            run(request)
     except (ValueError, OSError, RuntimeError, subprocess.SubprocessError) as error:
         emit("error", text=str(error))
         return 1

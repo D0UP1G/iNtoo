@@ -8879,5 +8879,13 @@
   "iNtoo Settings": "Настройки iNtoo",
   "Over the desktop previews every change on the screen behind it. A window sits with your apps: Niri sizes, maximizes and moves it like any other.": "Поверх рабочего стола каждое изменение сразу видно на экране позади. Окно живёт рядом с приложениями: Niri меняет его размер, разворачивает и перемещает, как любое другое.",
   "Open over the desktop": "Открыть поверх рабочего стола",
-  "Open as a window": "Открыть в окне"
+  "Open as a window": "Открыть в окне",
+  "Provider": "Провайдер",
+  "Choose a model": "Выберите модель",
+  "Enter model name": "Ввести название модели",
+  "Refresh models": "Обновить список моделей",
+  "Loading models…": "Загрузка моделей…",
+  "Choose a model or enter its name. Connect a provider with: inir assistant auth": "Выберите модель или введите её название. Подключить провайдера: inir assistant auth",
+  "Could not load all models. Enter a model name or refresh after connecting with: inir assistant auth": "Не удалось загрузить все модели. Введите название вручную или обновите список после подключения через inir assistant auth",
+  "Could not load models. Check OpenCode or enter a model name.": "Не удалось загрузить модели. Проверьте OpenCode или введите название модели вручную."
 }

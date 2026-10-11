@@ -12,6 +12,7 @@ import qs.services
 
 PanelWindow {
     id: root
+    property bool editingModel: false
     screen: Quickshell.screens.find(s => s.name === NiriService.currentOutput) ?? Quickshell.screens[0]
     visible: MascotAssistant.opened && !GlobalStates.screenLocked
     color: "transparent"
@@ -24,7 +25,7 @@ PanelWindow {
         right: 24
     }
     implicitWidth: Math.max(280, Math.min(570, (screen?.width ?? 640) - 48))
-    implicitHeight: Math.max(300, Math.min(490, (screen?.height ?? 600) - 56))
+    implicitHeight: Math.max(300, Math.min(560, (screen?.height ?? 640) - 56))
     exclusiveZone: 0
     WlrLayershell.namespace: "quickshell:mascotAssistant"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -202,6 +203,120 @@ PanelWindow {
                         onClicked: MascotAssistant.opened = false
                     }
                 }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    ColumnLayout {
+                        Layout.preferredWidth: card.width * 0.35
+                        Layout.minimumWidth: 0
+                        spacing: 4
+                        StyledText {
+                            text: Translation.tr("Provider")
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledComboBox {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            enableSettingsSearch: false
+                            enabled: !MascotAssistant.busy
+                            model: MascotAssistant.providers
+                            textRole: "label"
+                            valueRole: "value"
+                            currentIndex: MascotAssistant.providers.findIndex(provider => provider.value === MascotAssistant.providerId)
+                            Accessible.name: Translation.tr("Provider")
+                            onActivated: index => {
+                                root.editingModel = false;
+                                MascotAssistant.selectProvider(MascotAssistant.providers[index].value);
+                            }
+                        }
+                    }
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        spacing: 4
+                        StyledText {
+                            text: Translation.tr("Model")
+                            font.pixelSize: Appearance.font.pixelSize.smaller
+                            color: Appearance.colors.colSubtext
+                        }
+                        StyledComboBox {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            enableSettingsSearch: false
+                            enabled: !MascotAssistant.busy && MascotAssistant.modelOptions.length > 0
+                            model: MascotAssistant.modelOptions
+                            textRole: "label"
+                            valueRole: "value"
+                            currentIndex: MascotAssistant.modelOptions.findIndex(model => model.value === MascotAssistant.selectedModel)
+                            displayText: currentIndex >= 0 ? currentText : Translation.tr("Choose a model")
+                            Accessible.name: Translation.tr("Model")
+                            ToolTip.visible: hovered && currentIndex >= 0
+                            ToolTip.text: MascotAssistant.selectedModel
+                            onActivated: index => MascotAssistant.selectModel(MascotAssistant.modelOptions[index].value)
+                        }
+                    }
+                    RippleButton {
+                        Layout.alignment: Qt.AlignBottom
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 38
+                        enabled: !MascotAssistant.busy
+                        Accessible.name: Translation.tr("Enter model name")
+                        contentItem: MaterialSymbol {
+                            text: "edit"
+                            iconSize: 18
+                            color: Appearance.colors.colPrimary
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: Translation.tr("Enter model name")
+                        onClicked: {
+                            root.editingModel = !root.editingModel;
+                            if (root.editingModel)
+                                Qt.callLater(() => modelInput.forceActiveFocus());
+                        }
+                    }
+                    RippleButton {
+                        Layout.alignment: Qt.AlignBottom
+                        Layout.preferredWidth: 32
+                        Layout.preferredHeight: 38
+                        enabled: !MascotAssistant.loadingModels && !MascotAssistant.busy
+                        Accessible.name: Translation.tr("Refresh models")
+                        contentItem: MaterialSymbol {
+                            text: "refresh"
+                            iconSize: 18
+                            color: Appearance.colors.colPrimary
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.text: Translation.tr("Refresh models")
+                        onClicked: MascotAssistant.refreshModels()
+                    }
+                }
+                MaterialTextField {
+                    id: modelInput
+                    visible: root.editingModel
+                    Layout.fillWidth: true
+                    enabled: !MascotAssistant.busy
+                    enableSettingsSearch: false
+                    Accessible.name: Translation.tr("Enter model name")
+                    placeholderText: MascotAssistant.providerId + "/model"
+                    text: MascotAssistant.modelReady ? MascotAssistant.selectedModel : ""
+                    onEditingFinished: MascotAssistant.selectModel(text)
+                    onAccepted: {
+                        MascotAssistant.selectModel(text);
+                        root.editingModel = false;
+                        input.forceActiveFocus();
+                    }
+                }
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: MascotAssistant.loadingModels || !MascotAssistant.modelReady || MascotAssistant.catalogError.length > 0
+                    text: MascotAssistant.loadingModels ? Translation.tr("Loading models…")
+                        : !MascotAssistant.modelReady ? Translation.tr("Choose a model or enter its name. Connect a provider with: inir assistant auth")
+                        : Translation.tr("Could not load all models. Enter a model name or refresh after connecting with: inir assistant auth")
+                    font.pixelSize: Appearance.font.pixelSize.smaller
+                    color: Appearance.colors.colSubtext
+                    wrapMode: Text.WordWrap
+                }
                 StyledText {
                     visible: MascotAssistant.messages.length === 0
                     Layout.fillWidth: true
@@ -298,6 +413,7 @@ PanelWindow {
                 RippleButton {
                     Layout.fillWidth: true
                     visible: MascotAssistant.messages.length === 0
+                    enabled: !MascotAssistant.busy && MascotAssistant.modelReady
                     buttonText: Translation.tr("Explain my recent terminal commands")
                     onClicked: {
                         history.includeHistory = true;
@@ -319,7 +435,7 @@ PanelWindow {
                     }
                     RippleButton {
                         buttonText: MascotAssistant.busy ? Translation.tr("Stop") : Translation.tr("Send")
-                        enabled: MascotAssistant.busy || input.text.trim().length > 0
+                        enabled: MascotAssistant.busy || (MascotAssistant.modelReady && input.text.trim().length > 0)
                         onClicked: MascotAssistant.busy ? MascotAssistant.cancel() : root.submit()
                     }
                 }

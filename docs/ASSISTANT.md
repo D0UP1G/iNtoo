@@ -15,11 +15,18 @@ The companion defaults to the local Ollama model `qwen3.5:0.8b` (0.8B parameters
 On the first message, it starts Ollama if needed and downloads the model automatically.
 The download is about 1.2 GB and requires internet access; inference then runs locally
 without an API key. `./setup install` offers to install [Ollama](https://ollama.com/download);
-with `--skip-deps`, install it separately. Override the model in Settings → Mascot, or set
+with `--skip-deps`, install it separately. Use the **Provider** and **Model** dropdowns
+at the top of the chat to change who answers. The list loads from OpenCode and
+includes installed Ollama models. **Refresh models** reloads it after connecting
+a provider; browsing the list does not start Ollama or download models. The pencil
+button accepts a model name manually, including `provider/model` identifiers.
+Choices are saved for the next message and survive a shell restart. Switching
+providers selects a matching model or asks you to enter one, and clears any custom
+endpoint from the previous provider. You can also override the model in Settings → Mascot, or set
 `mascot.assistant.model` to a `provider/model` identifier in
 `~/.config/inir/config.json`.
 
-Settings → Mascot also chooses the provider independently of the model. Set
+Settings → Mascot also configures the provider and custom endpoint. Set
 `mascot.assistant.provider` to a provider id (for example `openai`, `anthropic` or
 `google`) and optionally `mascot.assistant.apiBase` to any OpenAI-compatible base URL;
 `mascot.assistant.apiFormat` picks the protocol (`openai`, `anthropic` or `google`).

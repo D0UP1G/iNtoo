@@ -138,6 +138,71 @@ print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
         self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
                          "openai/gpt-4.1-mini")
 
+    def test_provider_mismatch_does_not_fall_back_to_ollama(self):
+        self.capture_stub()
+        result, events = self.request(provider="openai", model="ollama/qwen3.5:0.8b")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("selected provider openai", events[-1]["text"])
+        self.assertFalse((self.home / "capture.json").exists())
+
+    def test_cloud_provider_requires_a_model(self):
+        self.capture_stub()
+        result, events = self.request(provider="openai", model="")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Choose a model for openai", events[-1]["text"])
+        self.assertFalse((self.home / "capture.json").exists())
+
+    def test_nested_model_id_is_preserved(self):
+        self.capture_stub()
+        result, _events = self.request(provider="openrouter", model="openrouter/vendor/model:free")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        capture = json.loads((self.home / "capture.json").read_text())
+        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
+                         "openrouter/vendor/model:free")
+
+    def test_catalog_lists_opencode_and_installed_ollama_models(self):
+        self.stub('''import json, os, sys
+from pathlib import Path
+Path(os.environ["CAPTURE"]).write_text(json.dumps({"argv": sys.argv,
+    "config": json.loads(os.environ["OPENCODE_CONFIG_CONTENT"]), "cwd": os.getcwd(),
+    "database": os.environ["OPENCODE_DB"]}))
+print("openai/gpt-4.1-mini\\nopenrouter/vendor/model:free\\nopenai/gpt-4.1-mini\\ninvalid output")
+''')
+        events = []
+        with patch.dict(os.environ, self.env, clear=True), \
+                patch.object(companion, "ollama_json", return_value={"models": [{"name": "local-model:latest"}]}), \
+                patch.object(companion, "ensure_ollama_model", side_effect=AssertionError("Discovery must not pull models")), \
+                patch.object(companion, "emit", side_effect=lambda kind, **values: events.append({"type": kind, **values})):
+            companion.discover_models({})
+        self.assertEqual(events, [{"type": "catalog", "error": "", "models": [
+            "ollama/local-model:latest", "ollama/qwen3.5:0.8b",
+            "openai/gpt-4.1-mini", "openrouter/vendor/model:free"]}])
+        capture = json.loads((self.home / "capture.json").read_text())
+        self.assertEqual(capture["argv"][1:], ["models", "--pure"])
+        self.assertEqual(capture["database"], str(self.home / "state/inir/assistant/opencode.db"))
+        self.assertEqual(capture["config"]["permission"], {"*": "deny"})
+
+    def test_catalog_registers_custom_endpoint(self):
+        self.capture_stub()
+        with patch.dict(os.environ, self.env, clear=True), \
+                patch.object(companion, "ollama_json", side_effect=OSError("Stopped")), \
+                patch.object(companion, "emit"):
+            companion.discover_models({"provider": "custom", "model": "custom/my-model",
+                                       "apiBase": "http://localhost:8000/v1", "apiFormat": "openai"})
+        capture = json.loads((self.home / "capture.json").read_text())
+        self.assertEqual(capture["config"]["provider"]["custom"]["options"]["baseURL"],
+                         "http://localhost:8000/v1")
+
+    def test_catalog_keeps_ollama_models_when_opencode_fails(self):
+        events = []
+        with patch.dict(os.environ, self.env, clear=True), \
+                patch.object(companion, "opencode_binary", side_effect=RuntimeError("OpenCode unavailable")), \
+                patch.object(companion, "ollama_json", return_value={"models": [{"name": "local-model:latest"}]}), \
+                patch.object(companion, "emit", side_effect=lambda kind, **values: events.append({"type": kind, **values})):
+            companion.discover_models({})
+        self.assertEqual(events[0]["models"], ["ollama/local-model:latest", "ollama/qwen3.5:0.8b"])
+        self.assertIn("OpenCode unavailable", events[0]["error"])
+
     def test_model_and_empty_message_errors(self):
         self.capture_stub()
         for values in ({"model": "invalid model"}, {"message": " "}):

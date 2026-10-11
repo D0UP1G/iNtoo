@@ -1,9 +1,13 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
 import qs.modules.waffle.settings
 import qs.modules.common
+import qs.services
 
 WSettingsPage {
+    id: root
     settingsPageIndex: 14
     pageTitle: Translation.tr("Mascot")
     pageIcon: "pets"
@@ -30,18 +34,22 @@ WSettingsPage {
                 { value: "openai", displayName: "OpenAI" },
                 { value: "anthropic", displayName: "Anthropic" },
                 { value: "google", displayName: "Google" },
+                { value: "github-copilot", displayName: "GitHub Copilot" },
+                { value: "openrouter", displayName: "OpenRouter" },
                 { value: "groq", displayName: "Groq" },
                 { value: "mistral", displayName: "Mistral" },
                 { value: "opencode", displayName: "OpenCode" }
             ]
             currentValue: Config.options?.mascot?.assistant?.provider ?? ""
-            onSelected: newValue => Config.setNestedValue("mascot.assistant.provider", newValue)
+            onSelected: newValue => MascotAssistant.selectProvider(newValue)
         }
 
         WSettingsTextField {
             label: Translation.tr("Assistant model")
             icon: "smart_toy"
-            placeholderText: Translation.tr("provider/model; default: ollama/qwen3.5:0.8b")
+            placeholderText: root.assistantProvider && root.assistantProvider !== "ollama"
+                ? root.assistantProvider + "/model"
+                : Translation.tr("provider/model; default: ollama/qwen3.5:0.8b")
             text: Config.options?.mascot?.assistant?.model ?? ""
             onEditingFinished: newText => Config.setNestedValue("mascot.assistant.model", newText.trim())
         }
@@ -68,4 +76,5 @@ WSettingsPage {
             ]
         }
     }
+    Component.onCompleted: MascotAssistant.refreshModels()
 }

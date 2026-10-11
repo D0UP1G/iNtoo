@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Layouts
 import qs.modules.common
@@ -5,6 +7,7 @@ import qs.modules.common.widgets
 import qs.services
 
 ContentPage {
+    id: root
     settingsPageIndex: 19
     settingsPageName: Translation.tr("Mascot")
 
@@ -32,13 +35,15 @@ ContentPage {
                 ConfigSelectionArray {
                     enableSettingsSearch: false
                     currentValue: Config.options?.mascot?.assistant?.provider ?? ""
-                    onSelected: newValue => Config.setNestedValue("mascot.assistant.provider", newValue)
+                    onSelected: newValue => MascotAssistant.selectProvider(newValue)
                     options: [
                         { displayName: Translation.tr("From model name"), icon: "auto_awesome", value: "" },
                         { displayName: "Ollama", icon: "ollama-symbolic", value: "ollama" },
                         { displayName: "OpenAI", icon: "openai-symbolic", value: "openai" },
                         { displayName: "Anthropic", icon: "anthropic-symbolic", value: "anthropic" },
                         { displayName: "Google", icon: "google-gemini-symbolic", value: "google" },
+                        { displayName: "GitHub Copilot", icon: "code", value: "github-copilot" },
+                        { displayName: "OpenRouter", icon: "spark-symbolic", value: "openrouter" },
                         { displayName: "Groq", icon: "spark-symbolic", value: "groq" },
                         { displayName: "Mistral", icon: "mistral-symbolic", value: "mistral" },
                         { displayName: "OpenCode", icon: "code", value: "opencode" }
@@ -52,7 +57,9 @@ ContentPage {
 
                 MaterialTextField {
                     Layout.fillWidth: true
-                    placeholderText: Translation.tr("Assistant model; default: ollama/qwen3.5:0.8b")
+                    placeholderText: root.assistantProvider && root.assistantProvider !== "ollama"
+                        ? root.assistantProvider + "/model"
+                        : Translation.tr("Assistant model; default: ollama/qwen3.5:0.8b")
                     text: Config.options?.mascot?.assistant?.model ?? ""
                     onEditingFinished: Config.setNestedValue("mascot.assistant.model", text.trim())
                 }
@@ -92,4 +99,5 @@ ContentPage {
             }
         }
     }
+    Component.onCompleted: MascotAssistant.refreshModels()
 }
