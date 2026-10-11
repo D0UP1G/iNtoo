@@ -2865,7 +2865,14 @@ run_update() {
     repair_update_owned_state false
 
     _step_phase_header 4 "Finalizing"
-    if inir_user_service_is_masked; then
+    if ! inir_uses_systemd; then
+        if inir_sync_niri_startup enable; then
+            tui_success "OpenRC session startup verified"
+        else
+            _report_update_failure 48 "Could not refresh OpenRC session startup"
+            return 1
+        fi
+    elif inir_user_service_is_masked; then
         tui_warn "User inir.service is masked; leaving it unchanged (restore with: intoo service install && intoo service enable)"
     else
         _service_refresh_status=1

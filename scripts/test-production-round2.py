@@ -141,6 +141,7 @@ python3(){ if [[ "$*" == *'runtime-payload.py copy'* ]]; then return 0; fi; comm
 '''
         for name in ('generate_manifest', 'cleanup_orphans', 'repair_update_owned_state',
                      'sync_launcher_from_repo', 'sync_user_desktop_integration_from_repo',
+                     'inir_sync_niri_startup',
                      'refresh_sddm_theme_on_update', 'extras_refresh_yamis_icons_on_update',
                      'install_dir', 'show_session_impact_notices', 'show_update_completion',
                      '_step_phase_start', '_step_phase_header', '_step_phase_done',
@@ -236,6 +237,45 @@ if run_update; then exit 11; fi
 [[ "$(get_installed_commit)" == oldcommit ]] || exit 12
 [[ "$(cat "$_update_status_file")" == failed:46:* ]] || exit 13
 [[ -f "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]]
+'''
+        self.success(self.bash(code))
+
+    def test_update_finalizes_openrc_without_systemd_wiring(self):
+        code = self.update_code() + '''
+inir_user_service_is_masked(){ touch "$HOME/systemd-called"; return 0; }
+sync_user_inir_service_from_repo_if_present(){ touch "$HOME/systemd-called"; }
+ensure_user_inir_service_enabled(){ touch "$HOME/systemd-called"; return 1; }
+inir_sync_niri_startup(){ [[ "$1" == enable ]] || return 1; touch "$HOME/startup-refreshed"; }
+run_update || exit 11
+[[ -e "$HOME/startup-refreshed" && ! -e "$HOME/systemd-called" ]] || exit 12
+[[ "$(cat "$_update_status_file")" == success ]]
+'''
+        self.success(self.bash(code))
+
+    def test_update_reports_openrc_startup_failure_and_retries(self):
+        code = self.update_code() + '''
+attempt=0
+inir_sync_niri_startup(){ attempt=$((attempt+1)); (( attempt > 1 )); }
+if run_update; then exit 11; fi
+[[ "$(get_installed_commit)" == oldcommit ]] || exit 12
+[[ "$(cat "$_update_status_file")" == failed:48:* ]] || exit 13
+[[ -f "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]] || exit 14
+run_update || exit 15
+[[ "$attempt" -eq 2 && "$(get_installed_commit)" == newcommit ]] || exit 16
+[[ "$(cat "$_update_status_file")" == success ]] || exit 17
+[[ ! -e "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]]
+'''
+        self.success(self.bash(code))
+
+    def test_update_keeps_systemd_service_wiring(self):
+        code = self.update_code() + '''
+inir_uses_systemd(){ return 0; }
+inir_sync_niri_startup(){ touch "$HOME/openrc-called"; return 1; }
+sync_user_inir_service_from_repo_if_present(){ touch "$HOME/service-refreshed"; }
+ensure_user_inir_service_enabled(){ touch "$HOME/service-enabled"; }
+run_update || exit 11
+[[ -e "$HOME/service-refreshed" && -e "$HOME/service-enabled" ]] || exit 12
+[[ ! -e "$HOME/openrc-called" && "$(cat "$_update_status_file")" == success ]]
 '''
         self.success(self.bash(code))
 
