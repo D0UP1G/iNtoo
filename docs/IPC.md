@@ -50,11 +50,24 @@ Desktop companion with a compact OpenCode chat, available in every panel family.
 | `close` | Close the companion; a running reply continues |
 | `current` | Return `open` or `closed` |
 
+`inir assistant auth` is a runtime subcommand rather than an IPC function: it runs
+OpenCode's own `auth login` against the companion database.
+
 ```kdl
 Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }
 ```
 
 See [the assistant guide](ASSISTANT.md) for provider setup and command history.
+
+### mascotMood
+
+Session-long companion mood. The mood colors commentary but never changes tool
+permissions or the selected model.
+
+| Function | Description |
+|----------|-------------|
+| `set` | Set the current mood: `neutral`, `sleepy`, `hyper`, `snarky` or `contemplative` |
+| `current` | Return the current mood id |
 
 ### dev
 

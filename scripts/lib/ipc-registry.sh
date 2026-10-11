@@ -2,7 +2,7 @@
 # Auto-generated from QML IpcHandler declarations + docs/IPC.md metadata.
 # Do not edit manually.
 # Regenerate: python3 scripts/lib/generate-ipc-registry.py
-# IPC.md hash: b41983dc0f5347e6
+# IPC.md hash: bd69ffac00bcb2b1
 # Targets: 70
 
 declare -gA IPC_TARGET_DESC=(
@@ -33,7 +33,7 @@ declare -gA IPC_TARGET_DESC=(
   [iris]="Island bar and Island design. Available while the Island bar is enabled."
   [keyboard]="Keyboard layout switching (Niri only). Cycles through configured keyboard layouts and queries layout info."
   [lock]="Lock screen. For when you need to pretend you're working."
-  [mascotMood]=""
+  [mascotMood]="Session-long companion mood. The mood colors commentary but never changes tool permissions or the selected model."
   [mediaControls]="Floating media controls panel."
   [memory]="Memory pressure monitoring for JSGCHeap accumulation (Qt V4 memfd leak). Notifies user when memory is high, lets them decide when to restart."
   [minimize]="Window minimization (Niri workaround - moves windows to hidden workspace)."
@@ -423,8 +423,8 @@ declare -gA IPC_FUNCTION_DESC=(
   ["lock:deactivate"]="Cancel lock and mark screen unlocked"
   ["lock:status"]="Return lock state (\`secure\`, \`locked\`, \`activating\`, or \`unlocked\`)"
   ["lock:focus"]="Refocus the lock screen input"
-  ["mascotMood:set"]=""
-  ["mascotMood:current"]=""
+  ["mascotMood:set"]="Set the current mood: \`neutral\`, \`sleepy\`, \`hyper\`, \`snarky\` or \`contemplative\`"
+  ["mascotMood:current"]="Return the current mood id"
   ["mediaControls:toggle"]="Open/close media controls"
   ["mediaControls:close"]="Hide media controls"
   ["mediaControls:open"]="Show media controls"
@@ -827,6 +827,7 @@ declare -gA IPC_FUNCTION_VALUES=(
   ["iris:watchSubs"]="size+ size- delay+ delay- delay0 off track: file:"
   ["iris:watchSkip"]="next previous"
   ["iris:motion"]="spotlight orbit gallery settings focus today card motioned"
+  ["mascotMood:set"]="neutral sleepy hyper snarky contemplative"
   ["mpris:select"]="next prev spotify firefox"
   ["network:simulate"]="none limited portal full"
   ["niriAnimations:apply"]="snappy niri material bouncy gentle instant"

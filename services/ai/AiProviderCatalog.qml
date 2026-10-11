@@ -5,6 +5,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.modules.common
+import qs.services
 import qs.services.deferred
 
 /**
@@ -79,12 +80,32 @@ Singleton {
         root.refreshAll()
     }
 
+    // A provider that needs a key but has none has nothing to fetch, and under
+    // memory pressure the optional online catalogs are not worth a subprocess.
+    function _needsSubprocess(provider): bool {
+        if (provider.requiresKey && !root._hasProviderKey(provider) && !provider.publicCatalog)
+            return false
+        if (MemoryPressureService.lowMemory && !provider.local && !provider.publicCatalog)
+            return false
+        return true
+    }
+
     function refreshAll(): void {
         if (root.refreshing) {
             root._pendingRefresh = true
             return
         }
-        root._queue = root.providers.filter(provider => provider.catalogKind !== "static")
+        root._queue = root.providers.filter(provider => {
+            if (provider.catalogKind === "static") return false
+            if (root._needsSubprocess(provider)) return true
+            if (provider.requiresKey && !root._hasProviderKey(provider))
+                root._setProviderState(provider.id, {
+                    status: "needs-key",
+                    error: "missing-key",
+                    hasKey: false,
+                })
+            return false
+        })
         root.refreshing = root._queue.length > 0
         root._startNext()
     }
@@ -264,8 +285,17 @@ Singleton {
         onExited: (exitCode, exitStatus) => {
             root._handleResult(root._stdout)
             root._activeProvider = null
-            Qt.callLater(root._startNext)
+            catalogStaggerTimer.restart()
         }
+    }
+
+    // Discovery is already sequential; the short gap keeps the event loop free
+    // between provider spawns instead of chaining them back to back.
+    Timer {
+        id: catalogStaggerTimer
+        interval: 60
+        repeat: false
+        onTriggered: root._startNext()
     }
 
     FileView {

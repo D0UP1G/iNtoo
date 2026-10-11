@@ -55,6 +55,13 @@ KNOWN_DUPLICATES = {
 # the waffle heading, so source location is the authoritative scope.
 KNOWN_SHARED_TARGETS = {"background"}
 
+# Subcommands implemented by scripts/inir instead of an IPC handler. The
+# generated block is the only writer of the completion file, so they have to be
+# declared here or a regeneration drops them.
+EXTRA_TARGET_COMMANDS = {
+    "assistant": [("auth", "Connect the provider for the desktop companion")],
+}
+
 
 @dataclass
 class IpcFunction:
@@ -599,6 +606,8 @@ def generate_fish(targets: list[IpcTarget], aliases: dict[str, str]) -> str:
                 lines.append(
                     f"complete -c inir -n '__inir_at_value {len(fn.args)} {fn.name} {cond}' -a {_fish_quote(' '.join(values))}"
                 )
+        for name, description in EXTRA_TARGET_COMMANDS.get(t.name, []):
+            lines.append(f"complete -c inir -n '__inir_at_function {cond}' -a {name} -d {_fish_quote(description)}")
     lines.append(FISH_END)
     return "\n".join(lines) + "\n"
 

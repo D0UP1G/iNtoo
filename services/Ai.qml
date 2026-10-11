@@ -923,13 +923,18 @@ Singleton {
         root._loadedExtraModelIds = []
         extraModels.forEach(model => {
             if (policy === 2 && !(model?.endpoint ?? "").includes("localhost")) return
-            const providerId = model?.provider_id ?? ""
-            if (providerId.length > 0 && liveProviders.includes(providerId)) return
+            // Rows shipped before provider_id existed are matched back to their
+            // curated provider by endpoint or key id, so they become fallback
+            // records instead of duplicates of the live catalog.
+            const providerId = (model?.provider_id ?? "").length > 0
+                ? model.provider_id
+                : root.providerIdForModel(model)
+            if (providerId !== "custom" && liveProviders.includes(providerId)) return
 
             // Guided provider rows are connection records, not authoritative
             // model definitions. Use the current preset as a safe offline
             // fallback so old hardcoded IDs/endpoints cannot leak back in.
-            const preset = providerId.length > 0 ? AiProviderPresets.byId(providerId) : null
+            const preset = AiProviderPresets.byId(providerId)
             const resolvedModel = preset
                 ? Object.assign({}, model, AiProviderPresets.toModelEntry(preset), {
                     key_id: model?.key_id ?? preset.keyId ?? "",
@@ -950,60 +955,79 @@ Singleton {
         return root.safeModelName((entry?.providerId ?? "catalog") + "-" + remoteId)
     }
 
+    function _catalogModelData(entry): var {
+        const provider = AiProviderCatalog.providerById(entry.providerId)
+        const state = AiProviderCatalog.stateFor(entry.providerId)
+        return {
+            name: entry.displayName ?? entry.remoteId,
+            icon: provider?.icon ?? root.guessModelLogo(entry.remoteId ?? ""),
+            description: entry.description?.length > 0
+                ? entry.description
+                : Translation.tr("Live model from %1").arg(provider?.name ?? entry.providerId),
+            homepage: entry.providerId === "openrouter"
+                ? `https://openrouter.ai/${entry.remoteId}`
+                : (provider?.keyGetLink ?? ""),
+            endpoint: entry.endpoint,
+            model: entry.remoteId,
+            requires_key: !!entry.requiresKey,
+            key_id: entry.keyId ?? provider?.keyId ?? "",
+            key_get_link: provider?.keyGetLink ?? "",
+            key_get_description: provider?.description ?? "",
+            api_format: entry.apiFormat ?? provider?.api_format ?? "openai",
+            auth_scheme: entry.authScheme ?? provider?.authScheme ?? "strategy",
+            provider_id: entry.providerId ?? "catalog",
+            local: !!entry.local,
+            free: !!entry.free,
+            input_modalities: entry.inputModalities ?? ["text"],
+            output_modalities: entry.outputModalities ?? ["text"],
+            capabilities: entry.capabilities ?? ({}),
+            context_tokens: entry.contextTokens ?? 0,
+            max_output_tokens: entry.maxOutputTokens ?? 0,
+            pricing: entry.pricing ?? ({}),
+            expires_at: entry.expiresAt ?? "",
+            catalog_status: state.status ?? "available",
+            catalog_source: entry.source ?? "live",
+            catalog_public: !!provider?.publicCatalog,
+            refreshed_at: state.fetchedAt ?? 0,
+        }
+    }
+
+    // Refreshing the catalog used to destroy and rebuild every AiModel, which
+    // churned thousands of objects whenever one provider answered. Update the
+    // existing objects in place and only create or drop what changed.
     function _syncCatalogModels() {
         const policy = Config.options?.policies?.ai ?? 0
-        root._loadedCatalogModelIds.forEach(id => {
-            const old = root.models[id]
-            if (!old) return
-            delete root.models[id]
-            old.destroy()
-        })
-        root._loadedCatalogModelIds = []
-
-        const providerCounts = ({})
+        const next = ({})
         for (const entry of (AiProviderCatalog.models ?? [])) {
             if (policy === 2 && !entry.local) continue
-            const provider = AiProviderCatalog.providerById(entry.providerId)
-            const state = AiProviderCatalog.stateFor(entry.providerId)
-            // Public catalogs stay visible even before connection. Runnable
-            // state is evaluated separately from catalog visibility.
             const id = root._catalogModelId(entry)
-            if (!id || (root.models[id] && !root._loadedCatalogModelIds.includes(id))) continue
-            providerCounts[entry.providerId] = (providerCounts[entry.providerId] ?? 0) + 1
-            root.addModel(id, {
-                name: entry.displayName ?? entry.remoteId,
-                icon: provider?.icon ?? root.guessModelLogo(entry.remoteId ?? ""),
-                description: entry.description?.length > 0
-                    ? entry.description
-                    : Translation.tr("Live model from %1").arg(provider?.name ?? entry.providerId),
-                homepage: entry.providerId === "openrouter"
-                    ? `https://openrouter.ai/${entry.remoteId}`
-                    : (provider?.keyGetLink ?? ""),
-                endpoint: entry.endpoint,
-                model: entry.remoteId,
-                requires_key: !!entry.requiresKey,
-                key_id: entry.keyId ?? provider?.keyId ?? "",
-                key_get_link: provider?.keyGetLink ?? "",
-                key_get_description: provider?.description ?? "",
-                api_format: entry.apiFormat ?? provider?.api_format ?? "openai",
-                auth_scheme: entry.authScheme ?? provider?.authScheme ?? "strategy",
-                provider_id: entry.providerId ?? "catalog",
-                local: !!entry.local,
-                free: !!entry.free,
-                input_modalities: entry.inputModalities ?? ["text"],
-                output_modalities: entry.outputModalities ?? ["text"],
-                capabilities: entry.capabilities ?? ({}),
-                context_tokens: entry.contextTokens ?? 0,
-                max_output_tokens: entry.maxOutputTokens ?? 0,
-                pricing: entry.pricing ?? ({}),
-                expires_at: entry.expiresAt ?? "",
-                catalog_status: state.status ?? "available",
-                catalog_source: entry.source ?? "live",
-                catalog_public: !!provider?.publicCatalog,
-                refreshed_at: state.fetchedAt ?? 0,
-            })
-            root._loadedCatalogModelIds.push(id)
+            if (!id || next[id]) continue
+            next[id] = entry
         }
+
+        const loaded = []
+        const previous = ({})
+        for (const id of root._loadedCatalogModelIds) previous[id] = true
+        for (const id of Object.keys(next)) {
+            const existing = root.models[id]
+            const wasCatalogModel = previous[id] === true
+            if (existing && !wasCatalogModel) continue // a configured model owns this id
+            if (existing) {
+                const data = root._catalogModelData(next[id])
+                for (const key of Object.keys(data)) existing[key] = data[key]
+            } else {
+                root.addModel(id, root._catalogModelData(next[id]))
+            }
+            loaded.push(id)
+        }
+        for (const id of root._loadedCatalogModelIds) {
+            if (next[id]) continue
+            const stale = root.models[id]
+            if (!stale) continue
+            delete root.models[id]
+            stale.destroy()
+        }
+        root._loadedCatalogModelIds = loaded
         root.modelList = Object.keys(root.models)
         // Prefer the persisted model whenever it becomes runnable, but never
         // rewrite persistence merely because catalog discovery is still racing.
@@ -1199,19 +1223,40 @@ Singleton {
         promptLoader.reload();
     }
 
+    // The transcript is the shell's largest long-lived collection. Keep the
+    // newest messages and destroy the rest so a long session cannot grow RSS.
+    readonly property int maxTranscriptMessages: 200
+    // Tool output reaches the model three times (content, rawContent,
+    // functionResponse); cap each copy instead of carrying whole shell dumps.
+    readonly property int toolOutputLimit: 16384
+
+    function _trimTranscript(): void {
+        while (root.messageIDs.length > root.maxTranscriptMessages) {
+            const oldest = root.messageIDs[0];
+            root.messageIDs = root.messageIDs.slice(1);
+            root.messageByID[oldest]?.destroy();
+            delete root.messageByID[oldest];
+        }
+    }
+
+    function _storeMessage(aiMessage): string {
+        const id = idForMessage(aiMessage);
+        root.messageIDs = [...root.messageIDs, id];
+        root.messageByID[id] = aiMessage;
+        root._trimTranscript();
+        return id;
+    }
+
     function addMessage(message, role) {
         if (message.length === 0) return;
         if (role === root.interfaceRole) root._lastInterfaceMessage = message;
-        const aiMessage = aiMessageComponent.createObject(root, {
+        root._storeMessage(aiMessageComponent.createObject(root, {
             "role": role,
             "content": message,
             "rawContent": message,
             "thinking": false,
             "done": true,
-        });
-        const id = idForMessage(aiMessage);
-        root.messageIDs = [...root.messageIDs, id];
-        root.messageByID[id] = aiMessage;
+        }));
     }
 
     function removeMessage(index) {
@@ -1325,7 +1370,14 @@ Singleton {
             root.addApiKeyAdvice(model)
             return;
         }
-        KeyringStorage.setNestedField(["apiKeys", model.key_id], key.trim())
+        // A pasted key can carry a trailing newline; the keyring payload is a
+        // single-line JSON string, so strip control characters and cap length.
+        const cleanKey = String(key).replace(/[\r\n\t]+/g, "").trim()
+        if (cleanKey.length === 0 || cleanKey.length > 4096) {
+            root.addMessage(Translation.tr("That API key is not usable. Paste a single-line key."), root.interfaceRole)
+            return
+        }
+        KeyringStorage.setNestedField(["apiKeys", model.key_id], cleanKey)
         if ((model.provider_id ?? "").length > 0)
             Qt.callLater(() => AiProviderCatalog.refreshProvider(model.provider_id))
         root.addMessage(Translation.tr("API key stored for %1").arg(model.name), root.interfaceRole)
@@ -1479,6 +1531,7 @@ Singleton {
             const id = idForMessage(requester.message);
             root.messageIDs = [...root.messageIDs, id];
             root.messageByID[id] = requester.message;
+            root._trimTranscript();
 
             /* Build header string for curl */ 
             let headerString = Object.entries(requestHeaders)
@@ -1693,13 +1746,50 @@ Singleton {
         requester.makeRequest();
     }
 
+    // The full config can exceed 100 KB, and set_shell_config only needs the key
+    // tree. Send the raw JSON while it is small, a flattened path/value summary
+    // once it would dominate the request.
+    function _configForModel(): string {
+        const plain = CF.ObjectUtils.toPlainObject(Config.options)
+        const full = JSON.stringify(plain)
+        if (full.length <= root.toolOutputLimit) return full
+        const flat = ({})
+        const walk = (node, prefix) => {
+            if (node === null || node === undefined) return
+            if (Array.isArray(node)) {
+                flat[prefix] = `[${node.length} items]`
+                return
+            }
+            if (typeof node !== "object") {
+                flat[prefix] = node
+                return
+            }
+            for (const key of Object.keys(node))
+                walk(node[key], prefix.length > 0 ? `${prefix}.${key}` : key)
+        }
+        walk(plain, "")
+        return JSON.stringify({
+            note: "Flattened config key summary. Nested object values are omitted; pass a dotted key to set_shell_config.",
+            keys: flat,
+        })
+    }
+
+    function _truncateToolOutput(output): string {
+        const text = String(output ?? "")
+        if (text.length <= root.toolOutputLimit) return text
+        return text.substring(0, root.toolOutputLimit)
+            + `\n\n[[ Output truncated at ${root.toolOutputLimit} characters ]]`
+    }
+
     function createFunctionOutputMessage(name, output, includeOutputInChat = true, callId = "") {
+        const bounded = root._truncateToolOutput(output)
+        const body = `[[ Output of ${name} ]]${includeOutputInChat ? ("\n\n<think>\n" + bounded + "\n</think>") : ""}`
         return aiMessageComponent.createObject(root, {
             "role": "user",
-            "content": `[[ Output of ${name} ]]${includeOutputInChat ? ("\n\n<think>\n" + output + "\n</think>") : ""}`,
-            "rawContent": `[[ Output of ${name} ]]${includeOutputInChat ? ("\n\n<think>\n" + output + "\n</think>") : ""}`,
+            "content": body,
+            "rawContent": body,
             "functionName": name,
-            "functionResponse": output,
+            "functionResponse": bounded,
             // Carries the originating call id so strategies can echo the
             // exact tool_call_id — providers reject mismatched ids
             "functionCall": (callId && callId.length > 0) ? { "id": callId, "name": name } : undefined,
@@ -1710,10 +1800,7 @@ Singleton {
     }
 
     function addFunctionOutputMessage(name, output, callId = "") {
-        const aiMessage = createFunctionOutputMessage(name, output, true, callId);
-        const id = idForMessage(aiMessage);
-        root.messageIDs = [...root.messageIDs, id];
-        root.messageByID[id] = aiMessage;
+        root._storeMessage(createFunctionOutputMessage(name, output, true, callId));
     }
 
     function rejectCommand(message: AiMessageData) {
@@ -1765,9 +1852,7 @@ Singleton {
 
         const responseMessage = createFunctionOutputMessage(
             message.functionName, "", false, message.functionCall?.id ?? "")
-        const id = idForMessage(responseMessage)
-        root.messageIDs = [...root.messageIDs, id]
-        root.messageByID[id] = responseMessage
+        root._storeMessage(responseMessage)
 
         commandExecutionProc.message = responseMessage
         commandExecutionProc.baseMessageContent = responseMessage.content
@@ -1783,7 +1868,10 @@ Singleton {
         command: ["/usr/bin/bash", "-c", shellCommand]
         stdout: SplitParser {
             onRead: (output) => {
-                commandExecutionProc.message.functionResponse += output + "\n\n";
+                const message = commandExecutionProc.message
+                if (!message) return
+                if ((message.functionResponse?.length ?? 0) < root.toolOutputLimit)
+                    message.functionResponse += output + "\n\n";
                 root._log("[Ai] commandExecutionProc output:", output)
             }
         }
@@ -1808,8 +1896,7 @@ Singleton {
             addFunctionOutputMessage(name, Translation.tr("Switched to search mode. Continue with the user's request."), callId)
             requester.makeRequest();
         } else if (name === "get_shell_config") {
-            const configJson = CF.ObjectUtils.toPlainObject(Config.options)
-            addFunctionOutputMessage(name, JSON.stringify(configJson), callId)
+            addFunctionOutputMessage(name, root._configForModel(), callId)
             requester.makeRequest()
         } else if (name === "get_shell_actions") {
             const actions = root._aiSafeActions(args?.query ?? "").map(action => ({
@@ -1912,9 +1999,38 @@ Singleton {
      * @param chatName name of the chat
      */
     function saveChat(chatName) {
-        chatSaveFile.chatName = chatName.trim()
-        const saveContent = JSON.stringify(root.chatToJson())
-        chatSaveFile.setText(saveContent)
+        const name = String(chatName ?? "").trim()
+        if (name.length === 0) return
+        // The automatic snapshot runs after every reply; debounce it so a long
+        // conversation is not re-serialized and re-written on each message.
+        if (name === "lastSession") {
+            root._pendingSessionSave = true
+            sessionSaveTimer.restart()
+            return
+        }
+        root._writeChat(name)
+    }
+
+    property bool _pendingSessionSave: false
+
+    Timer {
+        id: sessionSaveTimer
+        interval: 4000
+        repeat: false
+        onTriggered: {
+            if (!root._pendingSessionSave) return
+            root._pendingSessionSave = false
+            root._writeChat("lastSession")
+        }
+    }
+
+    function _writeChat(chatName) {
+        const messages = root.chatToJson()
+        const bounded = chatName === "lastSession" && messages.length > root.maxTranscriptMessages
+            ? messages.slice(-root.maxTranscriptMessages)
+            : messages
+        chatSaveFile.chatName = String(chatName).trim()
+        chatSaveFile.setText(JSON.stringify(bounded))
         getSavedChats.running = true;
     }
 
@@ -1960,13 +2076,11 @@ Singleton {
             // console.log(saveContent)
             const saveData = JSON.parse(saveContent)
             root.clearMessages()
-            root.messageIDs = saveData.map((_, i) => {
-                return i
-            })
-            // console.log(JSON.stringify(messageIDs))
+            // Ids stay generated the same way as live messages; indexing them by
+            // array position left numeric keys that collided with string ids.
             for (let i = 0; i < saveData.length; i++) {
                 const message = saveData[i];
-                root.messageByID[i] = root.aiMessageComponent.createObject(root, {
+                root._storeMessage(root.aiMessageComponent.createObject(root, {
                     "role": message.role,
                     "rawContent": message.rawContent,
                     "content": message.rawContent,
@@ -1982,7 +2096,7 @@ Singleton {
                     "functionCall": message.functionCall,
                     "functionResponse": message.functionResponse,
                     "visibleToUser": message.visibleToUser,
-                });
+                }));
             }
         } catch (e) {
             console.log("[AI] Could not load chat: ", e);

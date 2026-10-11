@@ -166,6 +166,7 @@ Item {
                 }
             }
         },
+    ].concat(Quickshell.env("QS_DEBUG") === "1" ? [
         {
             name: "test",
             description: Translation.tr("Markdown test"),
@@ -221,8 +222,8 @@ Inline w/ backslash and square brackets \\[\\int_0^\\infty \\frac{1}{x^2} dx = \
 Inline w/ backslash and round brackets \\(e^{i\\pi} + 1 = 0\\)
 `, Ai.interfaceRole);
             }
-        },
-    ]
+        }
+    ] : [])
 
     function handleInput(inputText) {
         if (inputText.startsWith(root.commandPrefix)) {

@@ -38,6 +38,9 @@ done
 step "mascot assistant"
 python3 "$runtime_root/scripts/test-mascot-assistant.py"
 
+step "assistant default provider"
+python3 "$runtime_root/scripts/test-ai-default-provider.py"
+
 step "session tray ordering"
 service_unit="$runtime_root/assets/systemd/inir.service"
 if ! grep -qx 'Type=dbus' "$service_unit" \

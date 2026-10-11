@@ -14,7 +14,7 @@ import urllib.request
 API = "https://lrclib.net/api"
 TIMEOUT = 12
 REQUEST_DELAY = 0.25
-USER_AGENT = "iNtoo/2.32.0 (https://github.com/D0UP1G/iNtoo)"
+USER_AGENT = "iNtoo/2.32.2 (https://github.com/D0UP1G/iNtoo)"
 
 STAMP = re.compile(r"\[(\d{1,3}):(\d{2}(?:[.:]\d{1,3})?)\]")
 

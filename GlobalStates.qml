@@ -114,13 +114,24 @@ Singleton {
     readonly property bool settingsNativeDialogOpen:
         Object.keys(root._settingsNativeDialogs).length > 0
 
+    // Waffle settings pages are positional and do not share the ii indices, so
+    // a deep link has to be translated. Only the anchors used by shell code are
+    // mapped; an unknown page keeps the window's own default.
+    readonly property var wafflePageBySettingsPage: ({ 24: 15 })
+
     function openSettingsPage(index: int, section): void {
         const requestedSection = String(section ?? "")
         const isWaffle = Config.options?.panelFamily === "waffle"
             && Config.options?.waffles?.settings?.useMaterialStyle !== true
         if (isWaffle) {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
-                "waffle-settings-window"])
+            const mappedPage = root.wafflePageBySettingsPage[index]
+            const args = ["/usr/bin/env"]
+            if (mappedPage !== undefined)
+                args.push(`QS_SETTINGS_PAGE=${mappedPage}`)
+            if (requestedSection.length > 0)
+                args.push(`QS_SETTINGS_SECTION=${requestedSection}`)
+            args.push(Quickshell.shellPath("scripts/inir"), "waffle-settings-window")
+            Quickshell.execDetached(args)
         } else if (Config.options?.panelFamily === "iris" || (Config.options?.settingsUi?.overlayMode ?? false)) {
             root.settingsOverlayRequestedPage = index
             root.settingsOverlayRequestedSection = requestedSection

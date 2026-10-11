@@ -22,7 +22,34 @@ Rectangle {
     property bool renderMarkdown: true
     property bool editing: false
 
-    property list<var> messageBlocks: StringUtils.splitMarkdownBlocks(root.messageData?.content)
+    // Re-splitting the whole message on every streamed delta rebuilt every block
+    // delegate. Refresh on a short timer while the reply streams, and once more
+    // when it finishes.
+    property var messageBlocks: []
+    readonly property bool _streaming: root.messageData ? !root.messageData.done : false
+
+    function _refreshBlocks(): void {
+        root.messageBlocks = StringUtils.splitMarkdownBlocks(root.messageData?.content)
+    }
+
+    Timer {
+        interval: 250
+        repeat: true
+        running: root._streaming
+        onTriggered: root._refreshBlocks()
+    }
+
+    Connections {
+        target: root.messageData ?? null
+        function onContentChanged(): void {
+            if (root._streaming) return
+            root._refreshBlocks()
+        }
+        function onDoneChanged(): void { root._refreshBlocks() }
+        function onTargetChanged(): void { root._refreshBlocks() }
+    }
+
+    Component.onCompleted: root._refreshBlocks()
 
     anchors.left: parent?.left
     anchors.right: parent?.right
