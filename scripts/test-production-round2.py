@@ -133,6 +133,7 @@ _create_update_snapshot_or_fail(){ UPDATE_SNAPSHOT_ID=fixture; }
 count_pending_migrations(){ echo 0; }
 find_runtime_manifest_file(){ return 1; }
 detect_user_modifications_by_source_comparison(){ :; }
+runtime_payload_is_current(){ return 0; }
 inir_user_service_is_masked(){ return 1; }
 inir_uses_systemd(){ return 1; }
 check_dependencies(){ doctor_missing_deps=(); }
@@ -203,6 +204,38 @@ set_installed_version(){ return 1; }
 if run_update; then exit 11; fi
 [[ -f "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]] || exit 12
 [[ "$(cat "$_update_status_file")" == failed:45:* ]]
+'''
+        self.success(self.bash(code))
+
+    def test_update_repairs_payload_drift_at_the_same_commit(self):
+        code = self.update_code() + '''
+set_installed_version 1.0 newcommit fixture
+runtime_payload_is_current(){ return 1; }
+ensure-ytmusic-js-runtime(){ touch "$HOME/runtime-retried"; }
+run_update || exit 11
+[[ -e "$HOME/runtime-retried" && "$(cat "$_update_status_file")" == success ]] || exit 12
+[[ ! -e "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]]
+'''
+        self.success(self.bash(code))
+
+    def test_update_skips_a_current_payload_at_the_same_commit(self):
+        code = self.update_code() + '''
+set_installed_version 1.0 newcommit fixture
+runtime_payload_is_current(){ return 0; }
+ensure-ytmusic-js-runtime(){ touch "$HOME/runtime-retried"; }
+run_update || exit 11
+[[ ! -e "$HOME/runtime-retried" && "$(cat "$_update_status_file")" == success ]] || exit 12
+'''
+        self.success(self.bash(code))
+
+    def test_update_reports_backup_failure_before_syncing(self):
+        code = self.update_code() + '''
+detect_user_modifications_by_source_comparison(){ echo shell.qml; }
+handle_user_modifications(){ return 1; }
+if run_update; then exit 11; fi
+[[ "$(get_installed_commit)" == oldcommit ]] || exit 12
+[[ "$(cat "$_update_status_file")" == failed:46:* ]] || exit 13
+[[ -f "$XDG_STATE_HOME/quickshell/user/update-incomplete" ]]
 '''
         self.success(self.bash(code))
 

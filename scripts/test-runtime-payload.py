@@ -86,6 +86,36 @@ class DistributionTests(unittest.TestCase):
         output = self.run_command(['python3', str(TOOL), 'manifest', '--root', str(self.source)])
         self.assertEqual(expected, {line.split(':', 1)[0] for line in output.splitlines()})
 
+    def test_matches_checks_contents_and_missing_files(self):
+        self.assertFalse(self.payload.matches(self.target))
+        self.payload.sync(self.target)
+        self.assertTrue(self.payload.matches(self.target))
+        self.run_command(['python3', str(TOOL), 'matches', '--root', str(self.source),
+                          '--target', str(self.target)])
+        installed = self.target / 'modules/Live.qml'
+        original = installed.read_bytes()
+        modified = bytes([original[0] ^ 1]) + original[1:]
+        installed.write_bytes(modified)
+        self.assertFalse(self.payload.matches(self.target))
+        installed.write_bytes(original)
+        self.assertTrue(self.payload.matches(self.target))
+        installed.unlink()
+        self.assertFalse(self.payload.matches(self.target))
+
+    def test_matches_checks_link_topology_and_ignores_private_artifacts(self):
+        self.payload.sync(self.target)
+        (self.target / 'modules/AGENTS.md').write_text('private instructions\n')
+        self.assertTrue(self.payload.matches(self.target))
+        installed = self.target / 'assets/icons/link.svg'
+        installed.unlink()
+        installed.write_bytes((self.source / 'assets/icons/real.svg').read_bytes())
+        self.assertFalse(self.payload.matches(self.target))
+        installed.unlink()
+        installed.symlink_to('real.svg')
+        self.assertTrue(self.payload.matches(self.target))
+        (self.target / 'assets/icons/real.svg').unlink()
+        self.assertFalse(self.payload.matches(self.target))
+
     def test_update_deletes_obsolete_runtime(self):
         self.payload.sync(self.target)
         (self.target / 'scripts/obsolete.sh').write_text('obsolete')

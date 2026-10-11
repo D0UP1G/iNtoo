@@ -109,6 +109,30 @@ class Payload:
             rules += ['/' + relative + '/*' + s for s in suffixes]
         return ['--exclude=' + rule for rule in rules]
 
+    def matches(self, target):
+        """Check shipped files and link destinations without trusting version metadata."""
+        target = Path(target)
+        for name in self.paths():
+            source = self.root / name
+            installed = target / name
+            if source.is_symlink():
+                if (not installed.is_symlink() or not installed.exists() or
+                        os.readlink(source) != os.readlink(installed)):
+                    return False
+                continue
+            if installed.is_symlink() or not installed.is_file():
+                return False
+            if source.stat().st_size != installed.stat().st_size:
+                return False
+            with source.open('rb') as original, installed.open('rb') as current:
+                while True:
+                    chunk = original.read(65536)
+                    if chunk != current.read(65536):
+                        return False
+                    if not chunk:
+                        break
+        return True
+
     def sync(self, target, *, subdir=None, delete=False, out_format=None):
         # Validate before writing; rsync preserves safe relative links, never dereferences them.
         list(self.paths())
@@ -132,7 +156,7 @@ class Payload:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['list', 'manifest', 'copy', 'sync-dir', 'filters', 'filter-installed'])
+    parser.add_argument('command', choices=['list', 'manifest', 'copy', 'sync-dir', 'filters', 'filter-installed', 'matches'])
     parser.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2])
     parser.add_argument('--target', type=Path)
     parser.add_argument('--subdir')
@@ -140,6 +164,10 @@ def main():
     parser.add_argument('--out-format')
     args = parser.parse_args()
     payload = Payload(args.root)
+    if args.command == 'matches':
+        if args.target is None:
+            parser.error('--target is required')
+        sys.exit(0 if payload.matches(args.target) else 1)
     if args.command == 'filters':
         if args.subdir and ('..' in Path(args.subdir).parts or Path(args.subdir).is_absolute()):
             parser.error('invalid subdirectory')

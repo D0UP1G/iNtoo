@@ -37,6 +37,11 @@ intoo restart                    # Restart the supervised shell service
 intoo logs -f                    # Follow live logs while you test
 ```
 
+After changing code, complete the install/update cycle before handing it off.
+For an installed repo-copy shell, publish the changes and run `intoo update -y`;
+verify the completed version and a second `intoo update`. Avoid leaving a
+partially patched runtime with an outdated manifest.
+
 Do not run `qs kill -c inir` or a bare `qs -c inir` — the shell runs as a
 supervised systemd service, and raw quickshell commands leave it unmanaged.
 

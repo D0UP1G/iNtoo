@@ -14,6 +14,13 @@ II_MANIFEST_FILE="${II_TARGET}/.inir-manifest"
 # Manifest Management
 #####################################################################################
 
+# REPO_ROOT is initialized by setup before this library is sourced.
+# shellcheck disable=SC2153
+runtime_payload_is_current() {
+    python3 "${REPO_ROOT}/sdata/lib/runtime-payload.py" matches \
+        --root "$REPO_ROOT" --target "${XDG_CONFIG_HOME}/quickshell/inir"
+}
+
 # Generate manifest of all files that should exist in the installation
 # v2 format includes checksums for code files to detect user modifications
 generate_manifest() {

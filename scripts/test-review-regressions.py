@@ -85,6 +85,33 @@ if handle_user_modifications shell.qml "" "$3"; then exit 11; fi
         self.assertIn("ERROR Could not preserve local modifications", result.stdout)
         self.assertNotIn("SUCCESS Auto-preserved", result.stdout)
 
+    def test_updates_preserve_edits_without_a_cancellation_prompt(self):
+        source = self.base / "runtime-source"
+        (source / "nested").mkdir(parents=True)
+        (source / "shell.qml").write_text("// local shell\n")
+        (source / "nested/a b.qml").write_text("// local component\n")
+        (source / "custom.py").write_text("# local addition\n")
+        for ask in ("true", "false"):
+            with self.subTest(ask=ask):
+                backups = self.base / f"mod-backups-{ask}"
+                result = self.bash('''source "$1/sdata/lib/user-modifications.sh"
+USER_MODS_DIR="$2"
+REPO_ROOT="$1"
+ask="$4"
+tui_warn(){ :; }; tui_subtitle(){ :; }; tui_dim(){ :; }; tui_info(){ :; }; tui_success(){ :; }
+tui_choose(){ touch "$HOME/cancel-prompt"; echo 'Cancel Update'; }
+handle_user_modifications $'shell.qml\\nnested/a b.qml' custom.py "$3" || exit 11
+[[ ! -e "$HOME/cancel-prompt" && -d "$PRESERVED_MODS_DIR" ]] || exit 12
+printf '%s\\n' "$PRESERVED_MODS_DIR"
+''', backups, source, ask)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                saved = Path(result.stdout.splitlines()[-1])
+                self.assertEqual((saved / "shell.qml").read_bytes(), (source / "shell.qml").read_bytes())
+                self.assertEqual((saved / "nested/a b.qml").read_bytes(), (source / "nested/a b.qml").read_bytes())
+                self.assertEqual((saved / "_additions/custom.py").read_bytes(), (source / "custom.py").read_bytes())
+                metadata = json.loads((saved / "metadata.json").read_text())
+                self.assertEqual((metadata["modified_count"], metadata["additions_count"]), (2, 1))
+
     def test_pr03_failed_full_runtime_rsync_does_not_publish_backup(self):
         source = self.base / "runtime-tree"
         source.mkdir()

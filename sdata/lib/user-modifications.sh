@@ -461,9 +461,9 @@ show_file_diff() {
     fi
 }
 
-# Interactive handler for user modifications
-# Returns: 0 = continue with update, 1 = cancel update
-# Sets PRESERVED_MODS_DIR global variable if modifications were preserved
+# Preserve local edits before replacing the runtime with the complete release.
+# Returns nonzero only if the backup cannot be completed.
+# Sets PRESERVED_MODS_DIR for the post-sync reminder and restore command.
 handle_user_modifications() {
     local mod_files_str="$1"
     local add_files_str="$2"
@@ -478,98 +478,17 @@ handle_user_modifications() {
     [[ $total -eq 0 ]] && return 0
 
     PRESERVED_MODS_DIR=""
-
     echo ""
-    tui_warn "Local modifications detected!"
-    echo ""
-
+    tui_info "Saving local modifications before updating..."
     show_modification_summary "$mod_files_str" "$add_files_str"
 
-    echo ""
-
-    # Non-interactive mode: auto-preserve
-    if ! $ask; then
-        if ! PRESERVED_MODS_DIR=$(preserve_user_modifications "$source_dir" "$mod_files_str" "$add_files_str"); then
-            tui_error "Could not preserve local modifications; update stopped"
-            return 1
-        fi
-        tui_success "Auto-preserved $total file(s) to: $PRESERVED_MODS_DIR"
-        return 0
+    if ! PRESERVED_MODS_DIR=$(preserve_user_modifications "$source_dir" "$mod_files_str" "$add_files_str"); then
+        tui_error "Could not preserve local modifications; update stopped"
+        return 1
     fi
-
-    while true; do
-        local choice
-        choice=$(tui_choose "How would you like to proceed?" \
-            "Preserve & Continue" \
-            "View Changes" \
-            "Continue (overwrite)" \
-            "Cancel Update")
-
-        case "$choice" in
-            "Preserve & Continue")
-                if ! PRESERVED_MODS_DIR=$(preserve_user_modifications "$source_dir" "$mod_files_str" "$add_files_str"); then
-                    tui_error "Could not preserve local modifications; update stopped"
-                    return 1
-                fi
-                echo ""
-                tui_success "Modifications saved to:"
-                tui_dim "    $PRESERVED_MODS_DIR"
-                echo ""
-                tui_info "To restore a file after update:"
-                tui_dim "    cp $PRESERVED_MODS_DIR/<path> ~/.config/quickshell/inir/<path>"
-                return 0
-                ;;
-            "View Changes")
-                # Find latest snapshot for diff comparison
-                local latest_snapshot
-                latest_snapshot=$(ls -1t "$SNAPSHOTS_DIR" 2>/dev/null | head -1)
-
-                if [[ -n "$latest_snapshot" ]] && [[ -d "${SNAPSHOTS_DIR}/${latest_snapshot}/inir" ]]; then
-                    echo ""
-                    local shown=0
-                    while IFS= read -r f && [[ $shown -lt 3 ]]; do
-                        [[ -z "$f" ]] && continue
-                        show_file_diff "$source_dir" "$f" "${SNAPSHOTS_DIR}/${latest_snapshot}"
-                        echo ""
-                        ((shown++))
-                    done <<< "$mod_files_str"
-                    [[ $mod_count -gt 3 ]] && tui_dim "(Showing first 3 files only)"
-                elif [[ -n "$latest_snapshot" ]] && [[ -d "${SNAPSHOTS_DIR}/${latest_snapshot}/ii" ]]; then
-                    echo ""
-                    local shown=0
-                    while IFS= read -r f && [[ $shown -lt 3 ]]; do
-                        [[ -z "$f" ]] && continue
-                        show_file_diff "$source_dir" "$f" "${SNAPSHOTS_DIR}/${latest_snapshot}"
-                        echo ""
-                        ((shown++))
-                    done <<< "$mod_files_str"
-                    [[ $mod_count -gt 3 ]] && tui_dim "(Showing first 3 files only)"
-                else
-                    tui_warn "No snapshot available for comparison"
-                fi
-                echo ""
-                read -rp "Press Enter to continue..."
-                echo ""
-                show_modification_summary "$mod_files_str" "$add_files_str"
-                echo ""
-                ;;
-            "Continue (overwrite)")
-                echo ""
-                tui_warn "Your modifications will be overwritten"
-                tui_info "A snapshot was created - you can rollback with: ./setup rollback"
-                if tui_confirm "Are you sure?" "no"; then
-                    return 0
-                fi
-                echo ""
-                show_modification_summary "$mod_files_str" "$add_files_str"
-                echo ""
-                ;;
-            "Cancel Update"|*)
-                tui_info "Update cancelled"
-                return 1
-                ;;
-        esac
-    done
+    tui_success "Auto-preserved $total file(s) to: $PRESERVED_MODS_DIR"
+    tui_info "Continuing with the complete update. Saved edits: intoo my-changes"
+    return 0
 }
 
 ###############################################################################

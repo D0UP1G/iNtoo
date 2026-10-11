@@ -85,6 +85,13 @@ intoo update
 
 Updates fast-forward the `origin` remote in the iNtoo checkout. A clone from `https://github.com/D0UP1G/iNtoo.git` therefore pulls from iNtoo; the in-shell release checker also uses the iNtoo repository metadata.
 
+Local runtime edits are automatically backed up to
+`~/.local/state/quickshell/user-mods/` before the complete payload is synced.
+They do not cancel the update or get reapplied over the new release. Use
+`intoo my-changes` to review or restore saved files. An update is reported as
+current only when its installed files also match the repository; changed or
+missing files trigger a full sync even at the same commit.
+
 What happens:
 
 1. Checks remote for new commits

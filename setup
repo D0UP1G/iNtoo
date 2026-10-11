@@ -2518,13 +2518,6 @@ run_update() {
                 return 1
             fi
 
-            if $ask; then
-                if ! tui_confirm "Pull and apply these updates?"; then
-                    echo "Cancelled."
-                    return 0
-                fi
-            fi
-
             # Create snapshot BEFORE pulling
             tui_info "Creating snapshot..."
             local remote_commit=$(get_remote_commit)
@@ -2650,7 +2643,8 @@ run_update() {
 
         if [[ "$installed_ver" == "0.0.0" ]] && [[ -f "${FIRSTRUN_FILE}" ]]; then
             tui_info "Detected existing installation without version tracking"
-        elif [[ "$installed_commit" != unknown && "$installed_commit" == "$repo_commit" ]] && ! $retry_incomplete; then
+        elif [[ "$installed_commit" != unknown && "$installed_commit" == "$repo_commit" ]] \
+                && ! $retry_incomplete && runtime_payload_is_current; then
             tui_success "Already up to date ($installed_ver)"
 
             local pending=$(count_pending_migrations)
@@ -2738,7 +2732,8 @@ run_update() {
 
             if [[ $total_mods -gt 0 ]]; then
                 if ! handle_user_modifications "$modified_files_str" "$added_files_str" "$runtime_compare_dir"; then
-                    return 1  # User cancelled
+                    _report_update_failure 46 "Could not preserve local modifications"
+                    return 1
                 fi
             else
                 tui_success "No local modifications detected"
@@ -2765,7 +2760,8 @@ run_update() {
 
             if [[ $mod_count -gt 0 ]]; then
                 if ! handle_user_modifications "$modified_files_str" "" "$runtime_compare_dir"; then
-                    return 1  # User cancelled
+                    _report_update_failure 46 "Could not preserve local modifications"
+                    return 1
                 fi
             else
                 tui_success "No local modifications detected"
