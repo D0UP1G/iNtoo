@@ -607,7 +607,7 @@ Scope {
 
     function chooseFamily(id: string): void {
         root.requestedFamily = id
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "panelFamily", "set", id])
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "panelFamily", "set", id])
     }
 
     readonly property var irisArrangements: [
@@ -3658,7 +3658,7 @@ Scope {
                                 subtitle: modelData.sub
 
                                 onClicked: Quickshell.execDetached([
-                                    Quickshell.shellPath("scripts/inir"),
+                                    Quickshell.shellPath("scripts/intoo"),
                                     modelData.target,
                                     modelData.fn
                                 ])
@@ -3678,7 +3678,7 @@ Scope {
                 WelcomeActionButton {
                     materialIcon: "settings"
                     label: Translation.tr("Settings")
-                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"])
+                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"])
                 }
 
                 WelcomeActionButton {

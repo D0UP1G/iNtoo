@@ -49,7 +49,7 @@ Singleton {
         ])
         // Small delay so notification shows
         Qt.callLater(() => {
-            Quickshell.execDetached(["bash", Quickshell.shellPath("scripts/inir"), "restart"])
+            Quickshell.execDetached(["bash", Quickshell.shellPath("scripts/intoo"), "restart"])
         })
     }
 

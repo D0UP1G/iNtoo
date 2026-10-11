@@ -30,7 +30,7 @@ ContentPage {
 
             ContentSubsection {
                 title: Translation.tr("Provider")
-                tooltip: Translation.tr("Which provider answers. Connect its credentials once with: inir assistant auth")
+                tooltip: Translation.tr("Which provider answers. Connect its credentials once with: intoo assistant auth")
 
                 ConfigSelectionArray {
                     enableSettingsSearch: false
@@ -93,7 +93,7 @@ ContentPage {
                 Layout.fillWidth: true
                 text: root.assistantProvider === "ollama" || root.assistantProvider.length === 0
                     ? Translation.tr("Default: local Ollama Qwen 3.5 0.8B. The model downloads on first use; no API key is needed.")
-                    : Translation.tr("Credentials come from OpenCode's own store. Run `inir assistant auth` once per provider.")
+                    : Translation.tr("Credentials come from OpenCode's own store. Run `intoo assistant auth` once per provider.")
                 color: Appearance.colors.colSubtext
                 wrapMode: Text.WordWrap
             }

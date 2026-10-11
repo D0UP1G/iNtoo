@@ -15,7 +15,7 @@ niri.service reports READY
   |
 systemd starts inir.service (niri.service.wants link)
   |
-ExecStart calls: /usr/bin/inir run --session
+ExecStart calls: /usr/bin/intoo run --session
   |
 inir script (bash):
   - Validates QS/Qt ABI compatibility
@@ -70,16 +70,16 @@ The systemd service is the key piece. It does not use `systemctl enable` in the 
 Managing the link:
 
 ```bash
-inir service enable    # create the wants link
-inir service disable   # remove it
-inir service status    # check current state
+intoo service enable    # create the wants link
+intoo service disable   # remove it
+intoo service status    # check current state
 ```
 
 ## The inir launcher
 
-`scripts/inir` is a 3600+ line bash script that wraps Quickshell. It's not the same as running `qs -c inir` directly:
+`scripts/intoo` is a 3600+ line bash script that wraps Quickshell. It's not the same as running `qs -c inir` directly:
 
-| | `inir run` | `qs -c inir` |
+| | `intoo run` | `qs -c inir` |
 |---|---|---|
 | Environment setup | Sets shell-only Qt policy and inherits Niri's session env | Raw environment |
 | Output | Backgrounded, logs to journal | Foreground, direct stdout |
@@ -87,7 +87,7 @@ inir service status    # check current state
 | ABI check | Validates Quickshell/Qt compatibility | None |
 | Orphan cleanup | ExecStopPost cleans stale runtime | None |
 
-Do not use raw `qs -c inir` as the normal development path: it bypasses iNtoo's launcher/runtime ownership and can duplicate or desynchronize the supervised session. Use `inir logs`, `inir logs --full`, `inir logs --debug`, `inir restart`, and `inir doctor`/`inir repair` instead. `inir logs --debug` deliberately stops the supervised shell and launches the resolved runtime in foreground debug mode through the iNtoo control path; after `Ctrl+C`, restore the normal service with `inir restart`.
+Do not use raw `qs -c inir` as the normal development path: it bypasses iNtoo's launcher/runtime ownership and can duplicate or desynchronize the supervised session. Use `intoo logs`, `intoo logs --full`, `intoo logs --debug`, `intoo restart`, and `intoo doctor`/`intoo repair` instead. `intoo logs --debug` deliberately stops the supervised shell and launches the resolved runtime in foreground debug mode through the iNtoo control path; after `Ctrl+C`, restore the normal service with `intoo restart`.
 
 ## Environment variables
 
@@ -182,30 +182,30 @@ If the shell won't start or you need foreground diagnostics:
 
 ```bash
 # Normal recent runtime logs
-inir logs
+intoo logs
 
 # Decode all recorded log categories
-inir logs --full
+intoo logs --full
 
 # Foreground debug run through iNtoo's runtime resolver
-inir logs --debug
+intoo logs --debug
 
 # Automated health/repair flows
-inir doctor
-inir repair
+intoo doctor
+intoo repair
 ```
 
-After leaving `inir logs --debug` with `Ctrl+C`, run `inir restart` to return to the normal supervised runtime.
+After leaving `intoo logs --debug` with `Ctrl+C`, run `intoo restart` to return to the normal supervised runtime.
 
 ## Performance diagnostics
 
-`inir doctor --perf` prints a read-only snapshot of the running shell. It reports
+`intoo doctor --perf` prints a read-only snapshot of the running shell. It reports
 process memory and threads, the observed Qt Quick RHI and render loop, DRM render
 nodes, Qt Multimedia decoder ownership, open video and GIF files, mapped Niri
 layer surfaces, child processes, and the `inir.service` cgroup.
 
 ```bash
-inir doctor --perf
+intoo doctor --perf
 ```
 
 Use it before changing graphics environment variables or blaming one feature for

@@ -39,7 +39,7 @@ Each manifest declares:
 ## Listing targets
 
 ```bash
-inir theme list-targets
+intoo theme list-targets
 ```
 
 Output columns:
@@ -53,7 +53,7 @@ Output columns:
 ## Inspecting a target
 
 ```bash
-inir theme inspect terminals
+intoo theme inspect terminals
 ```
 
 This prints:
@@ -69,13 +69,13 @@ This prints:
 Validate all declared targets:
 
 ```bash
-inir theme doctor
+intoo theme doctor
 ```
 
 Validate one target:
 
 ```bash
-inir theme doctor editors
+intoo theme doctor editors
 ```
 
 The doctor currently checks:
@@ -91,19 +91,19 @@ The doctor currently checks:
 Apply one target:
 
 ```bash
-inir theme apply terminals
+intoo theme apply terminals
 ```
 
 Apply several:
 
 ```bash
-inir theme apply gtk-kde editors chrome
+intoo theme apply gtk-kde editors chrome
 ```
 
 Apply all declared targets:
 
 ```bash
-inir theme apply all
+intoo theme apply all
 ```
 
 ## Scaffolding a new target
@@ -111,13 +111,13 @@ inir theme apply all
 Create a new target skeleton:
 
 ```bash
-inir theme scaffold myapp
+intoo theme scaffold myapp
 ```
 
 Example with custom metadata:
 
 ```bash
-inir theme scaffold myapp \
+intoo theme scaffold myapp \
   --label "My App" \
   --category custom \
   --inputs palette.json terminal.json \
@@ -202,7 +202,7 @@ Add:
 You can also generate both files automatically with:
 
 ```bash
-inir theme scaffold <id>
+intoo theme scaffold <id>
 ```
 
 Example:
@@ -224,25 +224,25 @@ Example:
 List targets:
 
 ```bash
-inir theme list-targets
+intoo theme list-targets
 ```
 
 Apply only your target:
 
 ```bash
-inir theme apply myapp
+intoo theme apply myapp
 ```
 
 Inspect the generated target:
 
 ```bash
-inir theme inspect myapp
+intoo theme inspect myapp
 ```
 
 Doctor-check it:
 
 ```bash
-inir theme doctor myapp
+intoo theme doctor myapp
 ```
 
 ## Design intent
@@ -275,10 +275,10 @@ Today the modular layer is:
 3. **Target modules**
    - the real implementation scripts that generate or apply app-specific output
 4. **CLI layer**
-    - `inir theme list-targets`
-    - `inir theme inspect <id>`
-    - `inir theme doctor [id]`
-    - `inir theme scaffold <id>`
-    - `inir theme apply <ids...|all>`
+    - `intoo theme list-targets`
+    - `intoo theme inspect <id>`
+    - `intoo theme doctor [id]`
+    - `intoo theme scaffold <id>`
+    - `intoo theme apply <ids...|all>`
 
 This means contributors can now reason about theming by target, instead of reverse-engineering the entire apply pipeline first.

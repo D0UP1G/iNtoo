@@ -346,7 +346,7 @@ repair_legacy_niri_shell_startup() {
 sync_user_desktop_integration_from_repo() {
   INIR_DESKTOP_INTEGRATION_CHANGED=0
 
-  local launcher_target="${XDG_BIN_HOME}/inir"
+  local launcher_target="${XDG_BIN_HOME}/intoo"
   local icon_source="${REPO_ROOT}/assets/icons/desktop-symbolic.svg"
   local icon_target="${XDG_DATA_HOME}/icons/hicolor/scalable/apps/inir.svg"
   local applications_dir="${XDG_DATA_HOME}/applications"

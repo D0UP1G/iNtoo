@@ -28,14 +28,14 @@ QML_DIRS = [
 ]
 IPC_MD = REPO_ROOT / "docs" / "IPC.md"
 OUTPUT = REPO_ROOT / "scripts" / "lib" / "ipc-registry.sh"
-FISH_COMPLETIONS = REPO_ROOT / "scripts" / "completions" / "inir.fish"
+FISH_COMPLETIONS = REPO_ROOT / "scripts" / "completions" / "intoo.fish"
 FISH_BEGIN = "# >>> generated from the IPC registry: python3 scripts/lib/generate-ipc-registry.py >>>"
 FISH_END = "# <<< generated from the IPC registry <<<"
 
 # Targets under this IPC.md heading are waffle-only.
 WAFFLE_SECTION_HEADING = "## Waffle-Specific Targets"
 
-# Headings under this section are top-level `inir` CLI commands, NOT IPC targets,
+# Headings under this section are top-level `intoo` CLI commands, NOT IPC targets,
 # so they must not be parsed as IpcHandler targets (avoids spurious warnings).
 STANDALONE_SECTION_HEADING = "## Standalone Commands"
 
@@ -55,7 +55,7 @@ KNOWN_DUPLICATES = {
 # the waffle heading, so source location is the authoritative scope.
 KNOWN_SHARED_TARGETS = {"background"}
 
-# Subcommands implemented by scripts/inir instead of an IPC handler. The
+# Subcommands implemented by scripts/intoo instead of an IPC handler. The
 # generated block is the only writer of the completion file, so they have to be
 # declared here or a regeneration drops them.
 EXTRA_TARGET_COMMANDS = {
@@ -587,7 +587,7 @@ def _fish_quote(s: str) -> str:
 
 
 def generate_fish(targets: list[IpcTarget], aliases: dict[str, str]) -> str:
-    """The generated block of scripts/completions/inir.fish: targets, functions and their values."""
+    """The generated block of scripts/completions/intoo.fish: targets, functions and their values."""
     by_target: dict[str, list[str]] = {}
     for kebab, camel in aliases.items():
         by_target.setdefault(camel, []).append(kebab)
@@ -596,18 +596,18 @@ def generate_fish(targets: list[IpcTarget], aliases: dict[str, str]) -> str:
         names = [t.name] + sorted(by_target.get(t.name, []))
         desc = _fish_quote(short_desc(t.description) or t.name)
         for name in names:
-            lines.append(f"complete -c inir -n '__inir_at_target' -a {name} -d {desc}")
+            lines.append(f"complete -c intoo -n '__intoo_at_target' -a {name} -d {desc}")
         cond = " ".join(names)
         for fn in t.functions:
             fdesc = _fish_quote(short_desc(fn.description) or fn.name)
-            lines.append(f"complete -c inir -n '__inir_at_function {cond}' -a {fn.name} -d {fdesc}")
+            lines.append(f"complete -c intoo -n '__intoo_at_function {cond}' -a {fn.name} -d {fdesc}")
             values = function_values(fn)
             if values:
                 lines.append(
-                    f"complete -c inir -n '__inir_at_value {len(fn.args)} {fn.name} {cond}' -a {_fish_quote(' '.join(values))}"
+                    f"complete -c intoo -n '__intoo_at_value {len(fn.args)} {fn.name} {cond}' -a {_fish_quote(' '.join(values))}"
                 )
         for name, description in EXTRA_TARGET_COMMANDS.get(t.name, []):
-            lines.append(f"complete -c inir -n '__inir_at_function {cond}' -a {name} -d {_fish_quote(description)}")
+            lines.append(f"complete -c intoo -n '__intoo_at_function {cond}' -a {name} -d {_fish_quote(description)}")
     lines.append(FISH_END)
     return "\n".join(lines) + "\n"
 

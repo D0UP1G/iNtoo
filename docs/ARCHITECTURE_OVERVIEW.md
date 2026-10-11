@@ -28,7 +28,7 @@ Wayland protocol --> GPU
 4. Loads the selected family's small critical host for first-frame surfaces
 5. After the entry frame, enables deferred services and the thin `ShellIiPanels.qml` / `ShellWafflePanels.qml` / `ShellIrisPanels.qml` wrapper, which loads the corresponding `modules/*/Shell*PanelsImpl.qml`
 
-Boot phases are recorded to `~/.cache/inir/last-boot.json`; `inir status` can report the measured phase breakdown instead of relying on a fixed startup-time claim.
+Boot phases are recorded to `~/.cache/inir/last-boot.json`; `intoo status` can report the measured phase breakdown instead of relying on a fixed startup-time claim.
 
 ## Three panel families
 
@@ -104,7 +104,7 @@ A simplified map of what lives where:
 |-----------|-------------|------------|
 | `modules/common/` | Config, Appearance, shared widgets | Critical |
 | `services/` | 70+ system integration singletons | High |
-| `scripts/inir` | CLI launcher (~3600 lines of bash) | High |
+| `scripts/intoo` | CLI launcher (~3600 lines of bash) | High |
 | `sdata/` | Install, update, migrations | High |
 | `defaults/` | Shipped default config and app configs | Medium |
 | `modules/bar/` | Top bar (ii family) | Normal |
@@ -132,7 +132,7 @@ Three install topologies are recognized:
 - **repo-link**: development/runtime points at the checkout itself
 - **package-managed**: `make install`, distro packages or Nix own a system-prefix runtime and its updates
 
-Updates: `./setup update` or `inir update` (git pull + sync + migrate + restart).
+Updates: `./setup update` or `intoo update` (git pull + sync + migrate + restart).
 
 The systemd service wires to the compositor via wants links, not `graphical-session.target` (which would also start on KDE/GNOME).
 

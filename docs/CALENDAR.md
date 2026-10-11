@@ -128,15 +128,15 @@ Currently there's no manual refresh button in the UI. The service re-fetches whe
 
 For debugging:
 ```bash
-inir logs --debug    # foreground debug run; shows [CalendarSync] log lines
+intoo logs --debug    # foreground debug run; shows [CalendarSync] log lines
 ```
 
-Exit with `Ctrl+C`, then run `inir restart` to restore the normal supervised shell.
+Exit with `Ctrl+C`, then run `intoo restart` to restore the normal supervised shell.
 
 **Cache issues:**
 
 Delete the cache file to force a clean re-fetch:
 ```bash
 rm ~/.local/state/quickshell/user/calendar-sync-cache.json
-inir restart
+intoo restart
 ```

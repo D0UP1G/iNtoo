@@ -2,7 +2,7 @@
 # Auto-generated from QML IpcHandler declarations + docs/IPC.md metadata.
 # Do not edit manually.
 # Regenerate: python3 scripts/lib/generate-ipc-registry.py
-# IPC.md hash: bd69ffac00bcb2b1
+# IPC.md hash: bd428171125b988f
 # Targets: 70
 
 declare -gA IPC_TARGET_DESC=(
@@ -26,7 +26,7 @@ declare -gA IPC_TARGET_DESC=(
   [customWidgets]="Custom widget management. Create, list, reload, and remove user-installed widgets from \`~/.config/inir/widgets/\`."
   [dashboard]="Centered welcome hub panel (ii family): greeting, clock, notifications, media, weather, calendar, todo, system usage and GitHub activity."
   [dev]="Development navigation for loading lazy surfaces and internal views without automating pointer or keyboard input. Destination identifiers are stable and returned as JSON by \`list\`."
-  [equalizer]="Open the ii-family EasyEffects output equalizer. The integration is optional and disabled until you enable it. Run \`inir settings\`, then go to **Modules → Optional → EasyEffects Equalizer** and enable the switch. While it is disabled the IPC target is intentionally not constructed. On a fresh empty EasyEffects output pipeline, iNtoo bootstraps a neutral 10-band \`iNtoo Equalizer\` preset. Existing non-empty effect chains are never replaced automatically."
+  [equalizer]="Open the ii-family EasyEffects output equalizer. The integration is optional and disabled until you enable it. Run \`intoo settings\`, then go to **Modules → Optional → EasyEffects Equalizer** and enable the switch. While it is disabled the IPC target is intentionally not constructed. On a fresh empty EasyEffects output pipeline, iNtoo bootstraps a neutral 10-band \`iNtoo Equalizer\` preset. Existing non-empty effect chains are never replaced automatically."
   [gamemode]="Performance mode for gaming. Auto-detects fullscreen apps and disables animations/effects. Can also be toggled manually for those stubborn games that don't go fullscreen properly."
   [globalActions]="Command palette / action registry. Search and execute shell actions from scripts or keybinds."
   [globalStyle]="The Global Style every Material surface and desktop widget follows: material, cards, aurora, inir, angel, regalia, zzz, cookie or editorial."
@@ -55,7 +55,7 @@ declare -gA IPC_TARGET_DESC=(
   [search]="Waffle start menu / search."
   [session]="Power menu. Logout, suspend, reboot, shutdown. The \"I'm done for today\" buttons."
   [settings]="Open or toggle the settings window. GUI config so you don't have to edit JSON by hand."
-  [settingsNav]="Navigate the settings overlay to a specific page (same as clicking the nav rail). \`inir settings\` toggles the current Settings host; use the \`settings\` IPC target above when you need explicit open/toggle semantics."
+  [settingsNav]="Navigate the settings overlay to a specific page (same as clicking the nav rail). \`intoo settings\` toggles the current Settings host; use the \`settings\` IPC target above when you need explicit open/toggle semantics."
   [shellLayout]="Dedicated persistent-shell layout editing and diagnostics. It is independent from desktop widget edit mode. It moves the ii bar and dock, swaps semantic ii sidebars between physical edges, resizes sidebar roles, and moves the Waffle taskbar through validated operations over canonical Config keys."
   [shellUpdate]="Shell update checker. Monitors the git repo for new commits and shows an update overlay."
   [sidebarLeft]="Left sidebar: AI chat and apps in Material; the customizable Focus panel in Island. In Island, \`open\`, \`close\` and \`toggle\` use the family-owned panel; AI detach and expanded-layout actions apply to Material."
@@ -302,7 +302,7 @@ declare -gA IPC_FUNCTION_DESC=(
   ["clipboard:toggle"]="Open/close panel"
   ["cliphistService:update"]="Refresh clipboard history"
   ["closeConfirm:trigger"]="Show close confirmation for focused window"
-  ["closeConfirm:triggerWindow"]="Close or confirm the exact window captured by \`inir close-window\`"
+  ["closeConfirm:triggerWindow"]="Close or confirm the exact window captured by \`intoo close-window\`"
   ["closeConfirm:close"]="Dismiss the dialog without closing"
   ["colorMode:set"]="\`dark\`, \`light\` or \`toggle\`"
   ["colorMode:get"]="JSON: the mode in use, the colour theme, the saved choice, whether the wallpaper decides and Island's scheme"
@@ -399,7 +399,7 @@ declare -gA IPC_FUNCTION_DESC=(
   ["iris:adaptive"]="How much the wallpaper shapes Island, \`0\`-\`100\`; any other word prints what was read from the wallpaper"
   ["iris:palette"]="The colour theme the shell and your apps wear: an id such as \`catppuccin-mocha\` or \`iris-ink\`, \`auto\` to follow the wallpaper, \`list\` for the ones Island shows, or \`current\` for the one in use"
   ["iris:preset"]="Set the Island appearance preset: \`iris\`, \`soft\`, \`round\`, \`crisp\`, \`angular\` or \`contrast\`"
-  ["iris:icon"]="Choose the glyph a piece wears: \`controls\`, \`tools\`, \`focus\`, \`notifications\`, \`bluetooth\`, \`updates\`, \`anime\` or \`watching\`, then a Material Symbol name (e.g. \`inir iris icon controls settings\`) or \`reset\` to go back to its own face"
+  ["iris:icon"]="Choose the glyph a piece wears: \`controls\`, \`tools\`, \`focus\`, \`notifications\`, \`bluetooth\`, \`updates\`, \`anime\` or \`watching\`, then a Material Symbol name (e.g. \`intoo iris icon controls settings\`) or \`reset\` to go back to its own face"
   ["iris:control"]="Arrange the Control Center in place (drag controls, resize them from a corner, add or take them out): \`edit\`, \`done\`, \`toggle\`, \`undo\`, \`tab:<controls\\"
   ["iris:lock"]="Rehearse the lock screen (the real surface, editable, with nothing to unlock): \`edit\`, \`done\`, \`toggle\`, \`page:<name>\` to open the inspector on a page (\`layouts\`, \`scene\`, \`type\`, \`clock\`, \`widgets\`…), \`widget:<key>\` to put a desktop widget on the lock or take it off (\`clock\`, \`weather\`, \`monthCalendar\`…), \`select:<key>\` to select one on the lock and open its controls in the inspector (\`select:<key>/look\` for shape, material and opacity; \`/arrange\`, \`/widget\`), or a layout (\`iris\`, \`centered\`, \`corner\`, \`minimal\`)"
   ["iris:utility"]="Set the utility satellite: \`tray\`, \`tools\`, \`sound\`, \`mic\` or \`none\`"
@@ -849,44 +849,44 @@ declare -gA IPC_FUNCTION_VALUES=(
 )
 
 declare -gA IPC_TARGET_EXAMPLE=(
-  [altSwitcher]='Alt+Tab { spawn "inir" "altSwitcher" "next"; }
-Alt+Shift+Tab { spawn "inir" "altSwitcher" "previous"; }'
-  [assistant]='Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }'
-  [background]='Super+W { spawn "inir" "background" "toggleEditMode"; }'
-  [cheatsheet]='Super+Slash { spawn "inir" "cheatsheet" "toggle"; }'
-  [clipboard]='Super+V repeat=false { spawn "inir" "clipboard" "toggle"; }'
-  [closeConfirm]='Mod+Q repeat=false { spawn "inir" "close-window"; }'
-  [colorMode]='Mod+Alt+L { spawn "inir" "colorMode" "set" "toggle"; }'
-  [equalizer]='Ctrl+Alt+F { spawn "inir" "equalizer" "toggle"; }'
-  [gamemode]='Super+F12 { spawn "inir" "gamemode" "toggle"; }'
-  [globalActions]='Super+Slash { spawn "inir" "globalActions" "open"; }
-Super+M { spawn "inir" "globalActions" "run" "toggle-mute"; }'
-  [globalStyle]='Mod+Alt+S { spawn "inir" "globalStyle" "set" "aurora"; }'
-  [keyboard]='Mod+Alt+K { spawn "inir" "keyboard" "switchLayout"; }'
-  [lock]='Super+Alt+L allow-when-locked=true { spawn "inir" "lock" "activate"; }'
-  [mpris]='Ctrl+Mod+Space { spawn "inir" "mpris" "playPause"; }
-Mod+Alt+N { spawn "inir" "mpris" "next"; }
-Mod+Alt+P { spawn "inir" "mpris" "previous"; }'
-  [niriAnimations]='Super+Alt+A { spawn "inir" "niriAnimations" "apply" "snappy"; }'
-  [osd]='Mod+Shift+K { spawn "inir" "osd" "keyboard"; }'
-  [overlay]='Mod+G { spawn "inir" "overlay" "toggle"; }'
-  [overview]='Mod+Space { spawn "inir" "overview" "toggle"; }'
-  [panelFamily]='Mod+Shift+W { spawn "inir" "panelFamily" "cycle"; }'
-  [pill]='Super+V repeat=false { spawn "inir" "pill" "toggle" "clipboard"; }'
-  [region]='Super+Shift+S { spawn "inir" "region" "screenshot"; }
-Super+Shift+X { spawn "inir" "region" "ocr"; }
-Super+Shift+A { spawn "inir" "region" "search"; }
-Ctrl+Shift+S { spawn "inir" "region" "menu"; }'
-  [session]='Super+Shift+E { spawn "inir" "session" "toggle"; }'
-  [settings]='Super+Comma { spawn "inir" "settings"; }'
-  [shellLayout]='Super+W { spawn "inir" "shellLayout" "toggle"; }'
-  [voiceSearch]='Super+Shift+V { spawn "inir" "voiceSearch" "toggle"; }'
-  [vpn]='Super+Alt+V { spawn "inir" "vpn" "toggle"; }'
-  [wallpaperSelector]='Ctrl+Alt+T { spawn "inir" "wallpaperSelector" "toggle"; }
-Ctrl+Alt+L { spawn "inir" "wallpaperSelector" "browse" "live" "-"; }
-Ctrl+Alt+A { spawn "inir" "wallpaperSelector" "openLauncher" "animated"; }'
-  [workspaceStrip]='Super+Tab { spawn "inir" "workspaceStrip" "toggle"; }'
-  [ytmusic]='Mod+M+Space { spawn "inir" "ytmusic" "playPause"; }'
+  [altSwitcher]='Alt+Tab { spawn "intoo" "altSwitcher" "next"; }
+Alt+Shift+Tab { spawn "intoo" "altSwitcher" "previous"; }'
+  [assistant]='Mod+S repeat=false { spawn "intoo" "assistant" "toggle"; }'
+  [background]='Super+W { spawn "intoo" "background" "toggleEditMode"; }'
+  [cheatsheet]='Super+Slash { spawn "intoo" "cheatsheet" "toggle"; }'
+  [clipboard]='Super+V repeat=false { spawn "intoo" "clipboard" "toggle"; }'
+  [closeConfirm]='Mod+Q repeat=false { spawn "intoo" "close-window"; }'
+  [colorMode]='Mod+Alt+L { spawn "intoo" "colorMode" "set" "toggle"; }'
+  [equalizer]='Ctrl+Alt+F { spawn "intoo" "equalizer" "toggle"; }'
+  [gamemode]='Super+F12 { spawn "intoo" "gamemode" "toggle"; }'
+  [globalActions]='Super+Slash { spawn "intoo" "globalActions" "open"; }
+Super+M { spawn "intoo" "globalActions" "run" "toggle-mute"; }'
+  [globalStyle]='Mod+Alt+S { spawn "intoo" "globalStyle" "set" "aurora"; }'
+  [keyboard]='Mod+Alt+K { spawn "intoo" "keyboard" "switchLayout"; }'
+  [lock]='Super+Alt+L allow-when-locked=true { spawn "intoo" "lock" "activate"; }'
+  [mpris]='Ctrl+Mod+Space { spawn "intoo" "mpris" "playPause"; }
+Mod+Alt+N { spawn "intoo" "mpris" "next"; }
+Mod+Alt+P { spawn "intoo" "mpris" "previous"; }'
+  [niriAnimations]='Super+Alt+A { spawn "intoo" "niriAnimations" "apply" "snappy"; }'
+  [osd]='Mod+Shift+K { spawn "intoo" "osd" "keyboard"; }'
+  [overlay]='Mod+G { spawn "intoo" "overlay" "toggle"; }'
+  [overview]='Mod+Space { spawn "intoo" "overview" "toggle"; }'
+  [panelFamily]='Mod+Shift+W { spawn "intoo" "panelFamily" "cycle"; }'
+  [pill]='Super+V repeat=false { spawn "intoo" "pill" "toggle" "clipboard"; }'
+  [region]='Super+Shift+S { spawn "intoo" "region" "screenshot"; }
+Super+Shift+X { spawn "intoo" "region" "ocr"; }
+Super+Shift+A { spawn "intoo" "region" "search"; }
+Ctrl+Shift+S { spawn "intoo" "region" "menu"; }'
+  [session]='Super+Shift+E { spawn "intoo" "session" "toggle"; }'
+  [settings]='Super+Comma { spawn "intoo" "settings"; }'
+  [shellLayout]='Super+W { spawn "intoo" "shellLayout" "toggle"; }'
+  [voiceSearch]='Super+Shift+V { spawn "intoo" "voiceSearch" "toggle"; }'
+  [vpn]='Super+Alt+V { spawn "intoo" "vpn" "toggle"; }'
+  [wallpaperSelector]='Ctrl+Alt+T { spawn "intoo" "wallpaperSelector" "toggle"; }
+Ctrl+Alt+L { spawn "intoo" "wallpaperSelector" "browse" "live" "-"; }
+Ctrl+Alt+A { spawn "intoo" "wallpaperSelector" "openLauncher" "animated"; }'
+  [workspaceStrip]='Super+Tab { spawn "intoo" "workspaceStrip" "toggle"; }'
+  [ytmusic]='Mod+M+Space { spawn "intoo" "ytmusic" "playPause"; }'
 )
 
 IPC_ALL_TARGETS=(ai altSwitcher appCatalog assistant audio autostart background bar brightness cheatsheet clipboard cliphistService closeConfirm colorMode connections controlPanel coverflowSelector customWidgets dashboard dev equalizer gamemode globalActions globalStyle iris keyboard lock mascotMood mediaControls memory minimize mpris network niriAnimations notifications orbit osd osdVolume osk overlay overview packageSearch panelFamily pill recordingOsd region search session settings settingsNav shellLayout shellUpdate sidebarLeft sidebarRight taskview tiling voiceSearch vpn wactionCenter waffleAltSwitcher wallpaperLauncher wallpaperSelector wbar widgetStacks widgetpower wnotificationCenter workspaceStrip wwidgets ytmusic zoom)

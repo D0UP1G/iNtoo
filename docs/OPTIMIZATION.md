@@ -274,7 +274,7 @@ Native blur is deliberately shape-aware. Rounded rectangles publish their exact 
 
 Launchers, overview, wallpaper pickers and most other heavy panels are created on demand. Their IPC commands remain registered through lightweight routers. Sidebars are the deliberate exception: their fullscreen roots load in the deferred phase, their content waits for the first valid mapped geometry, and both remain resident afterward so rapid close/reopen can reverse one surface without rebuilding its workspace.
 
-Thumbnail jobs launched by the wallpaper and generated-image pickers run in a transient user scope rather than the `inir.service` cgroup. `inir restart` cancels any unfinished iNtoo thumbnail pool, and completed scopes are collected automatically, so their workers and page cache are not reported as shell memory.
+Thumbnail jobs launched by the wallpaper and generated-image pickers run in a transient user scope rather than the `inir.service` cgroup. `intoo restart` cancels any unfinished iNtoo thumbnail pool, and completed scopes are collected automatically, so their workers and page cache are not reported as shell memory.
 
 ### Stateful visual lifetimes
 

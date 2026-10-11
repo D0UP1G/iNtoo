@@ -15,8 +15,8 @@ function assert(cond, msg) {
     }
 }
 
-const off = ctx.niriOffCommand("/home/dabi/.local/bin/inir")
-const resume = ctx.niriResumeCommand("/home/dabi/.local/bin/inir")
+const off = ctx.niriOffCommand("/home/dabi/.local/bin/intoo")
+const resume = ctx.niriResumeCommand("/home/dabi/.local/bin/intoo")
 
 assert(typeof off === "string" && off.length > 0, "niriOffCommand returns a command")
 assert(typeof resume === "string" && resume.length > 0, "niriResumeCommand returns a command")

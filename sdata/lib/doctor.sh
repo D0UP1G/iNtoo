@@ -437,7 +437,7 @@ check_repo_checkout_state() {
                 if declare -F show_repo_realign_guidance >/dev/null 2>&1; then
                     show_repo_realign_guidance "$tracked_branch"
                 else
-                    echo -e "    ${STY_FAINT}Run: inir update --realign${STY_RST}"
+                    echo -e "    ${STY_FAINT}Run: intoo update --realign${STY_RST}"
                 fi
                 ;;
         esac
@@ -455,16 +455,16 @@ check_launcher_health() {
     installed_strategy="$(get_installed_update_strategy)"
 
     local launcher_cmd expected_launcher repo_launcher runtime_launcher
-    launcher_cmd="$(command -v inir 2>/dev/null || true)"
-    expected_launcher="${XDG_BIN_HOME}/inir"
-    repo_launcher="${REPO_ROOT}/scripts/inir"
-    runtime_launcher="$(doctor_runtime_dir 2>/dev/null)/scripts/inir"
+    launcher_cmd="$(command -v intoo 2>/dev/null || true)"
+    expected_launcher="${XDG_BIN_HOME}/intoo"
+    repo_launcher="${REPO_ROOT}/scripts/intoo"
+    runtime_launcher="$(doctor_runtime_dir 2>/dev/null)/scripts/intoo"
 
     if [[ "$installed_strategy" == "package-manager" ]]; then
         if [[ -n "$launcher_cmd" ]]; then
             doctor_pass "Launcher available"
         else
-            doctor_fail "inir launcher not found in PATH"
+            doctor_fail "intoo launcher not found in PATH"
             echo -e "    ${STY_FAINT}Run the package install flow again, or install the launcher manually${STY_RST}"
         fi
         return 0
@@ -1018,7 +1018,7 @@ check_service_unit_health() {
         elif inir_sync_niri_startup enable >/dev/null 2>&1; then
             doctor_fix "Restored OpenRC shell startup in Niri config"
         else
-            doctor_fail "OpenRC shell startup missing; run: inir service enable"
+            doctor_fail "OpenRC shell startup missing; run: intoo service enable"
         fi
         if [[ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
             doctor_fail "D-Bus session missing; use: dbus-run-session niri --session"
@@ -1034,7 +1034,7 @@ check_service_unit_health() {
 
     if inir_user_service_is_masked; then
         doctor_fail "User inir.service is masked"
-        echo -e "    ${STY_FAINT}Run: inir service install && inir service enable${STY_RST}"
+        echo -e "    ${STY_FAINT}Run: intoo service install && intoo service enable${STY_RST}"
         return 0
     fi
 
@@ -1072,7 +1072,7 @@ check_service_unit_health() {
                 fi
             else
                 doctor_fail "Local inir.service shadows the package-managed unit"
-                echo -e "    ${STY_FAINT}Review ${user_service}, then run: inir service uninstall && inir service enable${STY_RST}"
+                echo -e "    ${STY_FAINT}Review ${user_service}, then run: intoo service uninstall && intoo service enable${STY_RST}"
                 return 0
             fi
         fi
@@ -1084,7 +1084,7 @@ check_service_unit_health() {
             doctor_fix "Restored missing user inir.service"
         else
             doctor_fail "User inir.service missing"
-            echo -e "    ${STY_FAINT}Run: inir service install${STY_RST}"
+            echo -e "    ${STY_FAINT}Run: intoo service install${STY_RST}"
             return 0
         fi
     fi
@@ -1118,12 +1118,12 @@ check_service_unit_health() {
 
     if [[ "$active_state" == "failed" || "$service_result" == "start-limit-hit" ]]; then
         doctor_fail "Shell service failed (${service_result:-unknown result})"
-        echo -e "    ${STY_FAINT}Run: inir logs${STY_RST}"
+        echo -e "    ${STY_FAINT}Run: intoo logs${STY_RST}"
     fi
 
     if [[ -n "$kill_mode" && "$kill_mode" != "process" ]]; then
         doctor_fail "inir.service KillMode is '${kill_mode}'"
-        echo -e "    ${STY_FAINT}Run: inir service install${STY_RST}"
+        echo -e "    ${STY_FAINT}Run: intoo service install${STY_RST}"
     else
         doctor_pass "User service file present"
     fi
@@ -1152,13 +1152,13 @@ check_service_unit_health() {
             doctor_fix "Enabled inir.service for ${expected_target}"
         else
             doctor_fail "inir.service not wired to ${expected_target}"
-            echo -e "    ${STY_FAINT}Run: inir service enable${STY_RST}"
+            echo -e "    ${STY_FAINT}Run: intoo service enable${STY_RST}"
         fi
     fi
 
     if [[ ${#stale_links[@]} -gt 0 ]]; then
         doctor_fail "Stale service links found: ${stale_links[*]}"
-        echo -e "    ${STY_FAINT}Run: inir service disable && inir service enable${STY_RST}"
+        echo -e "    ${STY_FAINT}Run: intoo service disable && intoo service enable${STY_RST}"
     fi
 
     if [[ -z "$expected_target" ]]; then
@@ -1373,7 +1373,7 @@ check_quickshell_abi() {
     _rebuild_cmd="$(_doctor_abi_rebuild_cmd)"
     if [[ -n "$_rebuild_cmd" ]]; then
         echo -e "  ${STY_YELLOW}To fix: ${_rebuild_cmd//--noconfirm /}${STY_RST}"
-        echo -e "  ${STY_FAINT}Or run: inir doctor --fix-abi${STY_RST}"
+        echo -e "  ${STY_FAINT}Or run: intoo doctor --fix-abi${STY_RST}"
     else
         echo -e "  ${STY_YELLOW}No automatic fix available for this install type.${STY_RST}"
         echo -e "  ${STY_FAINT}See: https://quickshell.org/docs/master/guide/install-setup${STY_RST}"
@@ -1411,12 +1411,12 @@ check_quickshell_loads() {
     # second Quickshell instance outside the user's lifecycle manager.
     echo -e "${STY_FAINT}Starting iNtoo through its service manager...${STY_RST}"
     local launcher
-    launcher="$(command -v inir 2>/dev/null || true)"
-    if [[ -z "$launcher" && -n "${REPO_ROOT:-}" && -f "${REPO_ROOT}/scripts/inir" ]]; then
-        launcher="${REPO_ROOT}/scripts/inir"
+    launcher="$(command -v intoo 2>/dev/null || true)"
+    if [[ -z "$launcher" && -n "${REPO_ROOT:-}" && -f "${REPO_ROOT}/scripts/intoo" ]]; then
+        launcher="${REPO_ROOT}/scripts/intoo"
     fi
-    if [[ -z "$launcher" && -f "${XDG_BIN_HOME:-$HOME/.local/bin}/inir" ]]; then
-        launcher="${XDG_BIN_HOME:-$HOME/.local/bin}/inir"
+    if [[ -z "$launcher" && -f "${XDG_BIN_HOME:-$HOME/.local/bin}/intoo" ]]; then
+        launcher="${XDG_BIN_HOME:-$HOME/.local/bin}/intoo"
     fi
     if [[ -z "$launcher" || ! -f "$launcher" ]] || ! bash "$launcher" service start; then
         doctor_fail "Could not start iNtoo through its service/session manager"
@@ -2015,11 +2015,11 @@ run_doctor_with_fixes() {
     if [[ $doctor_failed -gt 0 ]]; then
         tui_error "Some issues need manual attention."
         tui_info "Start with: ./setup status"
-        tui_info "Then read logs: inir logs"
+        tui_info "Then read logs: intoo logs"
         return 1
     elif [[ $doctor_fixed -gt 0 ]]; then
         tui_success "All issues fixed automatically."
-        tui_info "Restart the shell to apply: inir restart"
+        tui_info "Restart the shell to apply: intoo restart"
     else
         tui_success "Everything looks good!"
     fi

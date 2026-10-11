@@ -19,12 +19,12 @@ It provides the bar, dock, sidebars, notifications, settings, wallpapers, overvi
 ## Common commands
 
 ```bash
-inir run
-inir restart
-inir settings
-inir logs
-inir doctor
-inir update
+intoo run
+intoo restart
+intoo settings
+intoo logs
+intoo doctor
+intoo update
 ```
 
 ## Branches

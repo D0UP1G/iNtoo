@@ -8,7 +8,7 @@ What this changes and why.
 
 Describe what you ran and what you observed, not just "it works".
 
-- [ ] `inir restart && inir logs`: no new errors
+- [ ] `intoo restart && intoo logs`: no new errors
 - [ ] Exercised the exact flow that changed
 - [ ] Both panel families checked (if shared code changed)
 - [ ] Screenshots or a recording attached (if the change is visual)

@@ -163,7 +163,7 @@ pkgs.stdenvNoCC.mkDerivation {
 
     python3 sdata/lib/runtime-payload.py copy --root . --target "$runtime"
 
-    chmod +x "$runtime/setup" "$runtime/scripts/inir"
+    chmod +x "$runtime/setup" "$runtime/scripts/intoo"
     find "$runtime/scripts" -type f \( -name '*.sh' -o -name '*.fish' -o -name '*.py' \) -exec chmod +x {} \;
 
     # The source tree intentionally targets Arch, where helpers live under
@@ -173,13 +173,15 @@ pkgs.stdenvNoCC.mkDerivation {
       -type f \( -name '*.qml' -o -name '*.js' -o -name '*.sh' -o -name '*.py' \) \
       -exec sed -i '1!s#/usr/bin/##g' {} +
 
-    makeWrapper "$runtime/scripts/inir" "$out/bin/inir" \
+    makeWrapper "$runtime/scripts/intoo" "$out/bin/intoo" \
       --prefix PATH : "${lib.makeBinPath runtimeDeps}" \
       --prefix QML2_IMPORT_PATH : "${lib.makeSearchPath "lib/qt-6/qml" qmlDeps}" \
       --prefix QT_PLUGIN_PATH : "${lib.makeSearchPath "lib/qt-6/plugins" qmlDeps}" \
       ${materialSymbolsWrapperArg}
       --set-default INIR_SYSTEM_RUNTIME_DIR "$runtime" \
       --set-default INIR_FALLBACK_SYSTEM_RUNTIME_DIR "$runtime"
+
+    ln -s intoo "$out/bin/inir"
 
     runHook postInstall
   '';
@@ -191,6 +193,6 @@ pkgs.stdenvNoCC.mkDerivation {
     homepage = "https://github.com/D0UP1G/iNtoo";
     license = lib.licenses.gpl3Only;
     platforms = lib.platforms.linux;
-    mainProgram = "inir";
+    mainProgram = "intoo";
   };
 }

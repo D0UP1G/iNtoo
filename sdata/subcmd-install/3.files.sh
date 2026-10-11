@@ -18,7 +18,7 @@ for dir in "$XDG_BIN_HOME" "$XDG_CACHE_HOME" "$XDG_CONFIG_HOME" "$XDG_DATA_HOME"
   fi
 done
 
-INIR_LAUNCHER_PATH="${XDG_BIN_HOME}/inir"
+INIR_LAUNCHER_PATH="${XDG_BIN_HOME}/intoo"
 INIR_APPLICATIONS_DIR="${XDG_DATA_HOME}/applications"
 INIR_ICON_DIR="${XDG_DATA_HOME}/icons/hicolor/scalable/apps"
 
@@ -115,7 +115,7 @@ fi
 case "${SKIP_QUICKSHELL}" in
   true) sleep 0;;
   *)
-    tui_info "Installing Quickshell inir config..."
+    tui_info "Installing Quickshell intoo config..."
 
     # The ii QML code is in the root of this repo, not in dots/
     # We copy it to ~/.config/quickshell/inir/
@@ -176,12 +176,12 @@ case "${SKIP_QUICKSHELL}" in
     find "$II_TARGET/scripts" \( -name "*.sh" -o -name "*.fish" -o -name "*.py" \) -exec chmod +x {} \; 2>/dev/null || true
     [[ -f "${II_TARGET}/setup" ]] && chmod +x "${II_TARGET}/setup"
 
-    if [[ -f "${REPO_ROOT}/scripts/inir" ]]; then
+    if [[ -f "${REPO_ROOT}/scripts/intoo" ]]; then
       if sync_launcher_from_repo >/dev/null; then
         log_success "Launcher installed"
         log_success "Launcher path configured for login and interactive shells"
       else
-        log_error "Could not install the inir launcher"
+        log_error "Could not install the intoo launcher"
         return 1
       fi
     fi
@@ -215,7 +215,7 @@ case "${SKIP_QUICKSHELL}" in
         if ensure_user_inir_service_enabled; then
           log_success "User inir.service enabled (wired to niri.service)"
         else
-          log_warning "Could not wire inir.service to niri.service — run 'inir service enable'"
+          log_warning "Could not wire inir.service to niri.service — run 'intoo service enable'"
         fi
       fi
     else
@@ -228,7 +228,7 @@ case "${SKIP_QUICKSHELL}" in
       log_warning "Could not install desktop integration"
     fi
 
-    log_success "Quickshell inir config installed"
+    log_success "Quickshell intoo config installed"
 
     # Install Python packages now that requirements.txt is in place
     showfun install-python-packages
@@ -244,7 +244,7 @@ case "${SKIP_QUICKSHELL}" in
         0) log_success "The shell loaded the new files" ;;
         1) log_error "The shell did not load the new files"
            log_warning "Run './setup rollback' to go back to the previous version" ;;
-        *) log_warning "Could not confirm the shell loaded; 'inir logs' shows why" ;;
+        *) log_warning "Could not confirm the shell loaded; 'intoo logs' shows why" ;;
       esac
     fi
     ;;
@@ -336,7 +336,7 @@ case "${SKIP_NIRI}" in
       fi
 
       if ! python3 "${REPO_ROOT}/scripts/sync-niri-binds.py" \
-          "${XDG_BIN_HOME}/inir" "${XDG_CONFIG_HOME}"; then
+          "${XDG_BIN_HOME}/intoo" "${XDG_CONFIG_HOME}"; then
         log_warning "Could not synchronize Niri keybinds with the installed launcher"
       fi
     fi
@@ -1220,7 +1220,7 @@ EOF
     echo -e "${STY_BLUE}${STY_BOLD}┌─ What was installed${STY_RST}"
     echo -e "${STY_BLUE}│${STY_RST}"
     echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} Quickshell inir copied to ~/.config/quickshell/inir/"
-    echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} Niri config wired to the inir launcher"
+    echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} Niri config wired to the intoo launcher"
     echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} GTK/Qt theming (Material You + Kvantum + Darkly)"
     echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} Environment variables for ${DETECTED_SHELL:-your shell}"
     echo -e "${STY_BLUE}│${STY_RST}  ${STY_GREEN}✓${STY_RST} Default wallpaper and color scheme"
@@ -1272,7 +1272,7 @@ if ! ${quiet:-false}; then
   fi
 
   echo -e "${STY_FAINT}Backups saved to: ${BACKUP_DIR}${STY_RST}"
-  echo -e "${STY_FAINT}Logs: inir logs${STY_RST}"
+  echo -e "${STY_FAINT}Logs: intoo logs${STY_RST}"
   echo ""
 
   if [[ "${IS_UPDATE}" == "true" ]]; then

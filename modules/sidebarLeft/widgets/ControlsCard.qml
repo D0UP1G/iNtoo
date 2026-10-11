@@ -18,7 +18,7 @@ Item {
     }
 
     function openSettings(): void {
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"])
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"])
     }
 
     RowLayout {

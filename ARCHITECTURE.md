@@ -118,7 +118,7 @@ services/                     # Runtime singletons (+ services/deferred/)
 └── [more services]
 
 scripts/                      # Shell/fish/python helpers
-├── inir                      # CLI launcher (bash, IPC + lifecycle commands)
+├── intoo                     # CLI launcher (bash, IPC + lifecycle commands)
 ├── colors/                   # Color generation pipeline
 │   ├── applycolor.sh         # Orchestrator
 │   ├── generate_colors_material.py  # Material You color generation + template rendering
@@ -214,7 +214,7 @@ See [docs/ASSISTANT.md](docs/ASSISTANT.md).
 
 Handlers registered via `IpcHandler { target: "name" }` in QML.
 
-Called externally: `inir <target> <function> [args]`
+Called externally: `intoo <target> <function> [args]`
 
 The always-instantiated `dev` target provides session-only semantic navigation
 for lazy UI. Its functions are:
@@ -272,20 +272,20 @@ for the current maximum).
 ## Daily Development
 
 ```bash
-inir run                    # Launch the shell
-inir restart                # Graceful restart
-inir logs | tail -50        # Check for errors
-inir status                 # Installation/repository diagnostic summary
-inir doctor                 # Auto-diagnose + fix
-inir settings               # Open settings GUI
+intoo run                    # Launch the shell
+intoo restart                # Graceful restart
+intoo logs | tail -50        # Check for errors
+intoo status                 # Installation/repository diagnostic summary
+intoo doctor                 # Auto-diagnose + fix
+intoo settings               # Open settings GUI
 
 # IPC calls
-inir <target> <function> [args...]
-inir overview toggle
-inir audio volumeUp
+intoo <target> <function> [args...]
+intoo overview toggle
+intoo audio volumeUp
 ```
 
-Use `inir restart` to restart the shell through its lifecycle owner:
+Use `intoo restart` to restart the shell through its lifecycle owner:
 `inir.service` on systemd, or `scripts/lib/session-supervisor.sh` on OpenRC.
 The OpenRC supervisor starts from Niri, owns the shell's process group, and
 limits crash restarts. Applications launched with detached sessions survive

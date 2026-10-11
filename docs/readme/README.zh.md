@@ -66,7 +66,7 @@ Wayland → GPU
 
 这是一个做着做着就停不下来的个人项目。我每天都在用，Discord 里也有很多人在用。但偶尔还是会坏，代码有些地方很乱，我也在边做边学。
 
-如果有东西不工作，`inir doctor` 能修好大部分问题。还不行的话，Discord 很活跃。只是别指望它是打磨完美的软件：这是一个人的 rice，碰巧别人也喜欢。
+如果有东西不工作，`intoo doctor` 能修好大部分问题。还不行的话，Discord 很活跃。只是别指望它是打磨完美的软件：这是一个人的 rice，碰巧别人也喜欢。
 
 ### 为什么会有它？
 
@@ -147,19 +147,19 @@ Wayland → GPU
 
 ### Island
 
-- **Island**：屏幕边缘的一个形状，告诉你“正在发生什么”，并变成你打开的页面、卡片或面板，然后再收起来。可放在上、下、左、右（`inir iris edge <side>`，或直接拖过去）。放在侧边时它会竖起来，时钟竖排，气泡在上下两侧
-- **菜单栏**：一条细长的栏，放着工作区、当前窗口和组件，Island 像刘海一样挂在它下面（`inir iris layout menubar`）
-- **全宽栏模式**，有开始、中间和结尾三个区域，可以放 Island、工作区、焦点窗口、时间或任何组件（`inir iris zone start|center|end kinds+joined+with+plus`）
+- **Island**：屏幕边缘的一个形状，告诉你“正在发生什么”，并变成你打开的页面、卡片或面板，然后再收起来。可放在上、下、左、右（`intoo iris edge <side>`，或直接拖过去）。放在侧边时它会竖起来，时钟竖排，气泡在上下两侧
+- **菜单栏**：一条细长的栏，放着工作区、当前窗口和组件，Island 像刘海一样挂在它下面（`intoo iris layout menubar`）
+- **全宽栏模式**，有开始、中间和结尾三个区域，可以放 Island、工作区、焦点窗口、时间或任何组件（`intoo iris zone start|center|end kinds+joined+with+plus`）
 - **组件（pieces）**：天气、声音、麦克风、托盘、通知、工具、媒体、VPN、可视化器、动漫（Airing 和 Continue）以及你自己的应用，以气泡的形式放在 Island 上、屏幕轮廓上或桌面任意位置
 - **组件会并入它碰到的东西**：把一个放到 Dock 或 Island 的边上，它就成为那个主体的一部分，而不是浮在上面
-- **Dock** 可放在任意边缘（`inir iris dockEdge <side|auto>`）；auto 时位于 Island 对面，把一个移到另一个所在的边缘，它们会互换位置
+- **Dock** 可放在任意边缘（`intoo iris dockEdge <side|auto>`）；auto 时位于 Island 对面，把一个移到另一个所在的边缘，它们会互换位置
 - **玻璃**：在每个表面下对壁纸做磨砂处理，即使在明亮或花哨的壁纸上也能保持文字清晰。合成器模糊也有，但仍在开发中，先别急着评价
-- **Themes**：20 套精选重新设计（Liquid Glass、Frost、Obsidian、Terminal、Neo Tokyo、Twilight、Lume、Sakura、Unit-01 等），以及你自己的、可分享的 JSON 文件（`inir iris theme`）
-- **浅色、墨色和深色**，各有自己的色调和磨砂程度，还有你的应用也会跟着使用的配色主题（Catppuccin、Nord、Rosé Pine、Tokyo Night…）（`inir iris palette`）
+- **Themes**：20 套精选重新设计（Liquid Glass、Frost、Obsidian、Terminal、Neo Tokyo、Twilight、Lume、Sakura、Unit-01 等），以及你自己的、可分享的 JSON 文件（`intoo iris theme`）
+- **浅色、墨色和深色**，各有自己的色调和磨砂程度，还有你的应用也会跟着使用的配色主题（Catppuccin、Nord、Rosé Pine、Tokyo Night…）（`intoo iris palette`）
 - **形状**：Island 和 Dock 可选胶囊、圆形、超椭圆或方形
-- **在 shell 上直接 Customize**：点一下 Island、Dock 或气泡，它的选项就从原地展开，Island 下方有 Themes、Look、Pieces 和撤销（`inir iris edit`）。如果你更喜欢，Studio 会把所有内容放在屏幕旁的一个面板里
-- **由你排布的控制中心**：每个共享快捷开关、播放器和每个滑块都是格子，可以拖动、从角落调整大小，并从旁边的库里添加，提供六种起始布局；右键可展开控件（`inir iris control edit`）
-- **可以排练的锁屏**：真正的锁屏以可编辑状态打开，不需要解锁；移动时钟、播放器和登录框，并选择背景播放的内容，包括视频（`inir iris lock edit`）
+- **在 shell 上直接 Customize**：点一下 Island、Dock 或气泡，它的选项就从原地展开，Island 下方有 Themes、Look、Pieces 和撤销（`intoo iris edit`）。如果你更喜欢，Studio 会把所有内容放在屏幕旁的一个面板里
+- **由你排布的控制中心**：每个共享快捷开关、播放器和每个滑块都是格子，可以拖动、从角落调整大小，并从旁边的库里添加，提供六种起始布局；右键可展开控件（`intoo iris control edit`）
+- **可以排练的锁屏**：真正的锁屏以可编辑状态打开，不需要解锁；移动时钟、播放器和登录框，并选择背景播放的内容，包括视频（`intoo iris lock edit`）
 
 ### 主题与外观
 
@@ -215,7 +215,7 @@ Wayland → GPU
 
 - **图形化设置**：不碰文件就能配置一切
 - **GameMode**：全屏应用时自动关闭特效
-- **自动更新**：`inir update`，支持回滚、迁移并保留你的改动
+- **自动更新**：`intoo update`，支持回滚、迁移并保留你的改动
 - **锁屏**和**会话屏幕**（注销/重启/关机/挂起）
 - **Polkit 代理**、**屏幕键盘**、基于 niri 自身启动文件的**自启动管理**
 - **18 种语言**，自动检测，包括印尼语（`id_ID`）和格陵兰语（`kl_GL`）
@@ -238,14 +238,14 @@ cd inir
 ./setup install -y    # automatic, no questions asked
 ```
 
-安装程序会处理依赖、系统配置和主题。安装完成后，运行 `inir run` 启动 shell，或者注销后重新登录。
+安装程序会处理依赖、系统配置和主题。安装完成后，运行 `intoo run` 启动 shell，或者注销后重新登录。
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 如果 `./setup install` 不是你想要的，还有其他方式：
@@ -301,9 +301,9 @@ sudo make install       # system-wide instead of your home
 ## 故障排除
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```

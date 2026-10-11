@@ -121,7 +121,7 @@ ContentPage {
                             colBackground: Appearance.colors.colPrimaryContainer
                             colBackgroundHover: Appearance.colors.colPrimaryContainerHover
                             colRipple: Appearance.colors.colPrimaryContainerActive
-                            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "panelFamily", "set", "iris"])
+                            onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "panelFamily", "set", "iris"])
                             StyledText {
                                 anchors.centerIn: parent
                                 text: Translation.tr("Activate")
@@ -306,7 +306,7 @@ ContentPage {
                         Layout.fillWidth: true
                         visible: CustomWidgets.ready
                             && CustomWidgets.widgets.filter(widget => String(widget.irisQmlPath ?? "").length > 0).length === 0
-                        text: Translation.tr("No custom Island modules installed. `inir customWidgets create my-widget` now scaffolds one.")
+                        text: Translation.tr("No custom Island modules installed. `intoo customWidgets create my-widget` now scaffolds one.")
                         color: Appearance.colors.colSubtext
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         wrapMode: Text.WordWrap

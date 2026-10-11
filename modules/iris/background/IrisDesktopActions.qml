@@ -15,7 +15,7 @@ Singleton {
     id: root
 
     function inir(args: var): void {
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir")].concat(args))
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo")].concat(args))
     }
 
     // Every action the menu can carry. `group` orders the sections: the desktop, tools, the shell.

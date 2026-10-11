@@ -12,7 +12,7 @@ MouseArea {
     // Easter egg: long-press the battery and she boops in
     onPressAndHold: {
         if (Config.options?.mascot?.enable ?? false)
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "mascot", "appearWithLine",
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "mascot", "appearWithLine",
                 "camera-boop", "top", Translation.tr("Boop.")])
     }
     readonly property var chargeState: Battery.chargeState

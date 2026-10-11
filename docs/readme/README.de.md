@@ -66,7 +66,7 @@ Wayland → GPU
 
 Es ist ein privates Projekt, das aus dem Ruder gelaufen ist. Ich nutze es täglich, viele Leute im Discord auch. Aber manchmal geht etwas kaputt, der Code ist stellenweise chaotisch, und ich lerne unterwegs.
 
-Wenn etwas nicht geht, behebt `inir doctor` das meiste. Sonst ist der Discord aktiv. Erwarte nur keine polierte Software: Das ist der Rice einer Person, der anderen zufällig auch gefällt.
+Wenn etwas nicht geht, behebt `intoo doctor` das meiste. Sonst ist der Discord aktiv. Erwarte nur keine polierte Software: Das ist der Rice einer Person, der anderen zufällig auch gefällt.
 
 ### Warum gibt es das?
 
@@ -147,19 +147,19 @@ Ich wollte, dass mein Desktop auf eine bestimmte Art aussieht und funktioniert, 
 
 ### Island
 
-- **Die Island**: eine Form am Bildschirmrand, die zeigt, was gerade passiert, und zur Seite, Card oder zum Panel wird, das du geöffnet hast, und sich dann wieder zusammenfaltet. Oben, unten, links oder rechts (`inir iris edge <side>`, oder zieh sie dorthin). An der Seite stellt sie sich auf, mit gestapelter Uhr und Bubbles darüber und darunter
-- **Menüleiste**: ein schmaler Streifen mit deinen Workspaces, dem Fenster und den Pieces, die Island hängt daran wie eine Notch (`inir iris layout menubar`)
-- **Leiste in voller Breite** mit Start-, Mitte- und Endzonen für die Island, Workspaces, das fokussierte Fenster, die Uhrzeit oder beliebige Pieces (`inir iris zone start|center|end kinds+joined+with+plus`)
+- **Die Island**: eine Form am Bildschirmrand, die zeigt, was gerade passiert, und zur Seite, Card oder zum Panel wird, das du geöffnet hast, und sich dann wieder zusammenfaltet. Oben, unten, links oder rechts (`intoo iris edge <side>`, oder zieh sie dorthin). An der Seite stellt sie sich auf, mit gestapelter Uhr und Bubbles darüber und darunter
+- **Menüleiste**: ein schmaler Streifen mit deinen Workspaces, dem Fenster und den Pieces, die Island hängt daran wie eine Notch (`intoo iris layout menubar`)
+- **Leiste in voller Breite** mit Start-, Mitte- und Endzonen für die Island, Workspaces, das fokussierte Fenster, die Uhrzeit oder beliebige Pieces (`intoo iris zone start|center|end kinds+joined+with+plus`)
 - **Pieces**: Wetter, Ton, Mikrofon, Tray, Benachrichtigungen, Werkzeuge, Medien, VPN, ein Visualizer, Anime (Airing und Continue) und deine eigenen Apps als Bubbles, die du auf der Island, am Bildschirmrand oder frei auf dem Desktop ablegst
 - **Pieces verbinden sich mit dem, was sie berühren**: leg eines an den Rand des Docks oder der Island, und es wird Teil davon, statt darüber zu schweben
-- **Dock** an jedem Rand (`inir iris dockEdge <side|auto>`); auf auto sitzt es gegenüber der Island, und schickst du eines an den Rand des anderen, tauschen sie die Plätze
+- **Dock** an jedem Rand (`intoo iris dockEdge <side|auto>`); auf auto sitzt es gegenüber der Island, und schickst du eines an den Rand des anderen, tauschen sie die Plätze
 - **Glass**, das den Hintergrund unter jeder Fläche mattiert und Text auch auf hellen oder unruhigen Hintergründen lesbar hält. Compositor-Blur gibt es auch, aber er ist noch im Bau, also urteil noch nicht
-- **Themes**: 20 kuratierte Neugestaltungen (Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 und mehr) plus deine eigenen als teilbare JSON-Dateien (`inir iris theme`)
-- **Hell, Tinte und Dunkel**, jeweils mit eigenem Ton und eigener Mattierung, und Farbthemen (Catppuccin, Nord, Rosé Pine, Tokyo Night…), die auch deine Apps tragen (`inir iris palette`)
+- **Themes**: 20 kuratierte Neugestaltungen (Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 und mehr) plus deine eigenen als teilbare JSON-Dateien (`intoo iris theme`)
+- **Hell, Tinte und Dunkel**, jeweils mit eigenem Ton und eigener Mattierung, und Farbthemen (Catppuccin, Nord, Rosé Pine, Tokyo Night…), die auch deine Apps tragen (`intoo iris palette`)
 - **Form**: Kapsel, rund, Squircle oder eckig für Island und Dock
-- **Customize auf der Shell**: tipp auf die Island, das Dock oder eine Bubble, und ihre Optionen wachsen direkt daraus hervor, mit Themes, Look, Pieces und Rückgängig unter der Island (`inir iris edit`). Wer lieber ein Panel mag: Studio zeigt alles in einer Spalte neben dem Bildschirm
-- **Ein Control Center, das du selbst anordnest**: jeder gemeinsame Schnellschalter, der Player und jeder Regler sind Zellen, die du ziehst, an einer Ecke skalierst und aus einer Bibliothek daneben hinzufügst, mit sechs Startlayouts; ein Rechtsklick klappt ein Steuerelement auf (`inir iris control edit`)
-- **Ein Sperrbildschirm zum Proben**: die echte Sperre öffnet sich bearbeitbar, ohne dass etwas entsperrt werden muss; verschieb Uhr, Player und Anmeldefeld und wähl, was dahinter läuft, Video inklusive (`inir iris lock edit`)
+- **Customize auf der Shell**: tipp auf die Island, das Dock oder eine Bubble, und ihre Optionen wachsen direkt daraus hervor, mit Themes, Look, Pieces und Rückgängig unter der Island (`intoo iris edit`). Wer lieber ein Panel mag: Studio zeigt alles in einer Spalte neben dem Bildschirm
+- **Ein Control Center, das du selbst anordnest**: jeder gemeinsame Schnellschalter, der Player und jeder Regler sind Zellen, die du ziehst, an einer Ecke skalierst und aus einer Bibliothek daneben hinzufügst, mit sechs Startlayouts; ein Rechtsklick klappt ein Steuerelement auf (`intoo iris control edit`)
+- **Ein Sperrbildschirm zum Proben**: die echte Sperre öffnet sich bearbeitbar, ohne dass etwas entsperrt werden muss; verschieb Uhr, Player und Anmeldefeld und wähl, was dahinter läuft, Video inklusive (`intoo iris lock edit`)
 
 ### Theming und Aussehen
 
@@ -215,7 +215,7 @@ Rechte Sidebar:
 
 - **Grafische Einstellungen**: alles einstellbar, ohne Dateien anzufassen
 - **GameMode**: schaltet Effekte bei Vollbild-Apps automatisch ab
-- **Updates**: `inir update` mit Rollback, Migrationen und Erhalt deiner Änderungen
+- **Updates**: `intoo update` mit Rollback, Migrationen und Erhalt deiner Änderungen
 - **Sperrbildschirm** und **Sitzungsbildschirm** (Abmelden/Neustart/Herunterfahren/Ruhezustand)
 - **Polkit-Agent**, **Bildschirmtastatur**, **Autostart-Verwaltung** auf Basis von Niris eigener Startdatei
 - **18 Sprachen** mit automatischer Erkennung, darunter Indonesisch (`id_ID`) und Grönländisch (`kl_GL`)
@@ -238,14 +238,14 @@ cd inir
 ./setup install -y    # automatic, no questions asked
 ```
 
-Der Installer kümmert sich um Abhängigkeiten, Systemkonfiguration und Theming. Danach startest du die Shell mit `inir run`, oder du meldest dich ab und wieder an.
+Der Installer kümmert sich um Abhängigkeiten, Systemkonfiguration und Theming. Danach startest du die Shell mit `intoo run`, oder du meldest dich ab und wieder an.
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 Andere Wege, falls `./setup install` nicht das ist, was du willst:
@@ -301,9 +301,9 @@ Alles für Nutzer steht im [Wiki](https://github.com/D0UP1G/iNtoo/tree/main/docs
 ## Fehlerbehebung
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```

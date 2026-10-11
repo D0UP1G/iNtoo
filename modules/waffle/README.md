@@ -2,7 +2,7 @@
 
 Waffle is iNtoo's Windows 11-inspired panel family, implemented with Quickshell. It includes a taskbar, Start menu, and action and notification centers.
 
-Switch panel families with `Super+Shift+W`, or run `inir panelFamily cycle` from a terminal.
+Switch panel families with `Super+Shift+W`, or run `intoo panelFamily cycle` from a terminal.
 
 ## From EWW to Quickshell
 

@@ -69,7 +69,7 @@ else
 fi
 
 # 6. Generated IPC CLI registry must be in sync with docs/IPC.md + QML targets.
-#    A stale scripts/lib/ipc-registry.sh breaks the `inir <target> <fn>` shorthand
+#    A stale scripts/lib/ipc-registry.sh breaks the `intoo <target> <fn>` shorthand
 #    even though the IPC itself works — the bug that hid the dashboard target.
 if command -v python3 >/dev/null 2>&1 && [ -f scripts/lib/generate-ipc-registry.py ]; then
   echo "[IPC] generated CLI registry freshness"

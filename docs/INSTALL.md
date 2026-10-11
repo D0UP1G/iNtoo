@@ -107,9 +107,9 @@ This gives you:
 ### 4. Enable the iNtoo user service
 
 ```bash
-inir service install
-inir service enable
-inir service start
+intoo service install
+intoo service enable
+intoo service start
 ```
 
 ### 5. Restart Niri
@@ -127,7 +127,7 @@ Or log out and back in.
 Check the logs:
 
 ```bash
-inir logs
+intoo logs
 ```
 
 If everything went well, you should see:

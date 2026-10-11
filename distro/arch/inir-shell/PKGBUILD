@@ -116,10 +116,11 @@ package() {
   timestamp="$(date -Iseconds)"
 
   python3 "$srcroot/sdata/lib/runtime-payload.py" copy --root "$srcroot" --target "$shellroot" || return
-  chmod +x "$shellroot/setup" "$shellroot/scripts/inir"
+  chmod +x "$shellroot/setup" "$shellroot/scripts/intoo" "$shellroot/scripts/inir"
 
   find "$shellroot/scripts" -type f \( -name '*.sh' -o -name '*.fish' -o -name '*.py' \) -exec chmod +x {} +
 
+  install -Dm755 "$srcroot/scripts/intoo" "$pkgdir/usr/bin/intoo"
   install -Dm755 "$srcroot/scripts/inir" "$pkgdir/usr/bin/inir"
   install -Dm644 "$srcroot/assets/systemd/inir.service" "$pkgdir/usr/lib/systemd/user/inir.service"
   install -Dm644 "$srcroot/assets/applications/inir.desktop" "$pkgdir/usr/share/applications/inir.desktop"

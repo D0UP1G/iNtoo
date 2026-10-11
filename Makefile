@@ -13,7 +13,7 @@ INSTALL_SYSTEMD ?= 1
 all: build
 
 build:
-	@chmod +x scripts/inir
+	@chmod +x scripts/intoo scripts/inir
 	@chmod +x scripts/test-local-distribution.sh
 	@chmod +x setup
 	@find scripts -type f \( -name "*.sh" -o -name "*.fish" -o -name "*.py" \) -exec chmod +x {} +
@@ -32,18 +32,19 @@ test-audit:
 	exit $$status
 
 install-bin:
+	@install -Dm755 scripts/intoo $(BINDIR)/intoo
 	@install -Dm755 scripts/inir $(BINDIR)/inir
 
 install-shell:
 	@python3 sdata/lib/runtime-payload.py copy --root . --target "$(SHELL_INSTALL_DIR)"
-	@chmod +x "$(SHELL_INSTALL_DIR)/setup" "$(SHELL_INSTALL_DIR)/scripts/inir"
+	@chmod +x "$(SHELL_INSTALL_DIR)/setup" "$(SHELL_INSTALL_DIR)/scripts/intoo" "$(SHELL_INSTALL_DIR)/scripts/inir"
 	@find "$(SHELL_INSTALL_DIR)/scripts" -type f \( -name "*.sh" -o -name "*.fish" -o -name "*.py" \) -exec chmod +x {} +
 	@printf '{\n  "version": "%s",\n  "commit": "manual",\n  "installed_at": "%s",\n  "installedAt": "%s",\n  "source": "make-install",\n  "repo_path": "",\n  "repoPath": "",\n  "install_mode": "package-managed",\n  "installMode": "package-managed",\n  "update_strategy": "package-manager",\n  "updateStrategy": "package-manager",\n  "package_manager": "manual",\n  "packageManager": "manual",\n  "package_name": "source-install",\n  "packageName": "source-install",\n  "package_update_hint": "sudo make install",\n  "packageUpdateHint": "sudo make install"\n}\n' "$$(cat VERSION)" "$$(date -Iseconds)" "$$(date -Iseconds)" > "$(SHELL_INSTALL_DIR)/version.json"
 
 install-systemd:
 	@mkdir -p $(SYSTEMD_USER_DIR)
-	@sed -e 's|^ExecStart=.*|ExecStart=$(BINDIR)/inir run --session|' \
-		-e 's|^ExecStopPost=-.*|ExecStopPost=-$(BINDIR)/inir cleanup-orphans|' \
+	@sed -e 's|^ExecStart=.*|ExecStart=$(BINDIR)/intoo run --session|' \
+		-e 's|^ExecStopPost=-.*|ExecStopPost=-$(BINDIR)/intoo cleanup-orphans|' \
 		assets/systemd/inir.service > $(SYSTEMD_USER_DIR)/inir.service
 	@chmod 644 $(SYSTEMD_USER_DIR)/inir.service
 
@@ -67,7 +68,7 @@ install: install-systemd
 endif
 
 uninstall-bin:
-	@rm -f $(BINDIR)/inir
+	@rm -f $(BINDIR)/intoo $(BINDIR)/inir
 
 uninstall-shell:
 	@rm -rf $(SHELL_INSTALL_DIR)

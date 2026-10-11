@@ -41,12 +41,12 @@ WBarAttachedPanelContent {
             AppLauncher.launch("terminal")
             break
         case "settings":
-            ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/inir"), "settings"], "Open iNtoo settings")
+            ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/intoo"), "settings"], "Open iNtoo settings")
             break
         case "wallpaper": {
             const useMain = Config.options?.waffles?.background?.useMainWallpaper ?? true
             Config.setNestedValue("wallpaperSelector.selectionTarget", useMain ? "main" : "waffle")
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "wallpaperSelector", "toggle"])
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "wallpaperSelector", "toggle"])
             break
         }
         case "screenshot":
@@ -133,7 +133,7 @@ WBarAttachedPanelContent {
                             implicitSize: Looks.dp(16)
                         }
                         onClicked: {
-                            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"])
+                            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"])
                             GlobalStates.waffleWidgetsOpen = false
                         }
                     }

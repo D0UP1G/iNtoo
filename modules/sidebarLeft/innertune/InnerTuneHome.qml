@@ -65,7 +65,7 @@ StyledFlickable {
                     horizontalAlignment: Text.AlignHCenter
                     text: InnerTube.available
                         ? Translation.tr("Tap to load home")
-                        : Translation.tr("YT Music runtime unavailable. Run inir doctor, then tap to retry.")
+                        : Translation.tr("YT Music runtime unavailable. Run intoo doctor, then tap to retry.")
                     color: Appearance.colMetadataText
                 }
             }

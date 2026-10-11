@@ -15,9 +15,9 @@ The service connects to your compositor via a wants link:
 When Niri starts, `inir.service` waits for the `Type=notify` compositor service to report ready, so it inherits Niri's authoritative `DISPLAY`, `WAYLAND_DISPLAY` and `NIRI_SOCKET`. When Niri stops, iNtoo stops. Manage the link with:
 
 ```bash
-inir service enable     # create wants link
-inir service disable    # remove it
-inir service status     # check state
+intoo service enable     # create wants link
+intoo service disable    # remove it
+intoo service status     # check state
 ```
 
 For the full boot sequence, see [Runtime and Boot Pipeline](RUNTIME.md).
@@ -63,9 +63,9 @@ If the QML lock surface fails to render within 2 seconds, iNtoo falls back to sw
 ### IPC
 
 ```bash
-inir lock activate     # lock the session
-inir lock deactivate   # unlock (requires auth)
-inir lock status       # check lock state
+intoo lock activate     # lock the session
+intoo lock deactivate   # unlock (requires auth)
+intoo lock status       # check lock state
 ```
 
 ### Config
@@ -80,7 +80,7 @@ Lock settings are in Settings > System > Lock:
 The session screen provides logout, reboot, shutdown, and suspend actions. Access it from:
 - Keybind (configurable)
 - Power button in the bar/taskbar
-- IPC: `inir session open`
+- IPC: `intoo session open`
 
 Before executing an action, the session screen checks for running package managers and active downloads. If found, it warns you before proceeding.
 

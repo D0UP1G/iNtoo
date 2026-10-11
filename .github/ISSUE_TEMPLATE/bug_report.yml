@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         If the shell broke right after a system update or crashes at
-        startup, run `inir doctor` first — it detects and can fix the most
+        startup, run `intoo doctor` first — it detects and can fix the most
         common cause (a Qt ABI mismatch).
 
   - type: textarea
@@ -25,7 +25,7 @@ body:
       description: Numbered steps to trigger the issue
       placeholder: |
         1. Enable weather widget in settings
-        2. Restart shell with inir restart
+        2. Restart shell with intoo restart
         3. Bar crashes on startup
     validations:
       required: true
@@ -44,7 +44,7 @@ body:
     attributes:
       label: Logs
       description: |
-        Output from `inir logs` (last 50 lines or relevant errors).
+        Output from `intoo logs` (last 50 lines or relevant errors).
         If the shell crashed, also include crash output if available.
       render: shell
     validations:
@@ -57,7 +57,7 @@ body:
       description: |
         Paste the output of these three commands:
         ```
-        inir version
+        intoo version
         qs --version
         niri msg version   # or: hyprctl version
         ```

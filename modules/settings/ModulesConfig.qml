@@ -220,7 +220,7 @@ ContentPage {
                         }
                     }
 
-                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "panelFamily", "set", "ii"])
+                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "panelFamily", "set", "ii"])
                 }
 
                 RippleButton {
@@ -248,7 +248,7 @@ ContentPage {
                         }
                     }
 
-                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "panelFamily", "set", "waffle"])
+                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "panelFamily", "set", "waffle"])
                 }
 
                 RippleButton {
@@ -276,7 +276,7 @@ ContentPage {
                         }
                     }
 
-                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "panelFamily", "set", "iris"])
+                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "panelFamily", "set", "iris"])
                 }
             }
 
@@ -1156,7 +1156,7 @@ ContentPage {
                 autoToggle: false
                 onToggledByUser: enabled => {
                     const action = enabled ? "openOverlayAt" : "openWindowAt"
-                    Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+                    Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                         "ipc", "settings", action, String(modulesPage.settingsPageIndex)])
                     if (enabled && !GlobalStates.settingsOverlayOpen)
                         Qt.quit()
@@ -1178,7 +1178,7 @@ ContentPage {
                         { displayName: Translation.tr("Unified"), icon: "side_navigation", value: "unified" },
                         { displayName: Translation.tr("Editorial"), icon: "auto_stories", value: "editorial" }
                     ]
-                    onSelected: value => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+                    onSelected: value => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                         "ipc", "settings", "setOverlayStyle", value, String(modulesPage.settingsPageIndex)])
                 }
 

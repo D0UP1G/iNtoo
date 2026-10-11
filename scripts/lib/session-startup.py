@@ -34,10 +34,11 @@ class CommandMatcher:
         if any(token.kind != "string" for token in active_args):
             return False
         words = [token.value for token in active_args]
-        return bool(words) and Path(words[0]).name == self.executable and words[1:] in self.argument_sets
+        executables = (self.executable,) if isinstance(self.executable, str) else self.executable
+        return bool(words) and Path(words[0]).name in executables and words[1:] in self.argument_sets
 
 
-SHELL = CommandMatcher("inir", [["start"], ["run"], ["run", "--session"]])
+SHELL = CommandMatcher(("intoo", "inir"), [["start"], ["run"], ["run", "--session"]])
 AUDIO = CommandMatcher("gentoo-pipewire-launcher", [[]])
 
 

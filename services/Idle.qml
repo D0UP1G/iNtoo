@@ -29,7 +29,7 @@ Singleton {
     readonly property int suspendTimeout: batteryProfileActive
         ? (Config.options?.idle?.onBattery?.suspendTimeout ?? 600)
         : (Config.options?.idle?.suspendTimeout ?? 0)
-    readonly property string launcherPath: Quickshell.shellPath("scripts/inir")
+    readonly property string launcherPath: Quickshell.shellPath("scripts/intoo")
 
     onScreenOffTimeoutChanged: _restartSwayidle()
     onLockTimeoutChanged: _restartSwayidle()

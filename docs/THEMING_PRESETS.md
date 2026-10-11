@@ -9,9 +9,9 @@ Normally, iNtoo extracts colors from your wallpaper using Material You. Presets 
 Apply presets from Settings > Appearance > Theme, or via IPC:
 
 ```bash
-inir theme setPreset gruvbox-dark
-inir theme setPreset catppuccin-mocha
-inir theme auto                        # back to wallpaper-based
+intoo theme setPreset gruvbox-dark
+intoo theme setPreset catppuccin-mocha
+intoo theme auto                        # back to wallpaper-based
 ```
 
 When a preset is active, changing wallpapers changes the background image but doesn't regenerate colors.

@@ -4,7 +4,7 @@ How configuration works in iNtoo, from the user's perspective and from the code 
 
 ## For users
 
-Everything is configurable through the graphical Settings UI. Open it with `Super+,` or `inir settings`. You should never need to edit the config file by hand.
+Everything is configurable through the graphical Settings UI. Open it with `Super+,` or `intoo settings`. You should never need to edit the config file by hand.
 
 If you do want to edit it directly, it lives at:
 
@@ -168,7 +168,7 @@ Each zone is an array of module ids. Use Settings -> Bar -> Bar module layout un
 
 ### Live shell layout
 
-Settings -> Shell Layout and `inir shellLayout` use the same controller as the
+Settings -> Shell Layout and `intoo shellLayout` use the same controller as the
 live desktop editor. Existing canonical keys remain authoritative:
 
 - ii bar: `bar.vertical` plus `bar.bottom`
@@ -191,7 +191,7 @@ change when the roles swap physical edges.
 Desktop widgets keep their original free/zone editor and independent
 `widgetEditMode`. Persistent layer-shell surfaces use the separate Shell Layout
 editor and move between advertised edge slots. Enter it from the desktop
-context menu, Settings -> Shell Layout, or `inir shellLayout open`. Its own
+context menu, Settings -> Shell Layout, or `intoo shellLayout open`. Its own
 layer-shell HUD stays above the edited panels and does not reuse the widget
 canvas or toolbar. Drag any highlighted surface toward a screen edge: legal
 edges light up as full strips, a chip follows the pointer with the drop

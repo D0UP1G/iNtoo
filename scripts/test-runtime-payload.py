@@ -36,7 +36,7 @@ class DistributionTests(unittest.TestCase):
             self.put(name, 'fixture\n')
         self.put('VERSION', '2.30.0\n')
         # Public runtime consumers and same-name nested product directories survive.
-        self.required = ['shell.qml', 'scripts/inir', 'scripts/ai/discover-provider-models.py',
+        self.required = ['shell.qml', 'scripts/intoo', 'scripts/inir', 'scripts/ai/discover-provider-models.py',
                          'scripts/setup/spotify.sh', 'scripts/setup/_scan.sh',
                          'scripts/lib/ipc-registry.sh', 'scripts/colors/opencode/theme_generator.py',
                          'modules/panel/tools/control.qml', 'modules/Live.qml',
@@ -197,7 +197,7 @@ cleanup_orphans "$2/installed" "$2/installed/.inir-manifest"
                           'SHELL_INSTALL_DIR=' + str(self.target)])
         self.assert_payload(self.target)
         self.assertTrue(os.access(self.target / "setup", os.X_OK))
-        self.assertTrue(os.access(self.target / "scripts/inir", os.X_OK))
+        self.assertTrue(os.access(self.target / "scripts/intoo", os.X_OK))
 
     def test_arch_package_functions(self):
         for name in ['LICENSE', 'NOTICE', 'README.md', 'docs/SETUP.md', 'docs/IPC.md',

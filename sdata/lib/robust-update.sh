@@ -136,8 +136,8 @@ restart_shell_and_verify() {
             || ! systemctl --user cat inir.service >/dev/null 2>&1; then
         # OpenRC runs the shell from Niri's spawn-at-startup entry. Restart via
         # the launcher, which stops Quickshell and starts it detached again.
-        local launcher="${REPO_ROOT:-}/scripts/inir"
-        [[ -x "$launcher" ]] || launcher="$(command -v inir 2>/dev/null || true)"
+        local launcher="${REPO_ROOT:-}/scripts/intoo"
+        [[ -x "$launcher" ]] || launcher="$(command -v intoo 2>/dev/null || true)"
         [[ -x "$launcher" ]] || return 2
         "$launcher" restart --quiet >/dev/null 2>&1 || return 1
         deadline=$((SECONDS + timeout))

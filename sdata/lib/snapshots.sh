@@ -317,9 +317,9 @@ PY
         return 1
     fi
 
-    launcher="$(command -v inir 2>/dev/null || true)"
-    if [[ -z "$launcher" && -x "${REPO_ROOT}/scripts/inir" ]]; then
-        launcher="${REPO_ROOT}/scripts/inir"
+    launcher="$(command -v intoo 2>/dev/null || true)"
+    if [[ -z "$launcher" && -x "${REPO_ROOT}/scripts/intoo" ]]; then
+        launcher="${REPO_ROOT}/scripts/intoo"
     fi
     if [[ -z "$launcher" ]]; then
         log_error "Cannot find the iNtoo lifecycle launcher; refusing to stop the shell"
@@ -676,7 +676,7 @@ realign_repo_to_remote() {
 
 show_repo_realign_guidance() {
     local branch="${1:-$(get_update_tracking_branch)}"
-    tui_info "Recovery check: inir update --realign"
+    tui_info "Recovery check: intoo update --realign"
     tui_dim "  iNtoo realigns only a clean ${branch} checkout that Git can prove still belongs to the previous origin/${branch} history."
     tui_dim "  Stash uncommitted changes first. Local commits and detached checkouts are never reset by this recovery path."
 }

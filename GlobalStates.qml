@@ -130,7 +130,7 @@ Singleton {
                 args.push(`QS_SETTINGS_PAGE=${mappedPage}`)
             if (requestedSection.length > 0)
                 args.push(`QS_SETTINGS_SECTION=${requestedSection}`)
-            args.push(Quickshell.shellPath("scripts/inir"), "waffle-settings-window")
+            args.push(Quickshell.shellPath("scripts/intoo"), "waffle-settings-window")
             Quickshell.execDetached(args)
         } else if (Config.options?.panelFamily === "iris" || (Config.options?.settingsUi?.overlayMode ?? false)) {
             root.settingsOverlayRequestedPage = index
@@ -141,7 +141,7 @@ Singleton {
             const args = ["/usr/bin/env", `QS_SETTINGS_PAGE=${index}`]
             if (requestedSection.length > 0)
                 args.push(`QS_SETTINGS_SECTION=${requestedSection}`)
-            args.push(Quickshell.shellPath("scripts/inir"), "settings-window")
+            args.push(Quickshell.shellPath("scripts/intoo"), "settings-window")
             Quickshell.execDetached(args)
         }
     }
@@ -150,13 +150,13 @@ Singleton {
         const isWaffle = Config.options?.panelFamily === "waffle"
             && Config.options?.waffles?.settings?.useMaterialStyle !== true
         if (isWaffle) {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                 "waffle-settings-window"])
         } else if (Config.options?.panelFamily === "iris" || (Config.options?.settingsUi?.overlayMode ?? false)) {
             if (root.settingsOverlayOpen) root.settingsRaiseRequest++
             root.settingsOverlayOpen = true
         } else {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                 "settings-window"])
         }
     }
@@ -165,13 +165,13 @@ Singleton {
         const isWaffle = Config.options?.panelFamily === "waffle"
             && Config.options?.waffles?.settings?.useMaterialStyle !== true
         if (isWaffle) {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                 "waffle-settings-window", "--toggle"])
         } else if (Config.options?.panelFamily === "iris" || (Config.options?.settingsUi?.overlayMode ?? false)) {
             if (root.settingsOverlayOpen && root.settingsWindowBehind) root.settingsRaiseRequest++
             else root.settingsOverlayOpen = !root.settingsOverlayOpen
         } else {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                 "settings-window", "--toggle"])
         }
     }
@@ -243,7 +243,7 @@ Singleton {
     property bool wallpaperLauncherOpen: false
     property string wallpaperLauncherMode: "static"
     property bool widgetEditMode: false
-    // Finding a widget while arranging (the Island widget bar); `inir background widgetSearch` drives the same state.
+    // Finding a widget while arranging (the Island widget bar); `intoo background widgetSearch` drives the same state.
     property bool widgetSearchOpen: false
     property string widgetSearchText: ""
     signal widgetSearchCommand(string verb)
@@ -398,7 +398,7 @@ Singleton {
     // The lock screen rehearsal: the same surface, editable, with no PAM behind it.
     property bool irisLockEdit: false
     property string irisLockSelection: ""
-    // The quick-controls tab `inir iris lock select:<key>/<tab>` asks the selected lock widget to show.
+    // The quick-controls tab `intoo iris lock select:<key>/<tab>` asks the selected lock widget to show.
     property string irisLockWidgetTab: ""
     property string irisLockPage: "scene"
     property bool irisEdit: false
@@ -459,7 +459,7 @@ Singleton {
     // Island side panel ("left"/"right") that was revealed by resting at its screen
     // edge: it closes when the pointer leaves until a press inside commits it.
     property string irisSidebarPeek: ""
-    // Island Dock held on screen by IPC (`inir iris dock show`) until hidden again
+    // Island Dock held on screen by IPC (`intoo iris dock show`) until hidden again
     // or an app is chosen from it.
     property bool irisDockShown: false
     // Opens an app's windows or menu on the focused Dock: { appId, mode: "windows" | "menu" }.
@@ -492,9 +492,9 @@ Singleton {
     }
     // Desktop widget manager toggle routed to the output that should show it.
     signal desktopWidgetManagerToggleRequested(string outputName)
-    // The Island desktop menu opened at a point of an output (`inir iris desktopMenu`).
+    // The Island desktop menu opened at a point of an output (`intoo iris desktopMenu`).
     signal irisDesktopMenuRequested(string outputName, real x, real y)
-    // Whether any output's Island is expanded, published for `inir iris status`.
+    // Whether any output's Island is expanded, published for `intoo iris status`.
     property bool irisIslandExpanded: false
     property string irisIslandShape: ""
     property string irisControlPickerRequest: ""

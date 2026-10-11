@@ -6,14 +6,14 @@ scanner. A widget may provide its normal desktop component, an Island compact co
 ## Create a module
 
 ```bash
-inir customWidgets create my-widget
+intoo customWidgets create my-widget
 ```
 
 The generated manifest includes an `iris` block and the scaffold includes `IrisCompact.qml`.
 Reload after editing:
 
 ```bash
-inir customWidgets reload
+intoo customWidgets reload
 ```
 
 Turn it on in **Island Settings > Island > Desktop page > Your modules** (the row shows up once a module is installed; search for "modules"). It

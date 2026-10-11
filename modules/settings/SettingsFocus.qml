@@ -125,11 +125,11 @@ Scope {
     // standalone process, so the panel must close before the window appears.
     function setLayout(mode: string): void {
         if (mode === "window") {
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                 "ipc", "settings", "openWindowAt", String(root.currentPage)]);
             return;
         }
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
             "ipc", "settings", "setOverlayStyle", mode, String(root.currentPage)]);
     }
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Super key tap -> Quickshell inir overview toggle
+Description=Super key tap -> Quickshell intoo overview toggle
 After=graphical-session.target
 
 [Service]

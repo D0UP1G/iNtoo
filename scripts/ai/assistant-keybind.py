@@ -55,7 +55,7 @@ def main():
         # Append a separate binds block; Niri merges these and the parser above
         # checks every included block before changing anything.
         text = target.read_text()
-        addition = '\n// iNtoo desktop companion\nbinds {\n    Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }\n}\n'
+        addition = '\n// iNtoo desktop companion\nbinds {\n    Mod+S repeat=false { spawn "intoo" "assistant" "toggle"; }\n}\n'
         fd, temporary = tempfile.mkstemp(prefix=target.name + ".", dir=target.parent)
         try:
             with os.fdopen(fd, "w") as stream:

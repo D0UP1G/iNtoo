@@ -3,10 +3,10 @@ post_install() {
 iNtoo has been installed.
 
 Recommended next steps:
-  - Start the shell manually with: inir run
+  - Start the shell manually with: intoo run
   - Or enable the user service with:
-      inir service enable
-      inir service start
+      intoo service enable
+      intoo service start
 
 Package-managed installs keep user config in:
   ~/.config/inir/config.json
@@ -21,7 +21,7 @@ post_upgrade() {
 iNtoo has been upgraded.
 
 Recommended next steps:
-  - Restart the shell with: inir restart
+  - Restart the shell with: intoo restart
   - Package-managed installs use pacman for updates.
   - Runtime migrations, when needed, are applied by iNtoo's packaged lifecycle.
 EOF

@@ -57,7 +57,7 @@ inir/
 │   ├── LyricsService.qml         # Synchronized lyrics for media controls
 │   └── [more services]
 ├── scripts/                      # Shell/fish/python helpers
-│   ├── inir                      # CLI launcher (bash, IPC + lifecycle commands)
+│   ├── intoo                     # CLI launcher (bash, IPC + lifecycle commands)
 │   ├── colors/                   # Color generation pipeline
 │   │   ├── applycolor.sh         # Orchestrator
 │   │   ├── generate_colors_material.py  # Material You color generation
@@ -118,8 +118,8 @@ inir/
 
 **scripts/:**
 - Purpose: Shell/fish/python helper scripts for theming, CLI, and automation
-- Contains: CLI launcher (`inir`), color generation pipeline (`colors/`), utility scripts
-- Key files: `scripts/inir` (CLI launcher), `scripts/colors/applycolor.sh` (orchestrator)
+- Contains: CLI launcher (`intoo`; legacy `inir` wrapper), color generation pipeline (`colors/`), utility scripts
+- Key files: `scripts/intoo` (CLI launcher), `scripts/colors/applycolor.sh` (orchestrator)
 
 **sdata/:**
 - Purpose: Install/update lifecycle scripts and migration history

@@ -1149,7 +1149,7 @@ Scope {
                                     buttonRadius: Appearance.rounding.full
                                     implicitWidth: 36
                                     implicitHeight: 36
-                                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "lock", "activate"])
+                                    onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "lock", "activate"])
                                     contentItem: MaterialSymbol {
                                         anchors.centerIn: parent
                                         horizontalAlignment: Text.AlignHCenter
@@ -1620,7 +1620,7 @@ Scope {
                                                 : CF.ColorUtils.transparentize(Appearance.colors.colLayer1Hover, 0.5)
 
                                     onClicked: {
-                                        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+                                        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                                             "ipc", "settings", "openWindowAt", String(root.overlayCurrentPage)])
                                     }
 

@@ -44,9 +44,9 @@ class AuditRegressions(unittest.TestCase):
                         INIR_AUDIT_CALLS=str(self.calls), NIRI_SOCKET="", WAYLAND_DISPLAY="",
                         DBUS_SESSION_BUS_ADDRESS="unix:path=/nonexistent-audit-bus")
         self.stub("git", '#!/usr/bin/env bash\ncase "$*" in *rev-parse*) echo unknown ;; esac\n')
-        for name in ("qs", "inir", "systemctl", "journalctl"):
+        for name in ("qs", "intoo", "inir", "systemctl", "journalctl"):
             self.stub(name, '#!/usr/bin/env bash\nprintf "%s %s\\n" "${0##*/}" "$*" >> "$INIR_AUDIT_CALLS"\n')
-        shutil.copy(self.bin / "inir", self.repo / "scripts/inir")
+        shutil.copy(self.bin / "intoo", self.repo / "scripts/intoo")
 
     def stub(self, name, text):
         path = self.bin / name
@@ -397,9 +397,9 @@ done
                 calls = self.calls.read_text() if self.calls.exists() else ""
                 self.assertNotIn("qs -p", calls, "rollback bypassed the session owner")
                 if backend == "openrc":
-                    self.assertIn("inir ", calls, "OpenRC rollback did not invoke the supervised launcher")
+                    self.assertIn("intoo ", calls, "OpenRC rollback did not invoke the supervised launcher")
                 else:
-                    self.assertTrue("inir " in calls or "systemctl --user " in calls,
+                    self.assertTrue("intoo " in calls or "systemctl --user " in calls,
                                     "systemd rollback did not invoke its lifecycle owner")
 
     def test_a08_cliphist_migration_honors_custom_xdg(self):
@@ -441,7 +441,7 @@ git -C "$REPO_ROOT" config user.name 'Audit fixture'
 git -C "$REPO_ROOT" config user.email 'audit@example.invalid'
 printf 'committed content\\n' > "$REPO_ROOT/tracked.txt"
 git -C "$REPO_ROOT" add tracked.txt
-git -C "$REPO_ROOT" add -f scripts/inir
+git -C "$REPO_ROOT" add -f scripts/intoo
 git -C "$REPO_ROOT" commit -qm fixture || exit 1
 snapshot=$(create_snapshot audit)
 printf 'unsaved user change\\n' > "$REPO_ROOT/tracked.txt"
@@ -464,7 +464,7 @@ git -C "$REPO_ROOT" config user.name 'Audit fixture'
 git -C "$REPO_ROOT" config user.email 'audit@example.invalid'
 printf 'tracked old content\\n' > "$REPO_ROOT/user-data"
 git -C "$REPO_ROOT" add user-data
-git -C "$REPO_ROOT" add -f scripts/inir
+git -C "$REPO_ROOT" add -f scripts/intoo
 git -C "$REPO_ROOT" commit -qm old || exit 1
 snapshot=$(create_snapshot audit) || exit 1
 git -C "$REPO_ROOT" rm -q user-data

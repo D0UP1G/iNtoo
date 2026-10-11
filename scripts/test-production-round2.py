@@ -240,8 +240,8 @@ restart_shell_and_verify 1
         self.success(self.bash(code))
 
     def test_pr09_openrc_launcher_failure_is_a_confirmed_failure(self):
-        self.stub('inir', '#!/usr/bin/env bash\nexit 1\n')
-        (self.repo / 'scripts/inir').unlink()
+        self.stub('intoo', '#!/usr/bin/env bash\nexit 1\n')
+        (self.repo / 'scripts/intoo').unlink()
         self.success(self.bash('source "$1/sdata/lib/robust-update.sh"; inir_uses_systemd(){ return 1; }; restart_shell_and_verify 1; [[ "$?" -eq 1 ]]'))
 
     def test_pr10_snapshot_restores_payload_revision_and_preserves_checkout_revision(self):
@@ -263,7 +263,7 @@ restart_shell_and_verify 1
         runtime.mkdir(parents=True)
         (runtime / 'shell.qml').write_text('old payload')
         os.utime(runtime / 'shell.qml', (1000, 1000))
-        self.stub('inir', '#!/usr/bin/env bash\n[[ "$*" == "service status" ]] && exit 1\nexit 0\n')
+        self.stub('intoo', '#!/usr/bin/env bash\n[[ "$*" == "service status" ]] && exit 1\nexit 0\n')
         code = '''source "$1/sdata/lib/versioning.sh"
 source "$1/sdata/lib/snapshots.sh"
 log_info(){ :; }; log_error(){ printf '%s\\n' "$*" >&2; }; log_warning(){ :; }; tui_success(){ :; }
@@ -371,7 +371,7 @@ setup_systemd_audio_services
                 self.success(self.bash(code))
 
     def test_pr14_cleanup_only_signals_service_or_matching_scopes(self):
-        launcher = function('scripts/inir', 'cleanup_orphans')
+        launcher = function('scripts/intoo', 'cleanup_orphans')
         phase = launcher[launcher.index('    # Phase 6:'):launcher.rindex('\n}')]
         process = subprocess.Popen(['sleep', '30'])
         self.addCleanup(lambda: (process.terminate(), process.wait()) if process.poll() is None else None)
@@ -406,7 +406,7 @@ probe(){
             self.assertIn('direct-python' if backend == 'openrc' else 'scope --user', result.stdout)
 
     def test_pr14_cleanup_does_not_kill_a_reused_pid(self):
-        launcher = function('scripts/inir', 'cleanup_orphans')
+        launcher = function('scripts/intoo', 'cleanup_orphans')
         phase = launcher[launcher.index('    # Phase 6:'):launcher.rindex('\n}')]
         process = subprocess.Popen(['sleep', '30'])
         self.addCleanup(lambda: (process.terminate(), process.wait()) if process.poll() is None else None)

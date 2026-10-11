@@ -21,7 +21,7 @@ WSettingsPage {
 
     function openLiveEditor(): void {
         Quickshell.execDetached([
-            Quickshell.shellPath("scripts/inir"),
+            Quickshell.shellPath("scripts/intoo"),
             "shellLayout",
             "open"
         ])

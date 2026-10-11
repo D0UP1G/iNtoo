@@ -967,7 +967,7 @@ ContentPage {
                                         if (mon) {
                                             Config.setNestedValue("wallpaperSelector.selectionTarget", "main")
                                             Config.setNestedValue("wallpaperSelector.targetMonitor", mon)
-                                            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "wallpaperSelector", "toggle"])
+                                            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "wallpaperSelector", "toggle"])
                                         }
                                     }
                                 }
@@ -1011,7 +1011,7 @@ ContentPage {
                                     }
                                     onClicked: {
                                         Config.setNestedValue("wallpaperSelector.selectionTarget", "backdrop")
-                                        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "wallpaperSelector", "toggle"])
+                                        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "wallpaperSelector", "toggle"])
                                     }
                                 }
                                 RippleButtonWithIcon {
@@ -2268,7 +2268,7 @@ ContentPage {
                     mainText: Translation.tr("Pick backdrop wallpaper")
                     onClicked: {
                         Config.setNestedValue("wallpaperSelector.selectionTarget", "backdrop")
-                        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "wallpaperSelector", "toggle"]);
+                        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "wallpaperSelector", "toggle"]);
                     }
                 }
 

@@ -41,10 +41,10 @@ On EasyEffects 8.2.8 or newer, the ii media controls can also open a native 10-b
 ### IPC
 
 ```bash
-inir audio volumeUp         # Increase volume
-inir audio volumeDown       # Decrease volume
-inir audio mute             # Toggle output mute
-inir audio micMute          # Toggle mic mute
+intoo audio volumeUp         # Increase volume
+intoo audio volumeDown       # Decrease volume
+intoo audio mute             # Toggle output mute
+intoo audio micMute          # Toggle mic mute
 ```
 
 ## Media players

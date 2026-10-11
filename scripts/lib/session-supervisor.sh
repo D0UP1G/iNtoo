@@ -65,7 +65,7 @@ while session_alive; do
     fi
     rapid=$((rapid + 1))
     if (( rapid >= ${INIR_MAX_RAPID_RESTARTS:-5} )); then
-        echo 'iNtoo stopped after repeated shell exits; inspect inir logs before restarting' >&2
+        echo 'iNtoo stopped after repeated shell exits; inspect intoo logs before restarting' >&2
         exit 1
     fi
     sleep 1 9>&- &

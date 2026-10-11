@@ -2679,7 +2679,7 @@ def _set_shadow_offset(content, value):
 # ─── Keybinds ──────────────────────────────────────────────────────────
 #
 # Inlined from parse_niri_keybinds.py to avoid import-path fragility when
-# niri-config.py is called with a full path from the inir launcher.
+# niri-config.py is called with a full path from the intoo launcher.
 
 _KB_ACTION_MAP = {
     "toggle-overview": "Niri Overview",
@@ -2781,19 +2781,19 @@ _KB_BROWSERS = ["firefox", "zen-browser", "chromium", "brave", "vivaldi"]
 def _kb_parse_inir_action(action: str):
     """Detect inir IPC calls and return (target, function) or None."""
     m = re.search(
-        r'spawn\s+"(?:[^"]*/)?inir"\s+"ipc"\s+"call"\s+"([\w-]+)"\s+"([\w-]+)"', action
+        r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"ipc"\s+"call"\s+"([\w-]+)"\s+"([\w-]+)"', action
     )
     if m:
         return m.group(1), m.group(2)
-    if re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"settings"(?:\s|;|$)', action):
+    if re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"settings"(?:\s|;|$)', action):
         return "settings", "open"
-    if re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"terminal"(?:\s|;|$)', action):
+    if re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"terminal"(?:\s|;|$)', action):
         return "launcher", "terminal"
-    if re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"close-window"(?:\s|;|$)', action):
+    if re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"close-window"(?:\s|;|$)', action):
         return "launcher", "close-window"
-    if re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"browser"(?:\s|;|$)', action):
+    if re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"browser"(?:\s|;|$)', action):
         return "browser", "open"
-    m = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"([\w-]+)"\s+"([\w-]+)"', action)
+    m = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"([\w-]+)"\s+"([\w-]+)"', action)
     if m:
         return m.group(1), m.group(2)
     return None
@@ -2869,6 +2869,7 @@ def _kb_categorize(description: str, action: str) -> str:
     if any(
         x in desc
         for x in [
+            "intoo ",
             "inir ",
             "clipboard",
             "lock screen",
@@ -3412,8 +3413,8 @@ def cmd_set_alt_tab(args):
             f"{ALT_TAB_OVERRIDE_START}\n"
             "// Alt+Tab opens iNtoo's window switcher (Settings). Delete this block for Niri's.\n"
             "binds {\n"
-            '    Alt+Tab { spawn "inir" "altSwitcher" "next"; }\n'
-            '    Alt+Shift+Tab { spawn "inir" "altSwitcher" "previous"; }\n'
+            '    Alt+Tab { spawn "intoo" "altSwitcher" "next"; }\n'
+            '    Alt+Shift+Tab { spawn "intoo" "altSwitcher" "previous"; }\n'
             "}\n"
             f"{ALT_TAB_OVERRIDE_END}"
         )

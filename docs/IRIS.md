@@ -9,10 +9,10 @@ It first ships publicly in 2.31.0.
 The Island is the family's main edge object. It can rest on the top, bottom, left or right edge and grow inward into Media, Activity, Desktop, Tray and Tools pages.
 
 ```bash
-inir iris edge top
-inir iris edge left
-inir iris page media
-inir iris close
+intoo iris edge top
+intoo iris edge left
+intoo iris page media
+intoo iris close
 ```
 
 On a side edge, the resting Island becomes a vertical compact capsule with a stacked clock. The same page/content model is kept; only the edge geometry changes.
@@ -20,10 +20,10 @@ On a side edge, the resting Island becomes a vertical compact capsule with a sta
 Set `iris.bar.layout` to `full` to turn that edge into a full-width/full-height bar. Its start, center and end zones can contain the live Island, workspaces, the focused window, time or any enabled piece:
 
 ```bash
-inir iris layout full
-inir iris zone start workspaces+window
-inir iris zone center island
-inir iris zone end tray+notifications+sound+controls
+intoo iris layout full
+intoo iris zone start workspaces+window
+intoo iris zone center island
+intoo iris zone end tray+notifications+sound+controls
 ```
 
 ## Pieces and the Dock
@@ -40,11 +40,11 @@ The Dock supports all four edges. `auto` keeps it opposite the Island; explicitl
 Slide an icon along the Dock to move it. Drop it among the pinned apps and it stays pinned there. Open apps line up in the order you opened them; Settings, Dock, Apps decides whether a pinned app keeps its place while it's open or joins them.
 
 ```bash
-inir iris dockMove firefox 2
-inir iris dockEdge auto
-inir iris dockEdge left
-inir iris bubble weather edge:right:0.35
-inir iris appBubble kitty top-right
+intoo iris dockMove firefox 2
+intoo iris dockEdge auto
+intoo iris dockEdge left
+intoo iris bubble weather edge:right:0.35
+intoo iris appBubble kitty top-right
 ```
 
 Frame Music can shape and illuminate the chassis while audio plays. In Spotlight, type `/frame-music` to toggle it or `/edge-music` to switch to the Organic Edge visualizer; repeating the active command turns the visualizer off. Floating panels and Spotlight keep clearance from the moving frame and return to the resting contour when Frame Music is off.
@@ -60,11 +60,11 @@ Island Themes are whole-family redesigns, not just color palettes. 20 curated Th
 Customize happens on the shell itself. The Island grows a small capsule with Themes, Look, Pieces, undo and Done, and each of those opens as a sheet under it. Click the Island, the Dock or a bubble and its own options grow right out of it; drag the knob on a selected bubble to resize them all. No giant panel parked over half your screen. Right click the desktop and pick *Customize Island*, or:
 
 ```bash
-inir iris edit on
-inir iris edit themes
-inir iris theme list
-inir iris theme apply:liquid-glass
-inir iris theme save:my-theme
+intoo iris edit on
+intoo iris edit themes
+intoo iris theme list
+intoo iris theme apply:liquid-glass
+intoo iris theme save:my-theme
 ```
 
 Rather have one panel? Settings, Appearance, *Customize opens*, Studio puts every area in a column beside the screen with one search.
@@ -78,10 +78,10 @@ Wallpaper glass samples the wallpaper beneath Island surfaces and raises its tin
 Colour themes give the shell and your apps one palette (Catppuccin, Nord, Rosé Pine, Tokyo Night, Island Ink and more) instead of the wallpaper's. *Match the shell* also hands Island the theme's accent and material.
 
 ```bash
-inir iris set iris.appearance.scheme ink
-inir colorMode set light
-inir iris palette catppuccin-mocha
-inir iris palette auto
+intoo iris set iris.appearance.scheme ink
+intoo colorMode set light
+intoo iris palette catppuccin-mocha
+intoo iris palette auto
 ```
 
 ## Menu bar and shape
@@ -91,9 +91,9 @@ Menu bar is a thin strip along the top or bottom with your workspaces, window an
 Settings, Appearance, Shape sets the Island and the Dock to the capsule, Round, Squircle or Square.
 
 ```bash
-inir iris layout menubar
-inir iris strip transparent
-inir iris strip band
+intoo iris layout menubar
+intoo iris strip transparent
+intoo iris strip band
 ```
 
 ## Anime colours
@@ -110,11 +110,11 @@ Open Customize, Look, Colour, or Island Settings, Anime:
 The Themes sheet filters between All and Anime, and each card shows your own pieces where you put them. Sakura, Neo Tokyo, Unit-01, Magical Girl and Spirit Forest are whole redesigns; Magical Girl and Spirit Forest turn the layer on, the others leave it off. Airing stays a separate piece: turn it on under Anime, and its card tracks the shows you follow. Applying a theme never turns Airing on or off.
 
 ```bash
-inir iris set iris.appearance.anime.enabled true
-inir iris set iris.appearance.anime.palette neo-tokyo
-inir iris set iris.appearance.anime.strength 70
-inir iris set iris.appearance.anime.highlight true
-inir iris set iris.appearance.anime.enabled false
+intoo iris set iris.appearance.anime.enabled true
+intoo iris set iris.appearance.anime.palette neo-tokyo
+intoo iris set iris.appearance.anime.strength 70
+intoo iris set iris.appearance.anime.highlight true
+intoo iris set iris.appearance.anime.enabled false
 ```
 
 ## Watching anime
@@ -128,11 +128,11 @@ Continue is a piece for watching anime without opening a terminal. It needs `ani
 - `jerry` and `curd` are recognised too, but only to list what you watched and resume it in their own terminal.
 
 ```bash
-inir iris watch              # what is in progress
-inir iris watch 1            # resume the first one
-inir iris watch "frieren"    # resume it, or search when nothing matches
-inir iris watchPick          # what the card is asking, and answer it
-inir iris watchSkip next     # next episode while one plays
+intoo iris watch              # what is in progress
+intoo iris watch 1            # resume the first one
+intoo iris watch "frieren"    # resume it, or search when nothing matches
+intoo iris watchPick          # what the card is asking, and answer it
+intoo iris watchSkip next     # next episode while one plays
 ```
 
 ## Desktop widgets
@@ -150,11 +150,11 @@ While arranging, drop one widget on another to stack them: the stack keeps one p
 In Spotlight, `/` lists Island's own switches and picks: type a few letters (`/lume`, `/night`, `/design`) and flip them in place; each row says where it lives in Settings.
 
 ```bash
-inir background widgetDesign instrument
-inir background widgetDesign undo
-inir background widgetDesign status
-inir widgetStacks create weather+monthCalendar
-inir widgetStacks status
+intoo background widgetDesign instrument
+intoo background widgetDesign undo
+intoo background widgetDesign status
+intoo widgetStacks create weather+monthCalendar
+intoo widgetStacks status
 ```
 
 ## Wallpaper gallery
@@ -162,9 +162,9 @@ inir widgetStacks status
 The Island wallpaper picker can browse the local library, Wallhaven and live anime scenery. It supports showcase, strip and wall layouts, pinned folders and one-at-a-time muted live previews.
 
 ```bash
-inir wallpaperSelector browse library -
-inir wallpaperSelector browse wallhaven mountains
-inir wallpaperSelector browse live -
+intoo wallpaperSelector browse library -
+intoo wallpaperSelector browse wallhaven mountains
+intoo wallpaperSelector browse live -
 ```
 
 The normal wallpaper service still owns apply/preview state. Island does not keep a second wallpaper database.
@@ -180,8 +180,8 @@ Besides everything Island draws, it carries the shared settings Island acts on: 
 General opens on you: your picture (tap it to pick a new one), a greeting and the desktop you're looking at. Modules you write with the Island SDK (`defaults/widgets/IRIS-SDK.md`) are turned on under Island, Desktop page, Your modules.
 
 ```bash
-inir iris settings notifications
-inir iris settings lock/security
+intoo iris settings notifications
+intoo iris settings lock/security
 ```
 
 ## Editing and scripting
@@ -189,34 +189,34 @@ inir iris settings lock/security
 Edit pieces directly on the desktop:
 
 ```bash
-inir iris edit on
-inir iris arrange on
+intoo iris edit on
+intoo iris arrange on
 ```
 
 The Control Center arranges in place. Each control comes in the sizes it is drawn well at (a toggle is one cell or a wide card, a slider a tall capsule, a wide bar or the full width), and the library beside the panel adds controls, applies layouts and sets columns, shape and width:
 
 ```bash
-inir iris control edit
-inir iris control tab:layouts
-inir iris control compact
-inir iris control undo
+intoo iris control edit
+intoo iris control tab:layouts
+intoo iris control compact
+intoo iris control undo
 ```
 
 The lock screen opens as a rehearsal: the real surface, editable, with no PAM behind it. Its first page holds four layouts that move the blocks and change the clock without touching the picture behind them. Tap a widget on it to give it a design, material, corners and opacity of its own on the lock; the desktop keeps its look.
 
 ```bash
-inir iris lock edit
-inir iris lock page:layouts
-inir iris lock centered
-inir iris lock select:screenTime/look
+intoo iris lock edit
+intoo iris lock page:layouts
+intoo iris lock centered
+intoo iris lock select:screenTime/look
 ```
 
 Scripts can publish progress into the Island as live activities:
 
 ```bash
-inir iris activity start build "Building"
-inir iris activity progress build 42%
-inir iris activity end build "Done"
+intoo iris activity start build "Building"
+intoo iris activity progress build 42%
+intoo iris activity end build "Done"
 ```
 
 For the complete command surface, see [IPC](IPC.md#iris).

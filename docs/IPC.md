@@ -2,36 +2,36 @@
 
 iNtoo exposes IPC targets you can call from Niri keybinds, scripts, or your terminal.
 
-> **Quick discovery:** `inir help` lists all targets, `inir <target> --help` shows available functions.
-> Tab completion knows every target, function and the values each one takes: `inir completions install`.
+> **Quick discovery:** `intoo help` lists all targets, `intoo <target> --help` shows available functions.
+> Tab completion knows every target, function and the values each one takes: `intoo completions install`.
 
 From terminal (for testing, or showing off):
 
 ```bash
-inir <target> <function> [values…]
+intoo <target> <function> [values…]
 ```
 
-As a Niri keybind, let `inir bind` write it for you. It checks the call, tells you if the keys already do something, and saves the bind to your own block in `~/.config/niri/config.d/90-user-extra.kdl`:
+As a Niri keybind, let `intoo bind` write it for you. It checks the call, tells you if the keys already do something, and saves the bind to your own block in `~/.config/niri/config.d/90-user-extra.kdl`:
 
 ```bash
-inir bind Mod+O orbit toggle          # shows the line and what those keys do now
-inir bind --add Mod+O orbit toggle    # saves it; Niri picks it up right away
-inir bind --examples                  # ready binds for your panel family
-inir bind --list                      # the binds you added
-inir bind --remove Mod+O
+intoo bind Mod+O orbit toggle          # shows the line and what those keys do now
+intoo bind --add Mod+O orbit toggle    # saves it; Niri picks it up right away
+intoo bind --examples                  # ready binds for your panel family
+intoo bind --list                      # the binds you added
+intoo bind --remove Mod+O
 ```
 
 Or by hand, as a line inside the `binds { }` block of your Niri config:
 
 ```kdl
 binds {
-    Mod+O repeat=false { spawn "inir" "orbit" "toggle"; }
+    Mod+O repeat=false { spawn "intoo" "orbit" "toggle"; }
 }
 ```
 
 The examples below are lines for that block.
 
-For low-level debugging, `inir ipc <target> <function>` still works.
+For low-level debugging, `intoo ipc <target> <function>` still works.
 
 ---
 
@@ -50,11 +50,11 @@ Desktop companion with a compact OpenCode chat, available in every panel family.
 | `close` | Close the companion; a running reply continues |
 | `current` | Return `open` or `closed` |
 
-`inir assistant auth` is a runtime subcommand rather than an IPC function: it runs
+`intoo assistant auth` is a runtime subcommand rather than an IPC function: it runs
 OpenCode's own `auth login` against the companion database.
 
 ```kdl
-Mod+S repeat=false { spawn "inir" "assistant" "toggle"; }
+Mod+S repeat=false { spawn "intoo" "assistant" "toggle"; }
 ```
 
 See [the assistant guide](ASSISTANT.md) for provider setup and command history.
@@ -87,17 +87,17 @@ returned as JSON by `list`.
 | `dragSim` | Simulate carrying an Island bubble (slot id, default `extra-clock`) around the focused output for 2.5 s, publishing the given number of moves per frame (1–16); never writes the config |
 
 ```bash
-inir dev list | jq -r '.[].id'
-inir dev open sidebar-left/anime-schedule
-inir dev close
-inir dev audit
-inir dev audit sidebar-left/ai settings/ai
-inir dev audit --all --all-families
-inir dev meter 2500; sleep 3; inir dev metered
-inir dev dragSim extra-clock 8; inir dev meter 2400; sleep 3; inir dev metered
+intoo dev list | jq -r '.[].id'
+intoo dev open sidebar-left/anime-schedule
+intoo dev close
+intoo dev audit
+intoo dev audit sidebar-left/ai settings/ai
+intoo dev audit --all --all-families
+intoo dev meter 2500; sleep 3; intoo dev metered
+intoo dev dragSim extra-clock 8; intoo dev meter 2400; sleep 3; intoo dev metered
 ```
 
-`inir dev audit` selects destinations related to changed area-specific files in
+`intoo dev audit` selects destinations related to changed area-specific files in
 the current worktree. Destination arguments select an exact scope, while
 `--all` requests every safe destination and `--all-families` includes both ii
 and waffle. Each visited destination is closed again and new QML warnings or
@@ -121,7 +121,7 @@ Toggle the workspace overview panel. The one with all your windows looking tiny 
 | `toggleReleaseInterrupt` | Clear the super-key release interrupt flag |
 
 ```kdl
-Mod+Space { spawn "inir" "overview" "toggle"; }
+Mod+Space { spawn "intoo" "overview" "toggle"; }
 ```
 
 ---
@@ -171,7 +171,7 @@ Workspace edge strip. Shows a compact per-workspace rail and expands it for swit
 | `status` | Return strip state (`open` or `auto`) |
 
 ```kdl
-Super+Tab { spawn "inir" "workspaceStrip" "toggle"; }
+Super+Tab { spawn "intoo" "workspaceStrip" "toggle"; }
 ```
 
 ---
@@ -186,7 +186,7 @@ Floating tools (Mod+G): notes, images, crosshair, recorder, resources and other 
 | `tool` | Show or hide one floating tool by id (`crosshair`, `fpsLimiter`, `floatingImage`, `recorder`, `resources`, `notes`, `discord`, `volumeMixer`, `notifications`): `on`, `off` or `toggle` |
 
 ```kdl
-Mod+G { spawn "inir" "overlay" "toggle"; }
+Mod+G { spawn "intoo" "overlay" "toggle"; }
 ```
 
 ---
@@ -203,7 +203,7 @@ The pill bar's morphing surfaces (only registered while Bar appearance is set to
 | `state` | Print the open surface name, or `closed` |
 
 ```kdl
-Super+V repeat=false { spawn "inir" "pill" "toggle" "clipboard"; }
+Super+V repeat=false { spawn "intoo" "pill" "toggle" "clipboard"; }
 ```
 
 ---
@@ -219,7 +219,7 @@ Clipboard history panel. Because Ctrl+V only remembers one thing, and that's not
 | `close` | Close panel |
 
 ```kdl
-Super+V repeat=false { spawn "inir" "clipboard" "toggle"; }
+Super+V repeat=false { spawn "intoo" "clipboard" "toggle"; }
 ```
 
 ---
@@ -237,13 +237,13 @@ Alt+Tab window switcher. Works across workspaces, unlike some other implementati
 | `previous` | Focus previous window |
 | `opens <which>` | Which switcher Alt+Tab opens: `inir`, `niri` (Niri's own Recent Windows) or `status` |
 
-Fresh installs give Alt+Tab to Niri's Recent Windows. `inir altSwitcher opens inir` hands it to iNtoo's switcher
+Fresh installs give Alt+Tab to Niri's Recent Windows. `intoo altSwitcher opens inir` hands it to iNtoo's switcher
 with a marked block at the end of `~/.config/niri/config.d/90-user-extra.kdl`; `opens niri` removes that block.
 Your own binds are left as they are. The same choice is in Settings, next to the switcher's options.
 
 ```kdl
-Alt+Tab { spawn "inir" "altSwitcher" "next"; }
-Alt+Shift+Tab { spawn "inir" "altSwitcher" "previous"; }
+Alt+Tab { spawn "intoo" "altSwitcher" "next"; }
+Alt+Shift+Tab { spawn "intoo" "altSwitcher" "previous"; }
 ```
 
 ---
@@ -265,10 +265,10 @@ Region selection tools. Screenshots, OCR, recording. Draw a box, get stuff done.
 | `current` | Return the selector state (open/action/mode) as JSON |
 
 ```kdl
-Super+Shift+S { spawn "inir" "region" "screenshot"; }
-Super+Shift+X { spawn "inir" "region" "ocr"; }
-Super+Shift+A { spawn "inir" "region" "search"; }
-Ctrl+Shift+S { spawn "inir" "region" "menu"; }
+Super+Shift+S { spawn "intoo" "region" "screenshot"; }
+Super+Shift+X { spawn "intoo" "region" "ocr"; }
+Super+Shift+A { spawn "intoo" "region" "search"; }
+Ctrl+Shift+S { spawn "intoo" "region" "menu"; }
 ```
 
 ---
@@ -286,7 +286,7 @@ Provider-neutral voice input for web search and AI dictation. Auto prefers local
 | `status` | Return backend, local detection, recording and error state as JSON |
 
 ```kdl
-Super+Shift+V { spawn "inir" "voiceSearch" "toggle"; }
+Super+Shift+V { spawn "intoo" "voiceSearch" "toggle"; }
 ```
 
 ---
@@ -302,7 +302,7 @@ Power menu. Logout, suspend, reboot, shutdown. The "I'm done for today" buttons.
 | `close` | Hide session screen |
 
 ```kdl
-Super+Shift+E { spawn "inir" "session" "toggle"; }
+Super+Shift+E { spawn "intoo" "session" "toggle"; }
 ```
 
 ---
@@ -320,7 +320,7 @@ Lock screen. For when you need to pretend you're working.
 | `focus` | Refocus the lock screen input |
 
 ```kdl
-Super+Alt+L allow-when-locked=true { spawn "inir" "lock" "activate"; }
+Super+Alt+L allow-when-locked=true { spawn "intoo" "lock" "activate"; }
 ```
 
 ---
@@ -350,7 +350,7 @@ Keyboard shortcuts reference. For when you forget what you just configured five 
 | `close` | Hide cheatsheet overlay |
 
 ```kdl
-Super+Slash { spawn "inir" "cheatsheet" "toggle"; }
+Super+Slash { spawn "intoo" "cheatsheet" "toggle"; }
 ```
 
 ---
@@ -362,11 +362,11 @@ Close window confirmation dialog. Shows a prompt before closing the focused wind
 | Function | Description |
 |----------|-------------|
 | `trigger` | Show close confirmation for focused window |
-| `triggerWindow <windowId> <appId>` | Close or confirm the exact window captured by `inir close-window` |
+| `triggerWindow <windowId> <appId>` | Close or confirm the exact window captured by `intoo close-window` |
 | `close` | Dismiss the dialog without closing |
 
 ```kdl
-Mod+Q repeat=false { spawn "inir" "close-window"; }
+Mod+Q repeat=false { spawn "intoo" "close-window"; }
 ```
 
 By default, confirmation is disabled (closes immediately). Enable it in settings or config:
@@ -393,24 +393,24 @@ Open or toggle the settings window. GUI config so you don't have to edit JSON by
 | `setOverlayStyle style index` | Switch overlay chrome while preserving page `index` |
 
 ```kdl
-Super+Comma { spawn "inir" "settings"; }
+Super+Comma { spawn "intoo" "settings"; }
 ```
 
 ---
 
 ### settingsNav
 
-Navigate the settings overlay to a specific page (same as clicking the nav rail). `inir settings` toggles the current Settings host; use the `settings` IPC target above when you need explicit open/toggle semantics.
+Navigate the settings overlay to a specific page (same as clicking the nav rail). `intoo settings` toggles the current Settings host; use the `settings` IPC target above when you need explicit open/toggle semantics.
 
 | Function | Description |
 |----------|-------------|
 | `page(index)` | Open the overlay and jump to page `index` |
-| `section(index, name)` | Open a page at its named section; for example `inir settingsNav section 28 sidebars` |
+| `section(index, name)` | Open a page at its named section; for example `intoo settingsNav section 28 sidebars` |
 | `count` | Number of settings pages |
 | `current` | Current page index, or `-1` when no page is open |
 
 ```sh
-inir ipc settingsNav page 5
+intoo ipc settingsNav page 5
 ```
 
 ---
@@ -495,8 +495,8 @@ Command palette / action registry. Search and execute shell actions from scripts
 Categories: `system`, `appearance`, `tools`, `media`, `settings`, `custom`.
 
 ```kdl
-Super+Slash { spawn "inir" "globalActions" "open"; }
-Super+M { spawn "inir" "globalActions" "run" "toggle-mute"; }
+Super+Slash { spawn "intoo" "globalActions" "open"; }
+Super+M { spawn "intoo" "globalActions" "run" "toggle-mute"; }
 ```
 
 ---
@@ -523,9 +523,9 @@ Wallpaper picker with grid, coverflow and compact launcher styles.
 | `status` | Return picker style, open surface, target monitor and selection target as JSON |
 
 ```kdl
-Ctrl+Alt+T { spawn "inir" "wallpaperSelector" "toggle"; }
-Ctrl+Alt+L { spawn "inir" "wallpaperSelector" "browse" "live" "-"; }
-Ctrl+Alt+A { spawn "inir" "wallpaperSelector" "openLauncher" "animated"; }
+Ctrl+Alt+T { spawn "intoo" "wallpaperSelector" "toggle"; }
+Ctrl+Alt+L { spawn "intoo" "wallpaperSelector" "browse" "live" "-"; }
+Ctrl+Alt+A { spawn "intoo" "wallpaperSelector" "openLauncher" "animated"; }
 ```
 
 ---
@@ -544,9 +544,9 @@ Navigation and apply controls for the compact wallpaper launcher.
 Open the launcher before calling its controls:
 
 ```bash
-inir wallpaperSelector openLauncher static
-inir wallpaperLauncher next
-inir wallpaperLauncher applyCurrent
+intoo wallpaperSelector openLauncher static
+intoo wallpaperLauncher next
+intoo wallpaperLauncher applyCurrent
 ```
 
 ---
@@ -577,7 +577,7 @@ Floating media controls panel.
 
 ### equalizer
 
-Open the ii-family EasyEffects output equalizer. The integration is optional and disabled until you enable it. Run `inir settings`, then go to **Modules → Optional → EasyEffects Equalizer** and enable the switch. While it is disabled the IPC target is intentionally not constructed. On a fresh empty EasyEffects output pipeline, iNtoo bootstraps a neutral 10-band `iNtoo Equalizer` preset. Existing non-empty effect chains are never replaced automatically.
+Open the ii-family EasyEffects output equalizer. The integration is optional and disabled until you enable it. Run `intoo settings`, then go to **Modules → Optional → EasyEffects Equalizer** and enable the switch. While it is disabled the IPC target is intentionally not constructed. On a fresh empty EasyEffects output pipeline, iNtoo bootstraps a neutral 10-band `iNtoo Equalizer` preset. Existing non-empty effect chains are never replaced automatically.
 
 | Function | Description |
 |----------|-------------|
@@ -592,7 +592,7 @@ Open the ii-family EasyEffects output equalizer. The integration is optional and
 | `configure` | Convert the active Equalizer to the iNtoo 10-band layout |
 
 ```kdl
-Ctrl+Alt+F { spawn "inir" "equalizer" "toggle"; }
+Ctrl+Alt+F { spawn "intoo" "equalizer" "toggle"; }
 ```
 
 ---
@@ -650,9 +650,9 @@ Media player control. Automatically detects and uses YtMusic controls when activ
 | `select <player>` | Hand the controls to another player: `next`, `prev`, or part of its name (`spotify`, `firefox`) |
 
 ```kdl
-Ctrl+Mod+Space { spawn "inir" "mpris" "playPause"; }
-Mod+Alt+N { spawn "inir" "mpris" "next"; }
-Mod+Alt+P { spawn "inir" "mpris" "previous"; }
+Ctrl+Mod+Space { spawn "intoo" "mpris" "playPause"; }
+Mod+Alt+N { spawn "intoo" "mpris" "next"; }
+Mod+Alt+P { spawn "intoo" "mpris" "previous"; }
 ```
 
 ---
@@ -669,7 +669,7 @@ Direct YtMusic player control. Use these if you want to control YtMusic specific
 | `stop` | Stop YtMusic playback |
 
 ```kdl
-Mod+M+Space { spawn "inir" "ytmusic" "playPause"; }
+Mod+M+Space { spawn "intoo" "ytmusic" "playPause"; }
 ```
 
 ---
@@ -700,7 +700,7 @@ On-screen feedback for any family. The active family's OSD or Island decides whe
 | `hide` | Hide whatever is showing |
 
 ```kdl
-Mod+Shift+K { spawn "inir" "osd" "keyboard"; }
+Mod+Shift+K { spawn "intoo" "osd" "keyboard"; }
 ```
 
 ---
@@ -767,7 +767,7 @@ Performance mode for gaming. Auto-detects fullscreen apps and disables animation
 | `status` | Print current gamemode state (e.g. `active (manual)`, `inactive (off)`) |
 
 ```kdl
-Super+F12 { spawn "inir" "gamemode" "toggle"; }
+Super+F12 { spawn "intoo" "gamemode" "toggle"; }
 ```
 
 ---
@@ -810,7 +810,7 @@ NetworkManager VPN profiles (OpenVPN, WireGuard, anything with an NM plugin) and
 | `add <kind>` | Create a VPN in NetworkManager's connection editor: `wireguard`, or `vpn` for the installed plugins (OpenVPN, L2TP…); `nmtui` in your terminal when the editor is not installed |
 
 ```kdl
-Super+Alt+V { spawn "inir" "vpn" "toggle"; }
+Super+Alt+V { spawn "intoo" "vpn" "toggle"; }
 ```
 
 ---
@@ -826,7 +826,7 @@ Presets for Niri's own window, workspace and overview animations. Applying one r
 | `apply <id>` | Apply a preset: `snappy`, `niri`, `material`, `bouncy`, `gentle`, `instant` or one of yours |
 
 ```kdl
-Super+Alt+A { spawn "inir" "niriAnimations" "apply" "snappy"; }
+Super+Alt+A { spawn "intoo" "niriAnimations" "apply" "snappy"; }
 ```
 
 ---
@@ -885,7 +885,7 @@ Island bar and Island design. Available while the Island bar is enabled.
 | `bubbleCard` | Grow a bubble's own card: `weather`, `notifications`, `sound`, `mic`, `tools` or `tray` (from the bubble showing it, else the Island), or `close` |
 | `tap` | Tap a piece the Island carries (`controls`, `sound`, `tray`, `notifications`, `weather`…) as a click would: its card or page grows from it, or says the focused screen's bar has no such piece |
 | `bubbleMenu` | Open a floating bubble's own menu — what it opens, where it rests and how to put it away — by kind (`weather`, `sound`, …) or piece id (`app:kitty`) |
-| `icon <piece> <glyph>` | Choose the glyph a piece wears: `controls`, `tools`, `focus`, `notifications`, `bluetooth`, `updates`, `anime` or `watching`, then a Material Symbol name (e.g. `inir iris icon controls settings`) or `reset` to go back to its own face |
+| `icon <piece> <glyph>` | Choose the glyph a piece wears: `controls`, `tools`, `focus`, `notifications`, `bluetooth`, `updates`, `anime` or `watching`, then a Material Symbol name (e.g. `intoo iris icon controls settings`) or `reset` to go back to its own face |
 | `utility` | Set the utility satellite: `tray`, `tools`, `sound`, `mic` or `none` |
 | `desktopMenu <x> <y>` | Open the desktop menu on the focused output at that point, in pixels; no point opens it in the middle |
 | `desktopAction <id>` | Run a desktop menu entry on the focused output as a click would: `wallpaper`, `wallpaperNext` (the round button on the wallpaper) or an action id such as `nextWallpaper`, `terminal`, `screenshot` |
@@ -898,16 +898,16 @@ Island bar and Island design. Available while the Island bar is enabled.
 | `status` | JSON with the Island, Dock, Control Center, Spotlight and side panel state, which edit modes, Settings or the wallpaper gallery hold the screen (`editing`, `settings`, `gallery`), plus the player the Island follows (title, position, length) |
 
 ```bash
-inir iris open
-inir iris page desktop
-inir iris toggle
-inir iris dock toggle
-inir iris card toggle
-inir iris bubble right top-right
-inir iris appBubble kitty top-right
-inir iris pin right
-inir iris status
-inir iris close
+intoo iris open
+intoo iris page desktop
+intoo iris toggle
+intoo iris dock toggle
+intoo iris card toggle
+intoo iris bubble right top-right
+intoo iris appBubble kitty top-right
+intoo iris pin right
+intoo iris status
+intoo iris close
 ```
 
 ### panelFamily
@@ -920,7 +920,7 @@ Switch between the three shell families: Material ii (default), Waffle (Windows 
 | `set` | Set specific family ("ii", "waffle", or "iris") |
 
 ```kdl
-Mod+Shift+W { spawn "inir" "panelFamily" "cycle"; }
+Mod+Shift+W { spawn "intoo" "panelFamily" "cycle"; }
 ```
 
 ---
@@ -936,7 +936,7 @@ The Global Style every Material surface and desktop widget follows: material, ca
 | `list` | List the styles |
 
 ```kdl
-Mod+Alt+S { spawn "inir" "globalStyle" "set" "aurora"; }
+Mod+Alt+S { spawn "intoo" "globalStyle" "set" "aurora"; }
 ```
 
 ---
@@ -951,7 +951,7 @@ The system's light or dark mode, the one the shell and your apps share. With Isl
 | `get` | JSON: the mode in use, the colour theme, the saved choice, whether the wallpaper decides and Island's scheme |
 
 ```kdl
-Mod+Alt+L { spawn "inir" "colorMode" "set" "toggle"; }
+Mod+Alt+L { spawn "intoo" "colorMode" "set" "toggle"; }
 ```
 
 ---
@@ -984,18 +984,18 @@ taskbar through validated operations over canonical Config keys.
 | `validate` | Validate a surface and slot combination without changing Config |
 
 ```bash
-inir shellLayout open
-inir shellLayout lift featureSidebar
-inir shellLayout preview right
-inir shellLayout place right   # prepares the occupied-edge swap
-inir shellLayout place right   # confirms and commits it
-inir shellLayout setProperty featureSidebar sizeMode fit
-inir shellLayout reset featureSidebar
-inir shellLayout close
+intoo shellLayout open
+intoo shellLayout lift featureSidebar
+intoo shellLayout preview right
+intoo shellLayout place right   # prepares the occupied-edge swap
+intoo shellLayout place right   # confirms and commits it
+intoo shellLayout setProperty featureSidebar sizeMode fit
+intoo shellLayout reset featureSidebar
+intoo shellLayout close
 ```
 
 ```kdl
-Super+W { spawn "inir" "shellLayout" "toggle"; }
+Super+W { spawn "intoo" "shellLayout" "toggle"; }
 ```
 
 ---
@@ -1069,7 +1069,7 @@ Keyboard layout switching (Niri only). Cycles through configured keyboard layout
 | `getLayouts` | Get all configured layout names (JSON array) |
 
 ```kdl
-Mod+Alt+K { spawn "inir" "keyboard" "switchLayout"; }
+Mod+Alt+K { spawn "intoo" "keyboard" "switchLayout"; }
 ```
 
 ---
@@ -1203,7 +1203,7 @@ use; always finish a diagnostic run with `clockDebugRestore` before removing
 the environment flag.
 
 ```kdl
-Super+W { spawn "inir" "background" "toggleEditMode"; }
+Super+W { spawn "intoo" "background" "toggleEditMode"; }
 ```
 
 ---
@@ -1294,7 +1294,7 @@ These are top-level `inir` commands that work directly, without going through IP
 Launch `hyprpicker` to pick a color from anywhere on the screen. The hex value is copied to the clipboard (`-a` flag).
 
 ```kdl
-Super+Shift+C { spawn "inir" "colorpicker"; }
+Super+Shift+C { spawn "intoo" "colorpicker"; }
 ```
 
 Requires `hyprpicker` installed.

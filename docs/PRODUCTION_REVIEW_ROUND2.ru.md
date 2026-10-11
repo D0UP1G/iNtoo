@@ -158,7 +158,7 @@ repository module отсутствует».
 
 ~~~text
 verify_rc:2
-phase:Shell restart requested; 'inir logs' shows how it went
+phase:Shell restart requested; 'intoo logs' shows how it went
 flow_rc:0 status:success
 ~~~
 
@@ -276,7 +276,7 @@ args: www-client/firefox
 
 ### PR14 · P2 · Cleanup сигналит thumbnail jobs без проверки владельца
 
-**Место:** [scripts/inir](../scripts/inir), строки 2231–2243;
+**Место:** [scripts/intoo](../scripts/intoo), строки 2231–2243;
 [assets/systemd/inir.service](../assets/systemd/inir.service), строка 58.
 
 Phase 6 выбирает процессы глобальным `pgrep -f scripts/thumbnails/...` и

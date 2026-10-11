@@ -72,7 +72,7 @@ Wayland → GPU
 
 مشروع شخصي خرج عن السيطرة. أستخدمه يوميًا، وكذلك كثيرون في Discord. لكن أشياء تتعطل أحيانًا، والكود فوضوي في بعض المواضع، وأنا أتعلم أثناء العمل.
 
-إن لم يعمل شيء، فإن `inir doctor` يصلح معظم المشاكل. وإن لم يكفِ، فـ Discord نشط. فقط لا تتوقع برنامجًا مصقولًا: هذا rice شخص واحد أعجب آخرين أيضًا.
+إن لم يعمل شيء، فإن `intoo doctor` يصلح معظم المشاكل. وإن لم يكفِ، فـ Discord نشط. فقط لا تتوقع برنامجًا مصقولًا: هذا rice شخص واحد أعجب آخرين أيضًا.
 
 ### لماذا وُجد؟
 
@@ -153,19 +153,19 @@ Wayland → GPU
 
 ### Island
 
-- **الـ Island**: شكل واحد على حافة الشاشة يخبرك بما يحدث ويصبح الصفحة أو البطاقة أو اللوحة التي فتحتها، ثم ينطوي عائدًا. في الأعلى أو الأسفل أو اليسار أو اليمين (`inir iris edge <side>`، أو اسحبها إلى هناك). على الجانب تقف عموديًا، بساعة مكدسة وفقاعات فوقها وتحتها
-- **شريط القوائم**: شريط رفيع فيه مساحات العمل والنافذة والقطع، وتتدلى منه الـ Island كنتوء (`inir iris layout menubar`)
-- **وضع الشريط بعرض كامل** بمناطق بداية ووسط ونهاية للـ Island ومساحات العمل والنافذة النشطة والوقت أو أي قطعة (`inir iris zone start|center|end kinds+joined+with+plus`)
+- **الـ Island**: شكل واحد على حافة الشاشة يخبرك بما يحدث ويصبح الصفحة أو البطاقة أو اللوحة التي فتحتها، ثم ينطوي عائدًا. في الأعلى أو الأسفل أو اليسار أو اليمين (`intoo iris edge <side>`، أو اسحبها إلى هناك). على الجانب تقف عموديًا، بساعة مكدسة وفقاعات فوقها وتحتها
+- **شريط القوائم**: شريط رفيع فيه مساحات العمل والنافذة والقطع، وتتدلى منه الـ Island كنتوء (`intoo iris layout menubar`)
+- **وضع الشريط بعرض كامل** بمناطق بداية ووسط ونهاية للـ Island ومساحات العمل والنافذة النشطة والوقت أو أي قطعة (`intoo iris zone start|center|end kinds+joined+with+plus`)
 - **القطع**: الطقس والصوت والميكروفون وعلبة النظام والإشعارات والأدوات والوسائط وVPN ومُصوِّر للصوت وأنمي (Airing وContinue) وتطبيقاتك، على شكل فقاعات تضعها على الـ Island أو على إطار الشاشة أو حرة على سطح المكتب
 - **القطع تلتحم بما تلمسه**: ضع واحدة على حافة الـ Dock أو الـ Island فتصبح جزءًا منه بدل أن تطفو فوقه
-- **Dock** على أي حافة (`inir iris dockEdge <side|auto>`)؛ في الوضع auto يجلس مقابل الـ Island، وإن أرسلت أحدهما إلى حافة الآخر تبادلا المكانين
+- **Dock** على أي حافة (`intoo iris dockEdge <side|auto>`)؛ في الوضع auto يجلس مقابل الـ Island، وإن أرسلت أحدهما إلى حافة الآخر تبادلا المكانين
 - **زجاج** يُغبّش الخلفية تحت كل سطح ويبقي النص مقروءًا حتى على الخلفيات الساطعة أو المزدحمة. تمويه المُركِّب موجود أيضًا، لكنه ما زال قيد العمل، فلا تحكم عليه بعد
-- **Themes**: 20 إعادة تصميم مختارة (Liquid Glass وFrost وObsidian وTerminal وNeo Tokyo وTwilight وLume وSakura وUnit-01 وغيرها) إضافة إلى سماتك كملفات JSON قابلة للمشاركة (`inir iris theme`)
-- **فاتح وحبري وداكن**، لكل منها درجته وتغبيشه، وسمات ألوان (Catppuccin وNord وRosé Pine وTokyo Night…) تلبسها تطبيقاتك أيضًا (`inir iris palette`)
+- **Themes**: 20 إعادة تصميم مختارة (Liquid Glass وFrost وObsidian وTerminal وNeo Tokyo وTwilight وLume وSakura وUnit-01 وغيرها) إضافة إلى سماتك كملفات JSON قابلة للمشاركة (`intoo iris theme`)
+- **فاتح وحبري وداكن**، لكل منها درجته وتغبيشه، وسمات ألوان (Catppuccin وNord وRosé Pine وTokyo Night…) تلبسها تطبيقاتك أيضًا (`intoo iris palette`)
 - **الشكل**: كبسولة أو دائري أو squircle أو مربع للـ Island والـ Dock
-- **Customize على الـ shell نفسه**: المس الـ Island أو الـ Dock أو فقاعة فتخرج خياراتها منها مباشرة، مع Themes وLook وPieces والتراجع تحت الـ Island (`inir iris edit`). وإن فضّلت، يجمع Studio كل شيء في لوحة بجانب الشاشة
-- **مركز تحكم ترتبه بنفسك**: كل مفتاح سريع مشترك والمشغّل وكل منزلق خلايا تسحبها وتغيّر حجمها من الزاوية وتضيفها من مكتبة بجانبها، مع ستة تخطيطات للبداية؛ النقر بالزر الأيمن يفتح عنصر التحكم (`inir iris control edit`)
-- **شاشة قفل تتدرب عليها**: تُفتح شاشة القفل الحقيقية قابلة للتعديل دون ما يُفتح؛ حرّك الساعة والمشغّل وحقل الدخول، واختر ما يُعرض خلفها، والفيديو ضمنه (`inir iris lock edit`)
+- **Customize على الـ shell نفسه**: المس الـ Island أو الـ Dock أو فقاعة فتخرج خياراتها منها مباشرة، مع Themes وLook وPieces والتراجع تحت الـ Island (`intoo iris edit`). وإن فضّلت، يجمع Studio كل شيء في لوحة بجانب الشاشة
+- **مركز تحكم ترتبه بنفسك**: كل مفتاح سريع مشترك والمشغّل وكل منزلق خلايا تسحبها وتغيّر حجمها من الزاوية وتضيفها من مكتبة بجانبها، مع ستة تخطيطات للبداية؛ النقر بالزر الأيمن يفتح عنصر التحكم (`intoo iris control edit`)
+- **شاشة قفل تتدرب عليها**: تُفتح شاشة القفل الحقيقية قابلة للتعديل دون ما يُفتح؛ حرّك الساعة والمشغّل وحقل الدخول، واختر ما يُعرض خلفها، والفيديو ضمنه (`intoo iris lock edit`)
 
 ### السمات والمظهر
 
@@ -221,7 +221,7 @@ Wayland → GPU
 
 - **إعدادات رسومية**: اضبط كل شيء دون لمس الملفات
 - **GameMode**: يطفئ المؤثرات تلقائيًا للتطبيقات بملء الشاشة
-- **تحديثات تلقائية**: `inir update` مع التراجع والترحيل والحفاظ على تعديلاتك
+- **تحديثات تلقائية**: `intoo update` مع التراجع والترحيل والحفاظ على تعديلاتك
 - **شاشة القفل** و**شاشة الجلسة** (خروج/إعادة تشغيل/إيقاف/سكون)
 - **وكيل Polkit**، **لوحة مفاتيح على الشاشة**، **مدير بدء تلقائي** يعتمد على ملف بدء التشغيل الخاص بـ niri
 - **18 لغة** مع اكتشاف تلقائي، منها الإندونيسية (`id_ID`) والغرينلاندية (`kl_GL`)
@@ -248,16 +248,16 @@ cd inir
 
 </div>
 
-يتولى المثبّت الاعتماديات وإعدادات النظام والسمة. بعد التثبيت، شغّل `inir run` لبدء الـ shell، أو سجّل الخروج ثم ادخل مجددًا.
+يتولى المثبّت الاعتماديات وإعدادات النظام والسمة. بعد التثبيت، شغّل `intoo run` لبدء الـ shell، أو سجّل الخروج ثم ادخل مجددًا.
 
 <div dir="ltr">
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 </div>
@@ -321,9 +321,9 @@ sudo make install       # system-wide instead of your home
 <div dir="ltr">
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```

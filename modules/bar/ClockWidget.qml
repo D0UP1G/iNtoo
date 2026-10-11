@@ -19,7 +19,7 @@ Item {
     // Easter egg: long-press the clock → bedtime lecture, whatever the hour
     TapHandler {
         enabled: Config.options?.mascot?.enable ?? false
-        onLongPressed: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "mascot", "appear", "late-night", "top"])
+        onLongPressed: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "mascot", "appear", "late-night", "top"])
     }
 
     RowLayout {

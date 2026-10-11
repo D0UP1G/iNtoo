@@ -182,7 +182,7 @@ Singleton {
             : (root.commitsBehind > 0 ? (root.commitsBehind + " commits behind") : "New version available")
         Notifications.notify({
             summary: "iNtoo Update Available" + version,
-            body: commits + ". Run `inir update`, or open it from the shell's own updater.",
+            body: commits + ". Run `intoo update`, or open it from the shell's own updater.",
             urgency: NotificationUrgency.Normal,
             timeout: 15000,
             appName: "iNtoo Shell"

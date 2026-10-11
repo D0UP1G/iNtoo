@@ -14,7 +14,7 @@
 //
 //   epsilon        Threshold to consider the animation "done" (0.0001 is fine).
 //
-// Settings has presets for all of this, as does `inir niriAnimations apply <id>`;
+// Settings has presets for all of this, as does `intoo niriAnimations apply <id>`;
 // applying one rewrites this block and keeps `off` and `slowdown`.
 //
 // You can also use duration-based easing instead of springs:

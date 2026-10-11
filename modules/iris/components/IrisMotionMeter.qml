@@ -10,7 +10,7 @@ import qs.modules.iris.style
 import qs.modules.iris.frame
 
 // Measures a Place's open, close and mid-way reversal from the frames the Place itself samples (`IrisMorphSurface` feeds `sample`).
-// Driven by `inir iris motion <target>` and read back with `inir iris motioned`.
+// Driven by `intoo iris motion <target>` and read back with `intoo iris motioned`.
 Singleton {
     id: root
 

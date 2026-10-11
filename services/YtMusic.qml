@@ -1775,7 +1775,7 @@ print("")
         stdout: SplitParser {
             onRead: line => {
                 if (line.trim()) {
-                    root.googleError = Translation.tr("YT Music runtime unavailable. Run inir doctor.")
+                    root.googleError = Translation.tr("YT Music runtime unavailable. Run intoo doctor.")
                     root._log("[YtMusic] Missing dependencies:" + line.trim())
                 }
             }
@@ -1790,7 +1790,7 @@ print("")
                     Qt.callLater(() => root._playInternal(pendingItem))
                 } else {
                     root.loading = false
-                    root.error = Translation.tr("YT Music runtime unavailable. Run inir doctor.")
+                    root.error = Translation.tr("YT Music runtime unavailable. Run intoo doctor.")
                 }
             }
         }
@@ -2048,7 +2048,7 @@ print("")
     }
 
     // Kill any orphaned mpv instances that use our IPC socket.
-    // Handles processes that survived across inir restart or weren't cleaned up properly.
+    // Handles processes that survived across intoo restart or weren't cleaned up properly.
     Process {
         id: _killOrphanedMpvProc
         command: ["/bin/sh", "-c", "pkill -f 'mpv.*qs-ytmusic-mpv\\.sock' 2>/dev/null; true"]

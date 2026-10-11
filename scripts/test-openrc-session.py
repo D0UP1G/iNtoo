@@ -39,7 +39,7 @@ class SessionTests(unittest.TestCase):
                         XDG_CONFIG_HOME=str(self.config), INIR_INIT_SYSTEM="openrc",
                         INIR_TEST_CALLS=str(self.calls), INIR_TEST_BASE=str(self.base),
                         INIR_QS_BIN=str(self.bin / "qs"), INIR_RUNTIME_DIR=str(self.payload),
-                        INIR_LAUNCHER_PATH=str(ROOT / "scripts/inir"),
+                        INIR_LAUNCHER_PATH=str(ROOT / "scripts/intoo"),
                         DBUS_SESSION_BUS_ADDRESS=f"unix:path={self.runtime}/bus",
                         WAYLAND_DISPLAY="wayland-test", NIRI_SOCKET=str(self.runtime / "niri-test.sock"),
                         INIR_RESTART_POLL_DELAY="0.05", INIR_RESTART_MAX_POLLS="100")
@@ -183,9 +183,9 @@ while True: time.sleep(0.1)
 
     def test_startup_idempotence_and_user_config(self):
         file = self.config / "niri/config.kdl"
-        startup.sync(self.config, '/home/test user/bin/inir', "enable", True)
+        startup.sync(self.config, '/home/test user/bin/intoo', "enable", True)
         first = file.read_text()
-        startup.sync(self.config, '/home/test user/bin/inir', "enable", True)
+        startup.sync(self.config, '/home/test user/bin/intoo', "enable", True)
         self.assertEqual(first, file.read_text())
         self.assertIn('spawn-at-startup "user-tool"', first)
         self.assertEqual(first.count('"run" "--session"'), 1)
@@ -319,14 +319,14 @@ while True: time.sleep(0.1)
 
     def test_cli_restart_replaces_supervisor_and_preserves_caller(self):
         self.fake_qs()
-        process = subprocess.Popen(['bash', str(ROOT / 'scripts/inir'), 'run', '--session'], env=self.env,
+        process = subprocess.Popen(['bash', str(ROOT / 'scripts/intoo'), 'run', '--session'], env=self.env,
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.processes.append(process)
         self.wait_until(lambda: (self.base / 'child.pid').exists())
         old_pid = int((self.base / 'child.pid').read_text())
-        self.run_cmd(['bash', str(ROOT / 'scripts/inir'), 'restart', '--quiet'])
+        self.run_cmd(['bash', str(ROOT / 'scripts/intoo'), 'restart', '--quiet'])
         self.wait_until(lambda: (self.base / 'child.pid').exists() and int((self.base / 'child.pid').read_text()) != old_pid)
-        self.run_cmd(['bash', str(ROOT / 'scripts/inir'), 'stop'])
+        self.run_cmd(['bash', str(ROOT / 'scripts/intoo'), 'stop'])
         self.assertFalse((self.base / 'child.pid').exists())
 
     def test_lifecycle_caller_escapes_shell_process_group(self):
@@ -344,11 +344,11 @@ inir_escape_session_group "$0" "$@"
     def test_cli_daemon_run_is_supervised(self):
         self.fake_qs()
         try:
-            self.run_cmd(['bash', str(ROOT / 'scripts/inir'), 'run', '--daemon'])
+            self.run_cmd(['bash', str(ROOT / 'scripts/intoo'), 'run', '--daemon'])
             self.assertTrue((self.base / 'child.pid').exists())
             self.assertEqual(len(list((self.runtime / 'inir').glob('*.pid'))), 1)
         finally:
-            self.run_cmd(['bash', str(ROOT / 'scripts/inir'), 'stop'])
+            self.run_cmd(['bash', str(ROOT / 'scripts/intoo'), 'stop'])
         self.assertFalse((self.base / 'child.pid').exists())
 
     def test_openrc_update_verifies_loaded_configuration(self):
@@ -362,7 +362,7 @@ restart_shell_and_verify 3
             self.env['INIR_TEST_QS_LOAD_FAIL'] = '1'
             self.bash(code, expected=1)
         finally:
-            self.run_cmd(['bash', str(ROOT / 'scripts/inir'), 'stop'])
+            self.run_cmd(['bash', str(ROOT / 'scripts/intoo'), 'stop'])
 
     def test_native_quickshell_session_without_display_hardware(self):
         qs = Path('/usr/bin/qs')
@@ -413,7 +413,7 @@ done
 printf '%s\\n' "$log" >&2
 exit 1
 '''
-        self.run_cmd(['dbus-run-session', '--', 'bash', '-c', script, 'fixture', str(ROOT / 'scripts/inir')], env=env)
+        self.run_cmd(['dbus-run-session', '--', 'bash', '-c', script, 'fixture', str(ROOT / 'scripts/intoo')], env=env)
 
     def test_stale_pid_is_rejected(self):
         state = self.bash(f'inir_session_state_path "{self.payload}"').strip()
@@ -426,7 +426,7 @@ exit 1
         state = self.bash(f'inir_session_state_path "{self.payload}"').strip()
         self.wait_until(lambda: Path(state + ".pid").exists())
         env = dict(self.env, INIR_TEST_QS_NO_LIST="1")
-        result = subprocess.run([str(ROOT / "scripts/inir"), "service", "status"],
+        result = subprocess.run([str(ROOT / "scripts/intoo"), "service", "status"],
                                 env=env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("iNtoo is running", result.stdout)
@@ -440,7 +440,7 @@ exit 1
 
     def test_cli_session_applies_environment_and_stops(self):
         self.fake_qs()
-        process = subprocess.Popen(["bash", str(ROOT / "scripts/inir"), "run", "--session"],
+        process = subprocess.Popen(["bash", str(ROOT / "scripts/intoo"), "run", "--session"],
                                    env=self.env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.processes.append(process)
         self.wait_until(lambda: (self.base / "child.pid").exists())
@@ -448,7 +448,7 @@ exit 1
         self.assertEqual(start["scale"], "1")
         self.assertIn("quickshell.dbus.properties=false", start["rules"])
         self.assertNotIn("-d", start["args"])
-        self.run_cmd(["bash", str(ROOT / "scripts/inir"), "stop"])
+        self.run_cmd(["bash", str(ROOT / "scripts/intoo"), "stop"])
         self.assertEqual(process.wait(timeout=5), 0)
         self.assertFalse((self.base / "child.pid").exists())
         self.assertFalse(any(call[0] == "systemctl" for call in self.recorded()))
@@ -456,16 +456,16 @@ exit 1
     def test_cli_requires_dbus_session(self):
         self.fake_qs()
         env = dict(self.env, DBUS_SESSION_BUS_ADDRESS="")
-        result = subprocess.run(["bash", str(ROOT / "scripts/inir"), "run", "--session"],
+        result = subprocess.run(["bash", str(ROOT / "scripts/intoo"), "run", "--session"],
                                 env=env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 1)
         self.assertIn("dbus-run-session", result.stderr)
 
     def test_cli_service_startup_management(self):
-        self.run_cmd(["bash", str(ROOT / "scripts/inir"), "service", "enable"])
+        self.run_cmd(["bash", str(ROOT / "scripts/intoo"), "service", "enable"])
         self.assertTrue(startup.sync(self.config, "inir", "status"))
         self.fake_qs()
-        self.run_cmd(["bash", str(ROOT / "scripts/inir"), "service", "disable"])
+        self.run_cmd(["bash", str(ROOT / "scripts/intoo"), "service", "disable"])
         self.assertFalse(startup.sync(self.config, "inir", "status"))
 
     def test_openrc_system_services_preserve_other_display_manager(self):

@@ -16,7 +16,7 @@ import Quickshell.Io
  *
  * Provides a unified, categorized catalog of shell actions that can be:
  * - Searched via the overview launcher (action prefix)
- * - Invoked via IPC: `inir globalActions run <actionId> [args]`
+ * - Invoked via IPC: `intoo globalActions run <actionId> [args]`
  * - Extended by users via scripts in ~/.config/illogical-impulse/actions/
  *
  * Architecture:
@@ -33,7 +33,7 @@ Singleton {
     readonly property var allActions: _rebuildActions()
 
     function runLauncher(args): void {
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir")].concat(args ?? []))
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo")].concat(args ?? []))
     }
 
     function applyGlobalStyle(styleId: string): void {

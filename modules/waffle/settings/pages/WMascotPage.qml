@@ -27,7 +27,7 @@ WSettingsPage {
 
         WSettingsDropdown {
             label: Translation.tr("Provider")
-            description: Translation.tr("Connect the provider once with: inir assistant auth")
+            description: Translation.tr("Connect the provider once with: intoo assistant auth")
             options: [
                 { value: "", displayName: Translation.tr("From model name") },
                 { value: "ollama", displayName: "Ollama" },

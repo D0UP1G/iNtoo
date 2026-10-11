@@ -952,7 +952,7 @@ if status is-interactive
         alias ls 'eza --icons'
     end
     alias clear "printf '\033[2J\033[3J\033[1;1H'"
-    alias q 'inir run'
+    alias q 'intoo run'
 
     # Add local bin to PATH
     fish_add_path ~/.local/bin
@@ -994,7 +994,7 @@ if command -v eza &> /dev/null; then
 elif [[ -x ~/.local/bin/eza ]]; then
     alias ls='~/.local/bin/eza --icons'
 fi
-alias q='inir run'
+alias q='intoo run'
 
 # Add local bin to PATH
 export PATH="$HOME/.local/bin:$PATH"
@@ -1049,7 +1049,7 @@ if command -v eza &> /dev/null; then
 elif [[ -x ~/.local/bin/eza ]]; then
     alias ls='~/.local/bin/eza --icons'
 fi
-alias q='inir run'
+alias q='intoo run'
 
 # Add local bin to PATH
 export PATH="$HOME/.local/bin:$PATH"

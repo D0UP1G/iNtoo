@@ -16,7 +16,7 @@ inir_uses_systemd() {
 }
 
 inir_sync_niri_startup() {
-    local action="${1:-enable}" launcher="${2:-${XDG_BIN_HOME:-$HOME/.local/bin}/inir}"
+    local action="${1:-enable}" launcher="${2:-${XDG_BIN_HOME:-$HOME/.local/bin}/intoo}"
     local -a args=("$action" --config-home "${XDG_CONFIG_HOME:-$HOME/.config}" --launcher "$launcher")
     command -v gentoo-pipewire-launcher >/dev/null 2>&1 && args+=(--pipewire)
     python3 "$_INIR_SESSION_LIB_DIR/session-startup.py" "${args[@]}"

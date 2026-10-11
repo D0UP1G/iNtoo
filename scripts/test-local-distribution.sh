@@ -7,7 +7,7 @@ export INIR_INIT_SYSTEM=systemd
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 runtime_root="$(cd -- "$script_dir/.." && pwd)"
-launcher="${INIR_LAUNCHER_PATH:-$runtime_root/scripts/inir}"
+launcher="${INIR_LAUNCHER_PATH:-$runtime_root/scripts/intoo}"
 
 run_runtime=false
 if [[ "${1:-}" == "--with-runtime" ]]; then
@@ -21,7 +21,7 @@ step() {
 step "shell syntax"
 for syntax_file in \
     "$runtime_root/setup" \
-    "$runtime_root/scripts/inir" \
+    "$runtime_root/scripts/intoo" \
     "$runtime_root/scripts/lib/"*.sh \
     "$runtime_root/scripts/session-"*.sh \
     "$runtime_root/scripts/start-warp-service.sh" \
@@ -38,6 +38,9 @@ done
 step "mascot assistant"
 python3 "$runtime_root/scripts/test-mascot-assistant.py"
 
+step "intoo command and legacy compatibility"
+python3 "$runtime_root/scripts/test-intoo-command.py"
+
 step "assistant default provider"
 python3 "$runtime_root/scripts/test-ai-default-provider.py"
 
@@ -52,16 +55,16 @@ if ! grep -qx 'Type=dbus' "$service_unit" \
     printf 'FAIL: inir.service is not ordered behind Niri and ahead of XDG autostart\n' >&2
     exit 1
 fi
-if grep -Fq '/tmp/.X11-unix/X' "$runtime_root/scripts/inir" \
+if grep -Fq '/tmp/.X11-unix/X' "$runtime_root/scripts/intoo" \
         || grep -Fq '/tmp/.X11-unix/X' "$runtime_root/modules/common/functions/ShellExec.qml" \
-        || grep -Fq 'niri.wayland-*.sock' "$runtime_root/scripts/inir"; then
+        || grep -Fq 'niri.wayland-*.sock' "$runtime_root/scripts/intoo"; then
     printf 'FAIL: iNtoo still guesses compositor-owned DISPLAY/NIRI_SOCKET from filesystem sockets\n' >&2
     exit 1
 fi
 session_helper="$runtime_root/scripts/lib/niri-session-env.sh"
 if [[ ! -f "$session_helper" ]] \
         || ! grep -Fq 'MainPID --value niri.service' "$session_helper" \
-        || ! grep -Fq 'inir_resolve_niri_service_environment' "$runtime_root/scripts/inir" \
+        || ! grep -Fq 'inir_resolve_niri_service_environment' "$runtime_root/scripts/intoo" \
         || ! grep -Fq 'inir_resolve_niri_service_environment' "$runtime_root/sdata/lib/doctor.sh" \
         || ! grep -Fq '"040-niri-session-environment-lifecycle"' "$runtime_root/sdata/lib/migrations.sh"; then
     printf 'FAIL: Niri session recovery is not owned by launcher/Doctor with the legacy migration retired\n' >&2
@@ -111,7 +114,7 @@ if ! grep -Fq 'property var _trayService: TrayService' "$runtime_root/shell.qml"
     exit 1
 fi
 if grep -q '^Environment=MALLOC_' "$service_unit" \
-        || grep -Eq '^[[:space:]]*export[[:space:]]+MALLOC_' "$runtime_root/scripts/inir" \
+        || grep -Eq '^[[:space:]]*export[[:space:]]+MALLOC_' "$runtime_root/scripts/intoo" \
         || grep -Eq '^[[:space:]]*export[[:space:]]+MALLOC_' "$runtime_root/scripts/quickshell-env.sh"; then
     printf 'FAIL: iNtoo still overrides the glibc allocator at runtime\n' >&2
     exit 1
@@ -136,12 +139,12 @@ if ! grep -Fq 'lock prepareSleep' "$idle_owner" \
     printf 'FAIL: swayidle before-sleep does not wait for the secure lock handshake\n' >&2
     exit 1
 fi
-if ! grep -Fq 'Lock did not become secure before sleep' "$runtime_root/scripts/inir"; then
+if ! grep -Fq 'Lock did not become secure before sleep' "$runtime_root/scripts/intoo"; then
     printf 'FAIL: launcher does not wait for WlSessionLock secure before returning to swayidle\n' >&2
     exit 1
 fi
-if ! grep -Fq 'Lock IPC was unavailable before sleep and no fallback could secure the session' "$runtime_root/scripts/inir" \
-        || ! grep -Fq '"$swaylock_bin" -f -c 1a1a2e' "$runtime_root/scripts/inir"; then
+if ! grep -Fq 'Lock IPC was unavailable before sleep and no fallback could secure the session' "$runtime_root/scripts/intoo" \
+        || ! grep -Fq '"$swaylock_bin" -f -c 1a1a2e' "$runtime_root/scripts/intoo"; then
     printf 'FAIL: before-sleep does not fail closed when the Quickshell lock target is unavailable\n' >&2
     exit 1
 fi
@@ -258,7 +261,7 @@ EOF
 if ! HOME="$package_service_root/home" XDG_CONFIG_HOME="$package_service_root/home/.config" \
         PATH="$package_service_root/bin:$PATH" INIR_TEST_PACKAGE_UNIT="$package_service_root/pkg/inir.service" \
         INIR_FALLBACK_SYSTEM_RUNTIME_DIR="$package_service_root/runtime" \
-        "$runtime_root/scripts/inir" service enable >/dev/null; then
+        "$runtime_root/scripts/intoo" service enable >/dev/null; then
     printf 'FAIL: packaged launcher cannot enable the Niri service from packaged version metadata\n' >&2
     rm -rf "$package_service_root"
     exit 1
@@ -275,11 +278,11 @@ if ! grep -Fq 'inir_user_service_is_masked && return 2' "$runtime_root/setup" \
         || ! grep -Fq 'Shell restart skipped: inir.service is masked' "$runtime_root/setup" \
         || ! grep -Fq 'User inir.service is masked' "$runtime_root/sdata/lib/doctor.sh" \
         || ! grep -Fq 'systemctl --user unmask inir.service' "$runtime_root/sdata/subcmd-install/3.files.sh" \
-        || ! grep -Fq 'systemctl --user unmask --runtime inir.service' "$runtime_root/scripts/inir"; then
+        || ! grep -Fq 'systemctl --user unmask --runtime inir.service' "$runtime_root/scripts/intoo"; then
     printf 'FAIL: install/update/doctor do not preserve the service mask contract\n' >&2
     exit 1
 fi
-if ! grep -Fq '[[ "$qs_cgroup" == *"/inir.service"* ]] || continue' "$runtime_root/scripts/inir"; then
+if ! grep -Fq '[[ "$qs_cgroup" == *"/inir.service"* ]] || continue' "$runtime_root/scripts/intoo"; then
     printf 'FAIL: cleanup-orphans can terminate Quickshell processes outside inir.service\n' >&2
     exit 1
 fi
@@ -316,7 +319,7 @@ help_output() (
     "$@" update --help
 )
 setup_update_help="$(help_output "$runtime_root/setup")"
-inir_update_help="$(help_output "$runtime_root/scripts/inir")"
+inir_update_help="$(help_output "$runtime_root/scripts/intoo")"
 if ! grep -Fq -- '--realign' <<< "$setup_update_help" \
         || ! grep -Fq -- '--realign' <<< "$inir_update_help" \
         || grep -Fq 'Checking for updates' <<< "$setup_update_help" \
@@ -711,11 +714,11 @@ if failed:
 binds = (root / "defaults/niri/config.d/70-binds.kdl").read_text(encoding="utf-8")
 if 'Alt+Tab { next-window; }' not in binds or 'Alt+Shift+Tab { previous-window; }' not in binds:
     raise SystemExit("FAIL: native Niri Alt+Tab bindings are missing")
-if 'spawn "inir" "altSwitcher"' in binds:
+if 'spawn "intoo" "altSwitcher"' in binds:
     raise SystemExit("FAIL: fresh-install Alt+Tab invokes the iNtoo switcher")
-if 'Ctrl+Alt+F { spawn "inir" "equalizer" "toggle"; }' not in binds:
+if 'Ctrl+Alt+F { spawn "intoo" "equalizer" "toggle"; }' not in binds:
     raise SystemExit("FAIL: fresh-install EasyEffects Equalizer binding is missing")
-if 'Ctrl+Alt+E { spawn "inir" "equalizer" "toggle"; }' in binds:
+if 'Ctrl+Alt+E { spawn "intoo" "equalizer" "toggle"; }' in binds:
     raise SystemExit("FAIL: fresh-install Equalizer binding regressed to the old Ctrl+Alt+E chord")
 PY
 
@@ -851,7 +854,7 @@ if ! grep -Fq '[ocr-jpn]="tesseract-ocr-jpn"' "$debian_installer"; then
 fi
 
 # Super+Shift+S is the remembered unified snip entry point; Print remains direct.
-if ! grep -Fq 'Mod+Shift+S { spawn "inir" "region" "menu"; }' "$runtime_root/defaults/niri/config.d/70-binds.kdl" \
+if ! grep -Fq 'Mod+Shift+S { spawn "intoo" "region" "menu"; }' "$runtime_root/defaults/niri/config.d/70-binds.kdl" \
         || [[ ! -x "$runtime_root/sdata/migrations/037-remembered-super-shift-s.sh" ]]; then
     printf 'FAIL: remembered Super+Shift+S snip flow is incomplete\n' >&2
     exit 1
@@ -1765,7 +1768,7 @@ launcher_sync_root="$(mktemp -d)"
 mkdir -p "$launcher_sync_root/home/.local/bin" "$launcher_sync_root/old"
 printf '#!/bin/sh\nprintf OLD\\n\n' > "$launcher_sync_root/old/inir"
 chmod +x "$launcher_sync_root/old/inir"
-ln -s "$launcher_sync_root/old/inir" "$launcher_sync_root/home/.local/bin/inir"
+ln -s "$launcher_sync_root/old/inir" "$launcher_sync_root/home/.local/bin/intoo"
 launcher_sync_function="$(sed -n '/^sync_launcher_from_repo() {/,/^}/p' "$runtime_root/setup")"
 if ! TEST_HOME="$launcher_sync_root/home" TEST_REPO="$runtime_root" \
         TEST_FUNCTION="$launcher_sync_function" bash -c '
@@ -1778,16 +1781,16 @@ if ! TEST_HOME="$launcher_sync_root/home" TEST_REPO="$runtime_root" \
     ensure_launcher_path_in_shells() { :; }
     eval "$TEST_FUNCTION"
     sync_launcher_from_repo >/dev/null
-    [[ ! -L "$XDG_BIN_HOME/inir" ]]
-    cmp -s "$REPO_ROOT/scripts/inir" "$XDG_BIN_HOME/inir"
+    [[ ! -L "$XDG_BIN_HOME/intoo" ]]
+    cmp -s "$REPO_ROOT/scripts/intoo" "$XDG_BIN_HOME/intoo"
     grep -Fq OLD "$TEST_HOME/../old/inir"
 
-    printf stale-copy > "$XDG_BIN_HOME/inir"
+    printf stale-copy > "$XDG_BIN_HOME/intoo"
     get_installed_install_mode() { printf repo-link; }
     get_install_mode() { printf repo-link; }
     sync_launcher_from_repo >/dev/null
-    [[ -L "$XDG_BIN_HOME/inir" ]]
-    [[ "$(readlink -f "$XDG_BIN_HOME/inir")" == "$(readlink -f "$REPO_ROOT/scripts/inir")" ]]
+    [[ -L "$XDG_BIN_HOME/intoo" ]]
+    [[ "$(readlink -f "$XDG_BIN_HOME/intoo")" == "$(readlink -f "$REPO_ROOT/scripts/intoo")" ]]
 '; then
     rm -rf "$launcher_sync_root"
     printf 'FAIL: setup launcher sync does not converge repo-copy/repo-link topology\n' >&2
@@ -1799,7 +1802,7 @@ step "application launch environment"
 # Niri owns DISPLAY/WAYLAND_DISPLAY/NIRI_SOCKET. App launches may refresh from
 # the live user-manager snapshot, but must never infer compositor sockets.
 shell_exec="$runtime_root/modules/common/functions/ShellExec.qml"
-inir_launcher="$runtime_root/scripts/inir"
+inir_launcher="$runtime_root/scripts/intoo"
 if ! grep -Fq 'systemctl --user show-environment' "$shell_exec" \
         || ! grep -Fq 'for _var in DISPLAY WAYLAND_DISPLAY NIRI_SOCKET' "$shell_exec" \
         || ! grep -Fq 'QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME QT_STYLE_OVERRIDE' "$shell_exec" \
@@ -2085,7 +2088,7 @@ fi
 
 arch_install="$runtime_root/distro/arch/inir-shell-git/inir-shell-git.install"
 if grep -Fq 'systemctl --user enable --now inir.service' "$arch_install" \
-        || ! grep -Fq 'inir service enable' "$arch_install" \
+        || ! grep -Fq 'intoo service enable' "$arch_install" \
         || ! grep -Fq '~/.config/inir/config.json' "$arch_install"; then
     printf 'FAIL: Arch package post-install guidance contradicts the Niri-owned service/config contract\n' >&2
     exit 1
@@ -2129,13 +2132,13 @@ fi
 if [[ "$run_runtime" == true ]]; then
     export INIR_INIT_SYSTEM="$original_init_system"
     step "runtime restart"
-    bash "$runtime_root/scripts/inir" kill >/dev/null 2>&1 || true
+    bash "$runtime_root/scripts/intoo" kill >/dev/null 2>&1 || true
     sleep 1
-    bash "$runtime_root/scripts/inir" run >/tmp/inir-test-local-runtime.log 2>&1 &
+    bash "$runtime_root/scripts/intoo" run >/tmp/inir-test-local-runtime.log 2>&1 &
     sleep 3
 
     step "runtime logs"
-    bash "$runtime_root/scripts/inir" logs
+    bash "$runtime_root/scripts/intoo" logs
 
     step "runtime filtered errors"
     bash "$launcher" logs --full | grep -iE 'error|ReferenceError|TypeError|binding loop' | tail -80 || true

@@ -19,5 +19,5 @@ if status is-interactive
     if command -v eza &>/dev/null
         alias ls 'eza --icons=auto'
     end
-    alias q 'inir run'
+    alias q 'intoo run'
 end

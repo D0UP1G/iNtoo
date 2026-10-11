@@ -227,7 +227,7 @@ from pathlib import Path
 Path(os.environ["CAPTURE"]).write_text(json.dumps({"database": os.environ.get("OPENCODE_DB"), "args": sys.argv[1:]}))
 ''')
         executable.chmod(0o755)
-        result = subprocess.run([str(ROOT / "scripts/inir"), "assistant", "auth"],
+        result = subprocess.run([str(ROOT / "scripts/intoo"), "assistant", "auth"],
                                 env=self.env, text=True, capture_output=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         actual = json.loads((self.home / "capture.json").read_text())

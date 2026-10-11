@@ -153,9 +153,9 @@ capture_case() {
     }
 
     case "$entry" in
-        stage) inir orbit stage >/dev/null ;;
-        orbital) inir orbit orbital >/dev/null ;;
-        studio) inir orbit studio >/dev/null ;;
+        stage) intoo orbit stage >/dev/null ;;
+        orbital) intoo orbit orbital >/dev/null ;;
+        studio) intoo orbit studio >/dev/null ;;
         *) printf 'FAIL: unknown entry %s\n' "$entry" >&2; return 1 ;;
     esac
 
@@ -175,7 +175,7 @@ capture_case() {
     local status_json=""
     local state_ready=false
     for _ in {1..30}; do
-        status_json="$(inir orbit status 2>/dev/null || true)"
+        status_json="$(intoo orbit status 2>/dev/null || true)"
         local settled=false
         if [[ -n "$status_json" ]] && python3 -c \
                 'import sys; raise SystemExit(0 if float(sys.argv[1]) >= .995 and float(sys.argv[2]) >= .95 else 1)' \

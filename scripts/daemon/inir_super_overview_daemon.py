@@ -191,14 +191,14 @@ async def monitor_device(path):
                         and not interaction_since_super_down
                         and not tap_handled
                     ):
-                        # Tap of Super with no other keys or clicks: toggle inir overview
+                        # Tap of Super with no other keys or clicks: toggle intoo overview
                         # with a global debounce so multiple devices don't double-trigger.
                         now = time.monotonic()
                         if now - last_toggle_time >= DEBOUNCE_SEC:
                             last_toggle_time = now
                             tap_handled = True
                             print(
-                                "[inir-super-daemon] Super tap detected, toggling inir overview",
+                                "[inir-super-daemon] Super tap detected, toggling intoo overview",
                                 flush=True,
                             )
                             try:
@@ -219,7 +219,7 @@ async def monitor_device(path):
                                 # Resolve the inir launcher for the IPC call
                                 inir_bin = os.environ.get(
                                     "INIR_LAUNCHER_PATH",
-                                    shutil.which("inir") or "inir",
+                                    shutil.which("intoo") or "intoo",
                                 )
                                 subprocess.Popen(
                                     [inir_bin, "overview", "toggle"],

@@ -66,7 +66,7 @@ Wayland → GPU
 
 C'est un projet perso qui a pris des proportions. Je l'utilise tous les jours, et beaucoup de monde sur le Discord aussi. Mais des trucs cassent parfois, le code est brouillon par endroits et j'apprends en avançant.
 
-Si quelque chose ne marche pas, `inir doctor` règle la plupart des problèmes. Sinon, le Discord est actif. N'attends juste pas un logiciel poli : c'est le rice d'une personne que d'autres ont fini par aimer.
+Si quelque chose ne marche pas, `intoo doctor` règle la plupart des problèmes. Sinon, le Discord est actif. N'attends juste pas un logiciel poli : c'est le rice d'une personne que d'autres ont fini par aimer.
 
 ### Pourquoi ça existe ?
 
@@ -147,19 +147,19 @@ Je voulais que mon bureau ait une certaine allure et fonctionne d'une certaine f
 
 ### Island
 
-- **L'Island** : une seule forme sur un bord de l'écran qui répond à « qu'est-ce qui se passe » et devient la page, la card ou le panneau que tu as ouvert, puis se replie. En haut, en bas, à gauche ou à droite (`inir iris edge <side>`, ou glisse-la). Sur un côté elle se dresse, avec l'horloge empilée et des bulles au-dessus et en dessous
-- **Barre de menus** : une bande fine avec tes workspaces, la fenêtre et les pièces, l'Island suspendue dessous comme une encoche (`inir iris layout menubar`)
-- **Mode barre pleine largeur** avec des zones début, centre et fin pour l'Island, les workspaces, la fenêtre active, l'heure ou n'importe quelle pièce (`inir iris zone start|center|end kinds+joined+with+plus`)
+- **L'Island** : une seule forme sur un bord de l'écran qui répond à « qu'est-ce qui se passe » et devient la page, la card ou le panneau que tu as ouvert, puis se replie. En haut, en bas, à gauche ou à droite (`intoo iris edge <side>`, ou glisse-la). Sur un côté elle se dresse, avec l'horloge empilée et des bulles au-dessus et en dessous
+- **Barre de menus** : une bande fine avec tes workspaces, la fenêtre et les pièces, l'Island suspendue dessous comme une encoche (`intoo iris layout menubar`)
+- **Mode barre pleine largeur** avec des zones début, centre et fin pour l'Island, les workspaces, la fenêtre active, l'heure ou n'importe quelle pièce (`intoo iris zone start|center|end kinds+joined+with+plus`)
 - **Pièces** : météo, son, micro, zone de notification, notifications, outils, musique, VPN, un visualiseur, anime (Airing et Continue) et tes propres apps, en bulles à poser sur l'Island, sur le contour de l'écran ou librement sur le bureau
 - **Les pièces rejoignent ce qu'elles touchent** : pose-en une sur le bord du Dock ou de l'Island et elle fait partie de ce corps au lieu de flotter par-dessus
-- **Dock** sur n'importe quel bord (`inir iris dockEdge <side|auto>`) ; en auto il se place en face de l'Island, et si tu envoies l'un sur le bord de l'autre, ils échangent leurs places
+- **Dock** sur n'importe quel bord (`intoo iris dockEdge <side|auto>`) ; en auto il se place en face de l'Island, et si tu envoies l'un sur le bord de l'autre, ils échangent leurs places
 - **Glass** qui dépolit le fond d'écran sous chaque surface et garde le texte lisible, même sur des fonds clairs ou chargés. Le flou du compositeur existe aussi, mais il est encore en chantier, donc ne le juge pas tout de suite
-- **Themes** : 20 refontes choisies (Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 et d'autres) plus les tiens en fichiers JSON à partager (`inir iris theme`)
-- **Clair, Encre et Sombre**, chacun avec sa teinte et son dépoli, et des thèmes de couleur (Catppuccin, Nord, Rosé Pine, Tokyo Night…) que tes apps portent aussi (`inir iris palette`)
+- **Themes** : 20 refontes choisies (Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 et d'autres) plus les tiens en fichiers JSON à partager (`intoo iris theme`)
+- **Clair, Encre et Sombre**, chacun avec sa teinte et son dépoli, et des thèmes de couleur (Catppuccin, Nord, Rosé Pine, Tokyo Night…) que tes apps portent aussi (`intoo iris palette`)
 - **Forme** : capsule, ronde, squircle ou carrée pour l'Island et le Dock
-- **Customize sur le shell** : touche l'Island, le Dock ou une bulle et ses options en sortent directement, avec Themes, Look, Pieces et annuler sous l'Island (`inir iris edit`). Si tu préfères, Studio regroupe tout dans un panneau à côté de l'écran
-- **Un Control Center que tu composes** : chaque bouton rapide partagé, le lecteur et chaque curseur deviennent des cellules que tu déplaces, redimensionnes par un coin et ajoutes depuis une bibliothèque à côté, avec six dispositions de départ ; un clic droit déplie un contrôle (`inir iris control edit`)
-- **Un écran de verrouillage que tu répètes** : le vrai verrouillage s'ouvre en édition, sans rien à déverrouiller ; déplace l'horloge, le lecteur et le champ de connexion, et choisis ce qui passe derrière, vidéo comprise (`inir iris lock edit`)
+- **Customize sur le shell** : touche l'Island, le Dock ou une bulle et ses options en sortent directement, avec Themes, Look, Pieces et annuler sous l'Island (`intoo iris edit`). Si tu préfères, Studio regroupe tout dans un panneau à côté de l'écran
+- **Un Control Center que tu composes** : chaque bouton rapide partagé, le lecteur et chaque curseur deviennent des cellules que tu déplaces, redimensionnes par un coin et ajoutes depuis une bibliothèque à côté, avec six dispositions de départ ; un clic droit déplie un contrôle (`intoo iris control edit`)
+- **Un écran de verrouillage que tu répètes** : le vrai verrouillage s'ouvre en édition, sans rien à déverrouiller ; déplace l'horloge, le lecteur et le champ de connexion, et choisis ce qui passe derrière, vidéo comprise (`intoo iris lock edit`)
 
 ### Thème et apparence
 
@@ -215,7 +215,7 @@ Sidebar droite :
 
 - **Réglages graphiques** : tout se configure sans toucher aux fichiers
 - **GameMode** : coupe les effets tout seul pour les apps en plein écran
-- **Mises à jour** : `inir update` avec rollback, migrations et conservation de tes changements
+- **Mises à jour** : `intoo update` avec rollback, migrations et conservation de tes changements
 - **Écran de verrouillage** et **écran de session** (déconnexion/redémarrage/arrêt/veille)
 - **Agent polkit**, **clavier à l'écran**, **gestionnaire de démarrage** appuyé sur le fichier de démarrage de niri
 - **18 langues** avec détection automatique, dont l'indonésien (`id_ID`) et le groenlandais (`kl_GL`)
@@ -238,14 +238,14 @@ cd inir
 ./setup install -y    # automatic, no questions asked
 ```
 
-L'installateur s'occupe des dépendances, de la configuration système et du thème. Après l'installation, lance `inir run` pour démarrer le shell, ou déconnecte-toi puis reconnecte-toi.
+L'installateur s'occupe des dépendances, de la configuration système et du thème. Après l'installation, lance `intoo run` pour démarrer le shell, ou déconnecte-toi puis reconnecte-toi.
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 D'autres façons d'installer, si `./setup install` ne te convient pas :
@@ -301,9 +301,9 @@ Tout ce qui concerne les utilisateurs est dans le [Wiki](https://github.com/D0UP
 ## Dépannage
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```

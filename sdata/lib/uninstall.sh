@@ -21,7 +21,8 @@ declare -A INIR_ONLY_PATHS=(
     ["${INIR_CONFIG_DIR}"]="iNtoo user preferences"
     ["${XDG_STATE_HOME}/quickshell/user"]="iNtoo state (notifications, todo)"
     ["${XDG_CACHE_HOME}/quickshell/inir"]="iNtoo cache"
-    ["${XDG_BIN_HOME}/inir"]="iNtoo launcher"
+    ["${XDG_BIN_HOME}/intoo"]="iNtoo launcher"
+    ["${XDG_BIN_HOME}/inir"]="iNtoo compatibility launcher"
     ["${HOME}/.local/bin/inir_super_overview_daemon.py"]="iNtoo super daemon"
     ["${XDG_CONFIG_HOME}/systemd/user/inir.service"]="iNtoo user service"
     ["${XDG_CONFIG_HOME}/systemd/user/inir-super-overview.service"]="iNtoo daemon service"
@@ -136,7 +137,7 @@ has_other_niri_usage() {
 # Check if niri config has iNtoo-specific content or is user-customized
 niri_config_is_inir_default() {
     local config="${XDG_CONFIG_HOME}/niri/config.kdl"
-    [[ -f "$config" ]] && grep -qE 'spawn-at-startup "([^"]*/)?inir" "start"|spawn-at-startup "qs" "-c" "inir"|quickshell:iiBackdrop' "$config" 2>/dev/null
+    [[ -f "$config" ]] && grep -qE 'spawn-at-startup "([^"]*/)?(intoo|inir)" "(start|run)"|spawn-at-startup "qs" "-c" "inir"|quickshell:iiBackdrop' "$config" 2>/dev/null
 }
 
 # Check if niri config has user customizations beyond iNtoo defaults
@@ -293,7 +294,7 @@ uninstall_stop_services() {
     # Stop quickshell inir config
     local runtime_target="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/inir"
     if ! inir_uses_systemd; then
-        local launcher="${REPO_ROOT}/scripts/inir"
+        local launcher="${REPO_ROOT}/scripts/intoo"
         [[ ! -f "$launcher" ]] || bash "$launcher" stop -c "$runtime_target" 2>/dev/null || true
         inir_sync_niri_startup disable >/dev/null 2>&1 || true
     fi
@@ -1014,6 +1015,7 @@ run_uninstall() {
     if [[ ! -f "${INIR_CONFIG_DIR}/installed_true" ]] && \
        [[ ! -d "${XDG_CONFIG_HOME}/quickshell/inir" ]] && \
        [[ ! -f "${INIR_CONFIG_DIR}/version.json" ]] && \
+       [[ ! -f "${XDG_BIN_HOME}/intoo" ]] && \
        [[ ! -f "${XDG_BIN_HOME}/inir" ]]; then
         tui_warn "iNtoo does not appear to be installed"
         return 1

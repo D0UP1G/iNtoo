@@ -311,8 +311,8 @@ PanelWindow {
                     Layout.fillWidth: true
                     visible: MascotAssistant.loadingModels || !MascotAssistant.modelReady || MascotAssistant.catalogError.length > 0
                     text: MascotAssistant.loadingModels ? Translation.tr("Loading models…")
-                        : !MascotAssistant.modelReady ? Translation.tr("Choose a model or enter its name. Connect a provider with: inir assistant auth")
-                        : Translation.tr("Could not load all models. Enter a model name or refresh after connecting with: inir assistant auth")
+                        : !MascotAssistant.modelReady ? Translation.tr("Choose a model or enter its name. Connect a provider with: intoo assistant auth")
+                        : Translation.tr("Could not load all models. Enter a model name or refresh after connecting with: intoo assistant auth")
                     font.pixelSize: Appearance.font.pixelSize.smaller
                     color: Appearance.colors.colSubtext
                     wrapMode: Text.WordWrap

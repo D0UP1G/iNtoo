@@ -537,7 +537,7 @@ ColumnLayout {
                 Accessible.name: Translation.tr("Lock")
                 onClicked: {
                     page.island.expanded = false
-                    Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "lock", "activate"])
+                    Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "lock", "activate"])
                 }
             }
             GlyphButton {

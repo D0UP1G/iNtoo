@@ -54,7 +54,7 @@ AppButton {
             {
                 text: Translation.tr("Settings"),
                 action: () => {
-                    ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/inir"), "settings"], "Open iNtoo settings");
+                    ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/intoo"), "settings"], "Open iNtoo settings");
                 }
             },
             {
@@ -66,7 +66,7 @@ AppButton {
             {
                 text: Translation.tr("Search"),
                 action: () => {
-                    Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "overview", "toggle"]);
+                    Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "overview", "toggle"]);
                 }
             },
         ]

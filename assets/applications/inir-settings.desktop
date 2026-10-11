@@ -2,7 +2,7 @@
 Type=Application
 Name=iNtoo Settings
 Comment=Open iNtoo settings
-Exec=inir settings
+Exec=intoo settings
 Icon=inir
 Terminal=false
 Categories=Settings;

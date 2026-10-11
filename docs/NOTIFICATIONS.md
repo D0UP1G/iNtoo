@@ -28,7 +28,7 @@ Max 20 notifications per second. Spam from misbehaving apps gets throttled inste
 Toggle DND from:
 - Right sidebar toggle (ii)
 - Action center toggle (waffle)
-- IPC: `inir notifications toggleSilent`
+- IPC: `intoo notifications toggleSilent`
 
 When DND is on, new notifications still arrive and get stored in history. They just don't show popups.
 
@@ -89,12 +89,12 @@ Popups appear at the bottom-right (Windows 11 style). The notification center (`
 ## IPC
 
 ```bash
-inir notifications clearAll          # Clear all notifications
-inir notifications toggleSilent      # Toggle DND
+intoo notifications clearAll          # Clear all notifications
+intoo notifications toggleSilent      # Toggle DND
 ```
 
 ## Troubleshooting
 
 **No notifications showing up**: check if another notification daemon is running (`pidof mako dunst`). iNtoo's ConflictKiller should handle this, but if it doesn't, kill the other daemon manually.
 
-**Notifications from specific apps missing**: some apps send notifications to specific categories or with transient hints. Check `inir logs` for notification-related messages.
+**Notifications from specific apps missing**: some apps send notifications to specific categories or with transient hints. Check `intoo logs` for notification-related messages.

@@ -66,7 +66,7 @@ Wayland → GPU
 
 손을 쓸 수 없게 커져 버린 개인 프로젝트입니다. 저는 매일 쓰고, Discord의 많은 분들도 씁니다. 하지만 가끔 뭔가 망가지고, 코드는 군데군데 지저분하고, 저도 하면서 배우는 중입니다.
 
-뭔가 안 되면 `inir doctor`가 대부분 고쳐 줍니다. 그래도 안 되면 Discord가 활발해요. 다만 다듬어진 소프트웨어는 기대하지 마세요. 한 사람의 rice를 다른 사람들도 마침 좋아하게 된 것뿐입니다.
+뭔가 안 되면 `intoo doctor`가 대부분 고쳐 줍니다. 그래도 안 되면 Discord가 활발해요. 다만 다듬어진 소프트웨어는 기대하지 마세요. 한 사람의 rice를 다른 사람들도 마침 좋아하게 된 것뿐입니다.
 
 ### 왜 만들었나요?
 
@@ -147,19 +147,19 @@ Wayland → GPU
 
 ### Island
 
-- **Island**: 화면 가장자리의 한 형태로, "지금 무슨 일이 일어나는지" 알려 주고 여러분이 연 페이지, 카드, 패널로 변했다가 다시 접힙니다. 위, 아래, 왼쪽, 오른쪽(`inir iris edge <side>`, 또는 끌어다 놓기). 옆에 두면 세로로 서서 시계가 세로로 쌓이고 버블이 위아래에 놓입니다
-- **메뉴 막대**: 작업 공간, 창, 조각이 놓인 얇은 띠로, Island가 노치처럼 매달립니다(`inir iris layout menubar`)
-- **전체 폭 바 모드**: 시작, 가운데, 끝 영역에 Island, 작업 공간, 포커스된 창, 시간, 어떤 조각이든 배치(`inir iris zone start|center|end kinds+joined+with+plus`)
+- **Island**: 화면 가장자리의 한 형태로, "지금 무슨 일이 일어나는지" 알려 주고 여러분이 연 페이지, 카드, 패널로 변했다가 다시 접힙니다. 위, 아래, 왼쪽, 오른쪽(`intoo iris edge <side>`, 또는 끌어다 놓기). 옆에 두면 세로로 서서 시계가 세로로 쌓이고 버블이 위아래에 놓입니다
+- **메뉴 막대**: 작업 공간, 창, 조각이 놓인 얇은 띠로, Island가 노치처럼 매달립니다(`intoo iris layout menubar`)
+- **전체 폭 바 모드**: 시작, 가운데, 끝 영역에 Island, 작업 공간, 포커스된 창, 시간, 어떤 조각이든 배치(`intoo iris zone start|center|end kinds+joined+with+plus`)
 - **조각(pieces)**: 날씨, 소리, 마이크, 트레이, 알림, 도구, 미디어, VPN, 비주얼라이저, 애니메이션(Airing과 Continue), 내 앱을 버블로 만들어 Island 위, 화면 윤곽, 데스크톱 어디에나 둘 수 있습니다
 - **조각은 닿은 것과 합쳐집니다**: Dock이나 Island 가장자리에 두면 위에 떠 있지 않고 그 몸체의 일부가 됩니다
-- **Dock**은 어느 가장자리에나(`inir iris dockEdge <side|auto>`). auto에서는 Island 반대편에 놓이고, 하나를 다른 쪽 가장자리로 보내면 자리를 바꿉니다
+- **Dock**은 어느 가장자리에나(`intoo iris dockEdge <side|auto>`). auto에서는 Island 반대편에 놓이고, 하나를 다른 쪽 가장자리로 보내면 자리를 바꿉니다
 - **글래스**: 모든 표면 아래의 배경화면을 반투명 유리처럼 처리하고, 밝거나 복잡한 배경화면에서도 글자를 읽기 쉽게 유지합니다. 컴포지터 블러도 있지만 아직 작업 중이니 너무 일찍 판단하지는 마세요
-- **Themes**: 20가지 엄선된 리디자인(Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 등)과 공유할 수 있는 JSON 파일로 된 나만의 테마(`inir iris theme`)
-- **라이트, 잉크, 다크**: 각각 고유한 톤과 반투명도를 가지며, 앱에도 적용되는 색상 테마(Catppuccin, Nord, Rosé Pine, Tokyo Night…)도 있습니다(`inir iris palette`)
+- **Themes**: 20가지 엄선된 리디자인(Liquid Glass, Frost, Obsidian, Terminal, Neo Tokyo, Twilight, Lume, Sakura, Unit-01 등)과 공유할 수 있는 JSON 파일로 된 나만의 테마(`intoo iris theme`)
+- **라이트, 잉크, 다크**: 각각 고유한 톤과 반투명도를 가지며, 앱에도 적용되는 색상 테마(Catppuccin, Nord, Rosé Pine, Tokyo Night…)도 있습니다(`intoo iris palette`)
 - **모양**: Island와 Dock을 캡슐, 원형, 스쿼클, 사각형 중에서
-- **셸 위에서 바로 Customize**: Island, Dock, 버블을 탭하면 그 자리에서 옵션이 펼쳐지고, Island 아래에 Themes, Look, Pieces, 실행 취소가 있습니다(`inir iris edit`). 원하면 Studio가 모든 걸 화면 옆 패널 하나에 모아 줍니다
-- **직접 배치하는 제어 센터**: 공유 빠른 토글, 플레이어, 각 슬라이더가 칸이 되어 끌고, 모서리로 크기를 바꾸고, 옆의 라이브러리에서 추가할 수 있습니다. 시작 레이아웃 6가지, 우클릭으로 컨트롤이 펼쳐집니다(`inir iris control edit`)
-- **리허설하는 잠금 화면**: 실제 잠금 화면이 편집 가능한 상태로 열리고 잠금 해제할 것은 없습니다. 시계, 플레이어, 로그인 칸을 옮기고, 뒤에 재생할 것을 동영상까지 골라요(`inir iris lock edit`)
+- **셸 위에서 바로 Customize**: Island, Dock, 버블을 탭하면 그 자리에서 옵션이 펼쳐지고, Island 아래에 Themes, Look, Pieces, 실행 취소가 있습니다(`intoo iris edit`). 원하면 Studio가 모든 걸 화면 옆 패널 하나에 모아 줍니다
+- **직접 배치하는 제어 센터**: 공유 빠른 토글, 플레이어, 각 슬라이더가 칸이 되어 끌고, 모서리로 크기를 바꾸고, 옆의 라이브러리에서 추가할 수 있습니다. 시작 레이아웃 6가지, 우클릭으로 컨트롤이 펼쳐집니다(`intoo iris control edit`)
+- **리허설하는 잠금 화면**: 실제 잠금 화면이 편집 가능한 상태로 열리고 잠금 해제할 것은 없습니다. 시계, 플레이어, 로그인 칸을 옮기고, 뒤에 재생할 것을 동영상까지 골라요(`intoo iris lock edit`)
 
 ### 테마와 모양
 
@@ -215,7 +215,7 @@ Wayland → GPU
 
 - **GUI 설정**: 파일을 건드리지 않고 모든 걸 설정
 - **GameMode**: 전체 화면 앱에서 효과를 자동으로 끔
-- **자동 업데이트**: `inir update`, 롤백, 마이그레이션, 내 변경 사항 보존
+- **자동 업데이트**: `intoo update`, 롤백, 마이그레이션, 내 변경 사항 보존
 - **잠금 화면**과 **세션 화면**(로그아웃/재부팅/종료/절전)
 - **Polkit 에이전트**, **화상 키보드**, niri 자체 시작 파일을 쓰는 **자동 시작 관리자**
 - **18개 언어** 자동 감지, 인도네시아어(`id_ID`)와 그린란드어(`kl_GL`) 포함
@@ -238,14 +238,14 @@ cd inir
 ./setup install -y    # automatic, no questions asked
 ```
 
-설치 프로그램이 의존성, 시스템 설정, 테마를 처리합니다. 설치 후 `inir run`으로 셸을 시작하거나, 로그아웃했다가 다시 로그인하세요.
+설치 프로그램이 의존성, 시스템 설정, 테마를 처리합니다. 설치 후 `intoo run`으로 셸을 시작하거나, 로그아웃했다가 다시 로그인하세요.
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 `./setup install`이 원하는 방식이 아니라면:
@@ -301,9 +301,9 @@ sudo make install       # system-wide instead of your home
 ## 문제 해결
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```

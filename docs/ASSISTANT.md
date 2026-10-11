@@ -31,7 +31,7 @@ Settings → Mascot also configures the provider and custom endpoint. Set
 `google`) and optionally `mascot.assistant.apiBase` to any OpenAI-compatible base URL;
 `mascot.assistant.apiFormat` picks the protocol (`openai`, `anthropic` or `google`).
 An empty provider keeps the provider encoded in the `provider/model` string. Credentials
-stay in OpenCode's own store — run `inir assistant auth` once per provider.
+stay in OpenCode's own store — run `intoo assistant auth` once per provider.
 
 **Command history** attaches up to 20 saved commands per available Bash, Zsh or
 Fish history file to the next request. The first-message shortcut enables this
@@ -61,7 +61,7 @@ shortcut only when Super+S is free throughout the Niri include tree. Custom
 bindings are preserved. You can also open the assistant directly:
 
 ```bash
-inir assistant toggle
+intoo assistant toggle
 ```
 
 References: [OpenCode installation](https://opencode.ai/docs/),

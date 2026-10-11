@@ -69,7 +69,7 @@ ShellRoot {
     }
 
     // Boot phase timing (ms since epoch). Written to ~/.cache/inir/last-boot.json
-    // when the deferred phase finishes. `inir status` reads this back to show users
+    // when the deferred phase finishes. `intoo status` reads this back to show users
     // exactly where their startup time goes — systemd → qs launch → QML completed →
     // Config ready → shell entry → deferred services. Useful for triaging "15-20s startup"
     // reports without asking the user to run journalctl.
@@ -190,7 +190,7 @@ ShellRoot {
         }
     }
 
-    // Persist boot phase timestamps so `inir status` can report startup breakdown
+    // Persist boot phase timestamps so `intoo status` can report startup breakdown
     // without asking the user to run journalctl. Only written once per boot — hot-reloads
     // overwrite (which is intentional, latest run is what matters for diagnostics).
     function _writeBootPhase(): void {
@@ -392,12 +392,12 @@ ShellRoot {
             })), null, 2)
         }
         function create(name: string): string {
-            if (!name || name.length === 0) return "Usage: inir customWidgets create <name>"
+            if (!name || name.length === 0) return "Usage: intoo customWidgets create <name>"
             CustomWidgets.create(name)
             return `Creating widget "${name}" in ${CustomWidgets.widgetsDir}/${name}/...`
         }
         function remove(widgetId: string): string {
-            if (!widgetId || widgetId.length === 0) return "Usage: inir customWidgets remove <id>"
+            if (!widgetId || widgetId.length === 0) return "Usage: intoo customWidgets remove <id>"
             CustomWidgets.remove(widgetId)
             return `Removing widget "${widgetId}"...`
         }
@@ -610,7 +610,7 @@ ShellRoot {
             const args = ["/usr/bin/env"]
             if (index >= 0)
                 args.push(`QS_SETTINGS_PAGE=${index}`)
-            args.push(Quickshell.shellPath("scripts/inir"), "settings-window")
+            args.push(Quickshell.shellPath("scripts/intoo"), "settings-window")
             Quickshell.execDetached(args)
             Config.setNestedValue("settingsUi.overlayMode", false)
             GlobalStates.settingsOverlayOpen = false

@@ -1210,7 +1210,7 @@ Singleton {
             property JsonObject performance: JsonObject {
                 property bool lowPower: false
                 property bool reduceAnimations: false
-                // JSGCHeap watchdog (#164). Stats stay on `inir memory`;
+                // JSGCHeap watchdog (#164). Stats stay on `intoo memory`;
                 // the restart notification is opt-in.
                 property bool memoryMonitoring: true
                 property int jsgcThreshold: 300

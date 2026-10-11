@@ -29,10 +29,10 @@ Shader edges and depths use top/right/bottom/left order. Geometry is `(span, pos
 Persistence lives under `background.edgeWidgets.organic`. Empty `edges` preserves the legacy single `edge`; empty `screenList` means all displays. Presets and reset never change the enabled displays. The source and baked shader must ship together.
 
 ```sh
-inir background organicEdgeState
-inir background setOrganicEdgeEnabled true
-inir background applyOrganicEdgePreset "Album Tide"
-inir background applyOrganicEdgeComposition "Full Frame"
-inir background applyOrganicEdgeMaterial "Aurora Thread"
-inir background applyOrganicEdgeResponse "Fine detail"
+intoo background organicEdgeState
+intoo background setOrganicEdgeEnabled true
+intoo background applyOrganicEdgePreset "Album Tide"
+intoo background applyOrganicEdgeComposition "Full Frame"
+intoo background applyOrganicEdgeMaterial "Aurora Thread"
+intoo background applyOrganicEdgeResponse "Fine detail"
 ```

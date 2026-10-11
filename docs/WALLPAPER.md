@@ -76,8 +76,8 @@ When changing `Wallpapers.qml`, `AwwwBackend.qml`, the background owners, or
 other session-long wallpaper services, validate from a cold shell load:
 
 ```bash
-inir restart
-inir logs
+intoo restart
+intoo logs
 ```
 
 Then reproduce the change through the same picker/IPC path a user uses. Hot
@@ -142,8 +142,8 @@ There is no `inir wallpapers` command. The real IPC target is
 `wallpaperSelector` (see [docs/IPC.md](IPC.md)):
 
 ```bash
-inir wallpaperSelector toggle   # Open/close the wallpaper picker grid
-inir wallpaperSelector random   # Pick a random wallpaper from the current folder
+intoo wallpaperSelector toggle   # Open/close the wallpaper picker grid
+intoo wallpaperSelector random   # Pick a random wallpaper from the current folder
 ```
 
 Setting a specific wallpaper by path is done through the picker UI (or the

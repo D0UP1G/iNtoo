@@ -26,6 +26,9 @@
 
 **iNtoo is based on [iNiR](https://github.com/snowarch/inir) by snowarch, adapted for Gentoo.** It keeps iNiR's Quickshell desktop-shell foundation and adds a Gentoo-focused setup and runtime path, including Portage dependency handling and support for both systemd and OpenRC. iNtoo is a distinct, independently maintained project. See [NOTICE](NOTICE) for required attribution and license terms.
 
+The command is `intoo` (for example, `intoo update` or `intoo restart`).
+The previous `inir` command remains available for existing bindings.
+
 ## What you get
 
 - Three switchable desktop families: Material ii, Waffle, and Island

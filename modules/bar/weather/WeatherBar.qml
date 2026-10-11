@@ -37,7 +37,7 @@ MouseArea {
         eggTapWindow.restart()
         if (root._eggTaps >= 5 && (Config.options?.mascot?.enable ?? false)) {
             root._eggTaps = 0
-            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "mascot", "appear", "weather-umbrella", "top"])
+            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "mascot", "appear", "weather-umbrella", "top"])
         }
         GlobalStates.sidebarRightRequestedWidget = "weather"
         GlobalStates.openSidebarRight(root.QsWindow.window?.screen?.name ?? "")

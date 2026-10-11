@@ -82,7 +82,7 @@ Singleton {
     }
 
     function lock() {
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "lock", "activate"]);
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "lock", "activate"]);
     }
 
     function suspend() {

@@ -173,15 +173,15 @@ Keybinds live in `~/.config/niri/config.d/70-binds.kdl`. Add personal overrides 
 The distributed Alt-Tab uses Niri's native `recent-windows` surface. Its
 preview timing, highlight and size are tuned in `config.d/20-layout-and-overview.kdl`.
 To use iNtoo's switcher instead, pick it under Settings → Panels → Tools → Alt+Tab (Waffle: Waffle Style →
-Alt+Tab Switcher), or run `inir altSwitcher opens inir`. That adds a marked block at the end of
-`90-user-extra.kdl`; choosing Niri again, or `inir altSwitcher opens niri`, removes it.
+Alt+Tab Switcher), or run `intoo altSwitcher opens inir`. That adds a marked block at the end of
+`90-user-extra.kdl`; choosing Niri again, or `intoo altSwitcher opens niri`, removes it.
 
 See [IPC.md](IPC.md) for all available iNtoo targets you can bind.
 
 ```kdl
 // In 90-user-extra.kdl
 binds {
-    Super+P { spawn "inir" "session" "toggle"; }
+    Super+P { spawn "intoo" "session" "toggle"; }
 }
 ```
 

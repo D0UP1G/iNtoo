@@ -141,17 +141,17 @@ Item {
                     ActionTile {
                         tileIcon: "screenshot_region"
                         label: Translation.tr("Region")
-                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "screenshot"])
+                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "screenshot"])
                     }
                     ActionTile {
                         tileIcon: "videocam"
                         label: Translation.tr("Record")
-                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "record"])
+                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "record"])
                     }
                     ActionTile {
                         tileIcon: "text_fields"
                         label: Translation.tr("OCR")
-                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "ocr"])
+                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "ocr"])
                     }
                     ActionTile {
                         visible: CompositorService.isNiri
@@ -194,7 +194,7 @@ Item {
                     ActionTile {
                         tileIcon: "settings"
                         label: Translation.tr("Settings")
-                        onClicked: ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/inir"), "settings"], "Open iNtoo settings")
+                        onClicked: ShellExec.execDetachedArgs([Quickshell.shellPath("scripts/intoo"), "settings"], "Open iNtoo settings")
                     }
                     ActionTile {
                         tileIcon: "tune"

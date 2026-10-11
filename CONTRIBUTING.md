@@ -16,7 +16,7 @@ without that pass.
 1. Fork the repository and clone your fork
 2. Create a branch from `prerelease`: `git checkout -b fix/descriptive-name origin/prerelease`
 3. Make your changes following the patterns below
-4. Test: `inir restart && inir logs | tail -50`
+4. Test: `intoo restart && intoo logs | tail -50`
 5. Commit with a clear message (see conventions below)
 6. Push and open a pull request against `prerelease`
 
@@ -26,15 +26,15 @@ without that pass.
 git clone https://github.com/YOUR_USERNAME/inir.git
 cd inir
 ./setup install
-inir run
+intoo run
 ```
 
 iNtoo hot-reloads: saving a file applies it to the running shell
 immediately. When you need a clean slate:
 
 ```bash
-inir restart                    # Restart the supervised shell service
-inir logs -f                    # Follow live logs while you test
+intoo restart                    # Restart the supervised shell service
+intoo logs -f                    # Follow live logs while you test
 ```
 
 Do not run `qs kill -c inir` or a bare `qs -c inir` — the shell runs as a

@@ -110,7 +110,7 @@ BarIconButton {
                 }
                 onClicked: {
                     menu.close()
-                    Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"])
+                    Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"])
                 }
             }
         }

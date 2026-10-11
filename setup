@@ -193,8 +193,8 @@ _check_privilege_prereqs() {
 }
 
 sync_launcher_from_repo() {
-    local launcher_target="${XDG_BIN_HOME}/inir"
-    local launcher_source="${REPO_ROOT}/scripts/inir"
+    local launcher_target="${XDG_BIN_HOME}/intoo"
+    local launcher_source="${REPO_ROOT}/scripts/intoo"
     [[ -f "$launcher_source" ]] || return 1
 
     mkdir -p "$XDG_BIN_HOME"
@@ -229,6 +229,11 @@ sync_launcher_from_repo() {
 
     chmod +x "$launcher_source"
     [[ "$install_mode" == "repo-link" ]] || chmod +x "$launcher_target"
+    # Keep old bindings and invocations working while new installs use intoo.
+    local legacy_target="${XDG_BIN_HOME}/inir" legacy_tmp="${XDG_BIN_HOME}/inir.tmp.$$"
+    rm -f "$legacy_tmp"
+    ln -s intoo "$legacy_tmp" || return 1
+    mv -Tf "$legacy_tmp" "$legacy_target" || { rm -f "$legacy_tmp"; return 1; }
     ensure_launcher_path_in_shells "$XDG_BIN_HOME"
     # Tab completion in the person's own shell: a link to the runtime's file, never over one of theirs.
     "$launcher_target" completions install "$(basename "${SHELL:-bash}")" >/dev/null 2>&1 || true
@@ -241,7 +246,7 @@ sync_user_inir_service_from_repo_if_present() {
     local service_asset="${REPO_ROOT}/assets/systemd/inir.service"
     local service_target_dir="${XDG_CONFIG_HOME}/systemd/user"
     local service_target="${service_target_dir}/inir.service"
-    local launcher_target="${XDG_BIN_HOME}/inir"
+    local launcher_target="${XDG_BIN_HOME}/intoo"
     local tmp_file install_mode
     local changed=false
 
@@ -368,9 +373,9 @@ ensure_user_inir_service_enabled() {
 repair_update_owned_state() {
     local include_repo_integration="${1:-true}"
 
-    if [[ -f "${XDG_CONFIG_HOME}/niri/config.kdl" && -x "${XDG_BIN_HOME}/inir" ]]; then
+    if [[ -f "${XDG_CONFIG_HOME}/niri/config.kdl" && -x "${XDG_BIN_HOME}/intoo" ]]; then
         if python3 "${REPO_ROOT}/scripts/sync-niri-binds.py" \
-                "${XDG_BIN_HOME}/inir" "${XDG_CONFIG_HOME}"; then
+                "${XDG_BIN_HOME}/intoo" "${XDG_CONFIG_HOME}"; then
             tui_success "Synchronized Niri keybinds with the installed launcher"
         else
             tui_warn "Could not synchronize Niri keybinds; run './setup doctor'"
@@ -389,7 +394,7 @@ repair_update_owned_state() {
         else
             tui_warn "Could not repair legacy Niri shell startup"
         fi
-        sync_launcher_from_repo >/dev/null 2>&1 || tui_warn "Could not refresh the inir launcher"
+        sync_launcher_from_repo >/dev/null 2>&1 || tui_warn "Could not refresh the intoo launcher"
         if sync_user_desktop_integration_from_repo; then
             [[ "${INIR_DESKTOP_INTEGRATION_CHANGED:-0}" -gt 0 ]] && tui_success "Refreshed desktop integration"
         else
@@ -402,7 +407,7 @@ repair_update_owned_state() {
                 tui_warn "Could not refresh OpenRC session startup"
             fi
         elif inir_user_service_is_masked; then
-            tui_warn "User inir.service is masked; leaving it unchanged (restore with: inir service install && inir service enable)"
+            tui_warn "User inir.service is masked; leaving it unchanged (restore with: intoo service install && intoo service enable)"
         else
             if [[ -f "${XDG_CONFIG_HOME}/niri/config.kdl" ]]; then
                 inir_sync_niri_startup disable || tui_warn "Could not remove compositor-owned shell startup"
@@ -546,7 +551,7 @@ show_setup_context_card() {
     runtime_dir="$(get_runtime_shell_dir)"
     current_branch="$(setup_current_branch)"
     tracked_branch="$(setup_tracked_branch)"
-    launcher_path="$(command -v inir 2>/dev/null || echo "${XDG_BIN_HOME}/inir")"
+    launcher_path="$(command -v intoo 2>/dev/null || echo "${XDG_BIN_HOME}/intoo")"
     service_links="$(setup_service_link_summary)"
     if [[ "$check_remote" == true ]]; then
         remote_state="$(setup_remote_state_summary)"
@@ -584,7 +589,7 @@ show_help() {
     echo ""
     tui_hero_card "iNtoo setup" \
         "Install, update, repair and inspect the shell without guessing which component owns what." \
-        "Use inir for everyday control. Use ./setup for installation, recovery and maintenance."
+        "Use intoo for everyday control. Use ./setup for installation, recovery and maintenance."
 
     tui_key_value "Usage:" "./setup [command] [options]"
     show_setup_context_card "Setup Overview" false
@@ -635,8 +640,8 @@ show_help() {
     tui_list_item "./setup update       Pull, sync, and restart"
     tui_list_item "./setup doctor       Diagnose weird runtime breakage"
     tui_list_item "./setup status       See what is installed and what is drifting"
-    tui_list_item "inir run             Start the shell"
-    tui_list_item "inir logs            Read what the shell is complaining about"
+    tui_list_item "intoo run             Start the shell"
+    tui_list_item "intoo logs            Read what the shell is complaining about"
     tui_section_end
     echo ""
 }
@@ -705,7 +710,7 @@ show_version_info() {
     # Check for updates
     if [[ "$update_strategy" != "package-manager" && "$installed_commit" != "$repo_commit" ]]; then
         echo ""
-        tui_alert "info" "Update available" "Run './setup update' or 'inir update' to apply."
+        tui_alert "info" "Update available" "Run './setup update' or 'intoo update' to apply."
     fi
 }
 
@@ -886,7 +891,7 @@ show_status_boot_timing() {
         echo ""
         tui_check_warn "Boot took $(_fmt_ms $total_ms) — unusually slow."
         tui_info "  Common culprits: Qt/Quickshell ABI mismatch, missing WAYLAND_DISPLAY env, slow icon cache, network-bound services on first run."
-        tui_info "  Run 'inir doctor' to auto-detect, or share the table above when filing an issue."
+        tui_info "  Run 'intoo doctor' to auto-detect, or share the table above when filing an issue."
     elif [[ "$total_ms" -gt 5000 ]]; then
         echo ""
         tui_check_skip "Boot took $(_fmt_ms $total_ms) — a bit slow on first run; subsequent boots should be faster."
@@ -895,7 +900,7 @@ show_status_boot_timing() {
 
 show_status_environment() {
     # Versions and system info — the things we always end up asking users for
-    # in support threads. Print once so they can paste their `inir status` output.
+    # in support threads. Print once so they can paste their `intoo status` output.
     tui_title "System & Quickshell"
     tui_table_header "Property" "Value" 22 42
 
@@ -1068,7 +1073,7 @@ show_status() {
     tui_table_row "Remote State" "$remote_state" 18 36
     tui_table_row "Local Changes" "$runtime_state" 18 36
     tui_table_row "Runtime Path" "$runtime_dir_display" 18 36
-    tui_table_row "Launcher" "inir run" 18 36
+    tui_table_row "Launcher" "intoo run" 18 36
     [[ -n "$repo_path_display" ]] && tui_table_row "Repo Path" "$repo_path_display" 18 36
     if [[ "$update_strategy" == "package-manager" ]]; then
         [[ -n "$update_hint" ]] && tui_table_row "Update Cmd" "$update_hint" 18 36
@@ -1104,8 +1109,8 @@ show_status() {
     fi
 
     local launcher_path
-    launcher_path="$(command -v inir 2>/dev/null || true)"
-    if [[ -n "$launcher_path" || -x "${REPO_ROOT}/scripts/inir" ]]; then
+    launcher_path="$(command -v intoo 2>/dev/null || true)"
+    if [[ -n "$launcher_path" || -x "${REPO_ROOT}/scripts/intoo" ]]; then
         tui_check_ok "Launcher available${launcher_path:+: $launcher_path}"
     else
         tui_check_warn "Launcher not available in PATH"
@@ -1118,7 +1123,7 @@ show_status() {
         if inir_sync_niri_startup status >/dev/null 2>&1; then
             tui_check_ok "OpenRC session startup configured"
         else
-            tui_check_warn "OpenRC session startup missing (run: inir service enable)"
+            tui_check_warn "OpenRC session startup missing (run: intoo service enable)"
         fi
     elif [[ -f "$service_path" ]]; then
         tui_check_ok "User service installed (${service_links})"
@@ -1286,7 +1291,7 @@ show_info() {
     tui_key_value "State:" "$state_dir"
     tui_key_value "Runtime:" "${runtime_dir:-"(not set)"}"
     tui_key_value "Repo:" "$REPO_ROOT"
-    tui_key_value "Launcher:" "$(command -v inir 2>/dev/null || echo "${XDG_BIN_HOME}/inir")"
+    tui_key_value "Launcher:" "$(command -v intoo 2>/dev/null || echo "${XDG_BIN_HOME}/intoo")"
     tui_key_value "Remote:" "$remote_state"
     tui_key_value "Runtime State:" "$runtime_state"
     tui_key_value "Preserved Mods:" "$preserved_mods"
@@ -1330,7 +1335,7 @@ show_info() {
     fi
 
     local launcher_path
-    launcher_path="$(command -v inir 2>/dev/null || true)"
+    launcher_path="$(command -v intoo 2>/dev/null || true)"
     if [[ -n "$launcher_path" ]]; then
         tui_check_ok "Launcher resolves to $launcher_path"
     else
@@ -1417,7 +1422,7 @@ run_config() {
             new_family=$(tui_choose "Select panel family:" "ii" "waffle" "iris")
             if [[ -n "$new_family" && "$new_family" != "$panel_family" ]]; then
                 # A running shell owns the config in memory and would overwrite a direct write: ask it.
-                if bash "${REPO_ROOT}/scripts/inir" panelFamily set "$new_family" &>/dev/null; then
+                if bash "${REPO_ROOT}/scripts/intoo" panelFamily set "$new_family" &>/dev/null; then
                     tui_success "Panel family set to: $new_family"
                 elif command -v jq &>/dev/null; then
                     local tmp_file
@@ -1481,9 +1486,9 @@ run_theme() {
             return 0
         fi
 
-        if command -v inir &>/dev/null; then
+        if command -v intoo &>/dev/null; then
             local runtime_dir
-            runtime_dir="$(inir path 2>/dev/null || true)"
+            runtime_dir="$(intoo path 2>/dev/null || true)"
             candidate="${runtime_dir}/scripts/colors/switchwall.sh"
             if [[ -x "$candidate" ]]; then
                 printf '%s' "$candidate"
@@ -1683,9 +1688,9 @@ run_logs() {
     tui_title "Runtime Logs"
     echo ""
 
-    # `inir logs` owns the shell's log; this menu only picks a view of it.
+    # `intoo logs` owns the shell's log; this menu only picks a view of it.
     local inir_cmd
-    inir_cmd=$(command -v inir 2>/dev/null || echo "${REPO_ROOT}/scripts/inir")
+    inir_cmd=$(command -v intoo 2>/dev/null || echo "${REPO_ROOT}/scripts/intoo")
     local labels=("Shell: what went wrong since it started" "Shell: last 200 lines")
     command -v journalctl &>/dev/null && labels+=("Niri: last 100 lines")
     labels+=("Back")
@@ -1752,7 +1757,7 @@ show_install_completion() {
 
     tui_section_start "After that"
     tui_list_item "Super+/ lists every shortcut, Super+, opens Settings"
-    tui_list_item "Something off? inir doctor, then inir logs"
+    tui_list_item "Something off? intoo doctor, then intoo logs"
     tui_list_item "Regret it? ./setup rollback"
     tui_section_end
 
@@ -1767,8 +1772,8 @@ show_update_completion() {
         "iNtoo ${version} (${commit}) is synced. The shell restart was requested when the session allowed it."
 
     tui_section_start "If something looks off"
-    tui_list_item "Verify the result: inir status"
-    tui_list_item "Run diagnostics: inir doctor"
+    tui_list_item "Verify the result: intoo status"
+    tui_list_item "Run diagnostics: intoo doctor"
     tui_list_item "Undo this update: ./setup rollback"
     tui_section_end
 }
@@ -2136,11 +2141,11 @@ restore_all_user_mods() {
     echo ""
     if [[ "$failed" -ne 0 ]]; then
         tui_error "Some files could not be restored; $restored file(s) restored"
-        [[ "$restored" -eq 0 ]] || tui_info "Restart the shell to apply successful changes: inir restart"
+        [[ "$restored" -eq 0 ]] || tui_info "Restart the shell to apply successful changes: intoo restart"
         return 1
     fi
     tui_success "Restored $restored file(s)"
-    tui_info "Restart the shell to apply changes: inir restart"
+    tui_info "Restart the shell to apply changes: intoo restart"
 }
 
 # Helper: Restore a single file from user-mods backup
@@ -2198,7 +2203,7 @@ restore_single_user_mod() {
         return 1
     fi
     tui_success "Restored: $choice"
-    tui_info "Restart the shell to apply changes: inir restart"
+    tui_info "Restart the shell to apply changes: intoo restart"
 }
 
 ###############################################################################
@@ -2301,7 +2306,7 @@ run_update_simulated() {
     _step_phase_header 2 "Syncing files"
     tui_info "Syncing iNtoo..."
     sleep 1
-    tui_check_ok "scripts/inir         (current)"
+    tui_check_ok "scripts/intoo         (current)"
     tui_check_ok "modules/bar          (3 files updated)"
     tui_check_ok "services/Audio.qml   (current)"
     tui_check_ok "translations/es.json (current)"
@@ -2576,7 +2581,7 @@ run_update() {
 
             if $rewrite_detected || $realign_requested; then
                 if ! repo_worktree_is_clean; then
-                    _report_update_failure 21 "Repository history changed, but this checkout has uncommitted changes. Stash them first, then retry: inir update --realign"
+                    _report_update_failure 21 "Repository history changed, but this checkout has uncommitted changes. Stash them first, then retry: intoo update --realign"
                     tui_error "Repository history changed, but this checkout has local changes."
                     tui_info "Nothing was reset. Your files were left untouched."
                     show_repo_realign_guidance "$tracked_branch"
@@ -2607,9 +2612,9 @@ run_update() {
                     return 24
                 elif [[ "$realign_rc" -ne 0 ]]; then
                     _step_phase_fail "Repository realignment failed"
-                    _report_update_failure 22 "Could not realign the checkout to origin/${tracked_branch}. Run: inir doctor"
+                    _report_update_failure 22 "Could not realign the checkout to origin/${tracked_branch}. Run: intoo doctor"
                     tui_error "Could not realign this checkout to origin/${tracked_branch}."
-                    tui_info "No update was installed. Run: inir doctor"
+                    tui_info "No update was installed. Run: intoo doctor"
                     return 22
                 fi
 
@@ -2619,7 +2624,7 @@ run_update() {
                 _reexec_update_after_repo_change
             fi
 
-            _report_update_failure 20 "Repository history diverged from origin/${tracked_branch}. Run: inir update --realign"
+            _report_update_failure 20 "Repository history diverged from origin/${tracked_branch}. Run: intoo update --realign"
             tui_error "This checkout diverged from origin/${tracked_branch}, and iNtoo cannot prove it was only an upstream rewrite."
             tui_info "Refusing to destroy local commits automatically."
             show_repo_realign_guidance "$tracked_branch"
@@ -2794,10 +2799,10 @@ run_update() {
     find "$II_TARGET/scripts" \( -name "*.sh" -o -name "*.fish" -o \( -name "*.py" ! -name "test-*.py" \) \) -exec chmod +x {} \; 2>/dev/null || true
     [[ -f "${II_TARGET}/setup" ]] && chmod +x "${II_TARGET}/setup"
 
-    local launcher_target="${XDG_BIN_HOME}/inir"
-    if [[ -f "${REPO_ROOT}/scripts/inir" ]]; then
-        sync_launcher_from_repo >/dev/null || tui_warn "Could not refresh the inir launcher"
-        if ! command -v inir &>/dev/null && [[ ":$PATH:" != *":${XDG_BIN_HOME}:"* ]]; then
+    local launcher_target="${XDG_BIN_HOME}/intoo"
+    if [[ -f "${REPO_ROOT}/scripts/intoo" ]]; then
+        sync_launcher_from_repo >/dev/null || tui_warn "Could not refresh the intoo launcher"
+        if ! command -v intoo &>/dev/null && [[ ":$PATH:" != *":${XDG_BIN_HOME}:"* ]]; then
             tui_warn "Launcher installed to ${launcher_target}, but ${XDG_BIN_HOME} is not in PATH for this shell"
         fi
     fi
@@ -2865,7 +2870,7 @@ run_update() {
 
     _step_phase_header 4 "Finalizing"
     if inir_user_service_is_masked; then
-        tui_warn "User inir.service is masked; leaving it unchanged (restore with: inir service install && inir service enable)"
+        tui_warn "User inir.service is masked; leaving it unchanged (restore with: intoo service install && intoo service enable)"
     else
         _service_refresh_status=1
         if sync_user_inir_service_from_repo_if_present; then
@@ -2884,7 +2889,7 @@ run_update() {
                 tui_success "User inir.service autostart verified"
             fi
         else
-            tui_warn "Could not wire inir.service to the compositor — run 'inir service enable'"
+            tui_warn "Could not wire inir.service to the compositor — run 'intoo service enable'"
         fi
     fi
 
@@ -3049,10 +3054,10 @@ run_update() {
                    tui_error "Update failed because the shell did not load"
                    tui_warn "Run './setup rollback' to go back to the previous version"
                    return 1 ;;
-                *) _step_phase_done "Shell restart requested; 'inir logs' shows how it went" ;;
+                *) _step_phase_done "Shell restart requested; 'intoo logs' shows how it went" ;;
             esac
-        elif [[ -x "${II_TARGET}/scripts/inir" ]]; then
-            nohup bash "${II_TARGET}/scripts/inir" restart -c "${II_TARGET}" >/dev/null 2>&1 &
+        elif [[ -x "${II_TARGET}/scripts/intoo" ]]; then
+            nohup bash "${II_TARGET}/scripts/intoo" restart -c "${II_TARGET}" >/dev/null 2>&1 &
             disown
             _step_phase_done "Shell restart triggered"
         else
@@ -3066,7 +3071,7 @@ run_update() {
         _step_phase_header 7 "Restarting shell"
         tui_warn "Not in graphical session - shell restart skipped"
         tui_info "The shell will use new files on next restart"
-        tui_info "Or run: inir restart"
+        tui_info "Or run: intoo restart"
     fi
 
     # Publish the completed revision only after all mandatory runtime stages.
@@ -3121,7 +3126,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Subcommand help must be non-destructive. `inir update --help` delegates here,
+# Subcommand help must be non-destructive. `intoo update --help` delegates here,
 # so consume help before install privilege checks or any maintenance workflow runs.
 for _arg in "${SUBCMD_ARGS[@]}"; do
     case "$_arg" in

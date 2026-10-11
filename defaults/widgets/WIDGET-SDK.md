@@ -11,9 +11,9 @@ Widgets may also expose a compact Island module, which sits on the Island's Desk
 ## Quick Start
 
 ```bash
-inir customWidgets create my-widget    # generates scaffold
+intoo customWidgets create my-widget    # generates scaffold
 # edit ~/.config/inir/widgets/my-widget/MyWidget.qml
-inir customWidgets reload              # hot-reload without restart
+intoo customWidgets reload              # hot-reload without restart
 ```
 
 Or copy the reference widget from `defaults/widgets/example-widget/`.
@@ -530,5 +530,5 @@ editPopoverContent: Component {
 - For ResourceUsage, call `ensureRunning()` or the data will be stale/zero
 - Use `FadeLoader { shown: condition }` for smooth show/hide of optional sections
 - The widget runs in the same QML engine as the shell — same trust model as a shell extension
-- Test with `inir customWidgets reload` (no restart needed)
-- Check for errors: `inir logs | grep -i error`
+- Test with `intoo customWidgets reload` (no restart needed)
+- Check for errors: `intoo logs | grep -i error`

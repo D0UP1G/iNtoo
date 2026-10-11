@@ -205,7 +205,7 @@ WSettingsPage {
             Config.setNestedValue("wallpaperSelector.selectionTarget", useMain ? "main" : "waffle")
         }
 
-        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "wallpaperSelector", "toggle"])
+        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "wallpaperSelector", "toggle"])
     }
 
     function navigateToParentFolder(): void {

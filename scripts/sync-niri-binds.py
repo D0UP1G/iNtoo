@@ -50,7 +50,7 @@ def launcher_rewrite(content: str, launcher: str) -> str:
                 current = json.loads(match.group(2))
             except json.JSONDecodeError:
                 return match.group(0)
-            if current == "inir" or (current.endswith("/inir") and "/" in current):
+            if Path(current).name in ("intoo", "inir"):
                 return match.group(1) + json.dumps(launcher, ensure_ascii=False)
             return match.group(0)
 
@@ -139,7 +139,7 @@ def main() -> int:
     default_entries = []
     for line in defaults_text.splitlines():
         stripped = line.strip()
-        if not stripped or stripped.startswith("//") or 'spawn "inir"' not in stripped:
+        if not stripped or stripped.startswith("//") or 'spawn "intoo"' not in stripped:
             continue
         parsed = parser.parse_keybinds_from_block("\n" + line + "\n")
         if parsed:
@@ -149,7 +149,7 @@ def main() -> int:
     for combo, line in default_entries:
         if combo in occupied:
             continue
-        absolute = re.sub(r'\bspawn\s+"inir"',
+        absolute = re.sub(r'\bspawn\s+"intoo"',
                           "spawn " + json.dumps(launcher, ensure_ascii=False), line, count=1)
         missing.append("    " + absolute)
         occupied.add(combo)

@@ -27,7 +27,7 @@ Environment=QT_SCALE_FACTOR=1
 Environment=QT_SCALE_FACTOR_ROUNDING_POLICY=RoundPreferFloor
 Environment=QT_LOGGING_RULES=quickshell.dbus.properties=false;qt.qml.settings.warning=false;qt.core.qsettings.warning=false;kf.xmlgui=false;kf.coreaddons=false;kf.config.core=false;kf.iconthemes=false
 
-ExecStart=/usr/bin/inir run --session
+ExecStart=/usr/bin/intoo run --session
 SuccessExitStatus=143
 
 # process mode: only SIGTERM the main PID so user-spawned apps (terminals,
@@ -55,12 +55,12 @@ Environment=QS_DISABLE_CRASH_HANDLER=1
 # Clean up stale Quickshell runtime entries (by-pid, by-id) left behind
 # after crashes.  KillMode=process only kills the main PID, so orphaned
 # QS child processes and their runtime artifacts accumulate over time.
-ExecStopPost=-/usr/bin/inir cleanup-orphans
+ExecStopPost=-/usr/bin/intoo cleanup-orphans
 
 # Boost I/O priority so QML/Qt library loading wins over background services
 # during cold-boot I/O contention (portals, tray apps, etc.)
 IOSchedulingPriority=2
 
-# No [Install] section — wiring is managed by 'inir service enable' which
+# No [Install] section — wiring is managed by 'intoo service enable' which
 # creates a compositor-specific wants link (e.g. niri.service.wants/) so
 # inir only starts under the correct compositor, not under KDE/GNOME/etc.

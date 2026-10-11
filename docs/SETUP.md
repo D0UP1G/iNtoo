@@ -35,18 +35,18 @@ Use them like this:
 - install once:
   - `./setup install`
 - maintenance via launcher wrapper:
-  - `inir update`
-  - `inir doctor`
-  - `inir status`
+  - `intoo update`
+  - `intoo doctor`
+  - `intoo status`
 - runtime operation:
-  - `inir run`
-  - `inir settings`
-  - `inir logs`
-  - `inir repair`
+  - `intoo run`
+  - `intoo settings`
+  - `intoo logs`
+  - `intoo repair`
 - local distribution validation:
   - `make test-local`
-  - `inir test-local`
-  - `inir test-local --with-runtime`
+  - `intoo test-local`
+  - `intoo test-local --with-runtime`
 
 ## Install
 
@@ -54,7 +54,7 @@ Use them like this:
 git clone https://github.com/D0UP1G/iNtoo.git
 cd iNtoo
 ./setup install
-inir run
+intoo run
 ```
 
 Add `-y` for non-interactive mode.
@@ -78,10 +78,10 @@ That installs:
 ## Update
 
 ```bash
-inir update
+intoo update
 ```
 
-`inir update` and `./setup update` run the same update engine. `inir update` is the convenient launcher-facing entry point; `./setup update` is the underlying maintenance command and the better choice when you also want the interactive TUI nearby.
+`intoo update` and `./setup update` run the same update engine. `intoo update` is the convenient launcher-facing entry point; `./setup update` is the underlying maintenance command and the better choice when you also want the interactive TUI nearby.
 
 Updates fast-forward the `origin` remote in the iNtoo checkout. A clone from `https://github.com/D0UP1G/iNtoo.git` therefore pulls from iNtoo; the in-shell release checker also uses the iNtoo repository metadata.
 
@@ -102,7 +102,7 @@ The runtime sync does not overwrite your user configs directly. If a release nee
 
 For legacy monolithic Niri configs, required migrations can now convert `~/.config/niri/config.kdl` into the modular `config.d/` layout automatically during update. The current config is preserved section-by-section, unknown top-level blocks are kept in `config.d/90-user-extra.kdl`, and the normal migration backup/rollback flow still applies.
 
-If `setup` detects that the active iNtoo installation is externally managed, `inir update` does **not** pull or sync repo files into the runtime. In that case it:
+If `setup` detects that the active iNtoo installation is externally managed, `intoo update` does **not** pull or sync repo files into the runtime. In that case it:
 
 - Shows the detected install mode
 - Shows the package update command when metadata provides one
@@ -112,10 +112,10 @@ If `setup` detects that the active iNtoo installation is externally managed, `in
 ## Doctor
 
 ```bash
-inir doctor
+intoo doctor
 ```
 
-`inir doctor` is a wrapper around `./setup doctor`.
+`intoo doctor` is a wrapper around `./setup doctor`.
 
 Diagnoses and **automatically fixes** common issues:
 
@@ -130,7 +130,7 @@ For externally managed installs, `doctor` can rebuild the canonical `~/.config/i
 If you want the same repair flow plus restart and filtered logs:
 
 ```bash
-inir repair
+intoo repair
 ```
 
 ## Rollback
@@ -192,9 +192,9 @@ For new installs and migrated setups, `~/.config/niri/config.kdl` becomes a smal
 If you want to change which apps iNtoo launches, use Settings or edit `~/.config/inir/config.json` instead of hardcoding new executables into the distributed binds:
 
 - `apps.terminal`
-  - used by `inir terminal`
+  - used by `intoo terminal`
 - `apps.browser`
-  - used by `inir browser` and the default `Mod+W` bind
+  - used by `intoo browser` and the default `Mod+W` bind
 - `sidebar.quickLaunch`
   - custom quick-launch entries shown by the shell UI
 
@@ -221,26 +221,26 @@ Useful when you want to see what you've changed or restore defaults after custom
 | -------------------- | ----------------------------------------------------------- |
 | `./setup`            | Interactive menu                                            |
 | `./setup install`    | Full installation                                           |
-| `inir update`        | Wrapper around `./setup update`                             |
+| `intoo update`        | Wrapper around `./setup update`                             |
 | `./setup status`     | Show install mode, update strategy, and health              |
 | `./setup migrate`    | Review and apply config migrations                          |
 | `./setup doctor`     | Diagnose and auto-fix                                       |
 | `./setup rollback`   | Restore previous snapshot                                   |
 | `./setup my-changes` | View and restore user modifications                         |
 | `./setup uninstall`  | Remove iNtoo from system                                     |
-| `inir install`       | Wrapper around `./setup install` from the repo/runtime root |
-| `inir start`         | Start iNtoo (uses inir.service when enabled)                 |
-| `inir stop`          | Stop the active runtime                                     |
-| `inir run`           | Launch iNtoo from the active runtime                         |
-| `inir restart`       | Restart the active runtime                                  |
-| `inir settings`      | Toggle settings via IPC                                     |
-| `inir terminal`      | Launch the configured terminal from `apps.terminal`         |
-| `inir browser`       | Launch the configured browser from `apps.browser`           |
-| `inir doctor`        | Wrapper around `./setup doctor`                             |
-| `inir logs`          | Show recent runtime logs                                    |
-| `inir repair`        | Doctor + restart + filtered log check                       |
-| `inir status`        | Wrapper around `./setup status`                             |
-| `inir test-local`    | Run local distribution checks                               |
+| `intoo install`       | Wrapper around `./setup install` from the repo/runtime root |
+| `intoo start`         | Start iNtoo (uses inir.service when enabled)                 |
+| `intoo stop`          | Stop the active runtime                                     |
+| `intoo run`           | Launch iNtoo from the active runtime                         |
+| `intoo restart`       | Restart the active runtime                                  |
+| `intoo settings`      | Toggle settings via IPC                                     |
+| `intoo terminal`      | Launch the configured terminal from `apps.terminal`         |
+| `intoo browser`       | Launch the configured browser from `apps.browser`           |
+| `intoo doctor`        | Wrapper around `./setup doctor`                             |
+| `intoo logs`          | Show recent runtime logs                                    |
+| `intoo repair`        | Doctor + restart + filtered log check                       |
+| `intoo status`        | Wrapper around `./setup status`                             |
+| `intoo test-local`    | Run local distribution checks                               |
 
 Options: `-y` (skip prompts), `-q` (quiet), `-h` (help)
 
@@ -269,10 +269,10 @@ It also reports:
 You can reach the same status through:
 
 ```bash
-inir status
+intoo status
 ```
 
-`inir status` is a wrapper around `./setup status`.
+`intoo status` is a wrapper around `./setup status`.
 
 ## Local validation
 
@@ -280,13 +280,13 @@ For distribution, launcher, or install-flow changes, test locally with:
 
 ```bash
 make test-local
-inir test-local
-inir test-local --with-runtime
+intoo test-local
+intoo test-local --with-runtime
 ```
 
 These checks cover:
 
-- shell syntax for `setup`, `doctor`, `versioning`, `package-installers`, and `scripts/inir`
+- shell syntax for `setup`, `doctor`, `versioning`, `package-installers`, and `scripts/intoo`
 - PKGBUILD syntax for the new Arch package roots
 - local `make install` dry-run
 - launcher path and status resolution
@@ -324,7 +324,7 @@ These checks cover:
 - First install: Existing configs are backed up to `~/inir-backup/`
 - Updates: Your configs are never touched, only QML code is synced
 - Shell ownership: `inir.service` is the canonical startup path; do not also add `spawn-at-startup "inir" "start"` in Niri
-- Package-managed installs: `inir update` defers shell payload updates to the package manager instead of syncing from the current repo checkout
+- Package-managed installs: `intoo update` defers shell payload updates to the package manager instead of syncing from the current repo checkout
 - Shared configs: Only installed if they don't exist or you approve overwrite
 
 ## Migrations
@@ -464,8 +464,8 @@ If the automated script fails or is unavailable:
 
 ```bash
 # Stop the shell through the iNtoo control path
-inir stop
-inir service disable
+intoo stop
+intoo service disable
 systemctl --user disable --now inir-super-overview.service 2>/dev/null
 
 # Remove iNtoo-exclusive files
@@ -512,5 +512,5 @@ To reinstall iNtoo after uninstalling:
 git clone https://github.com/D0UP1G/iNtoo.git
 cd iNtoo
 ./setup install
-inir run
+intoo run
 ```

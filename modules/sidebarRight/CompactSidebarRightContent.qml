@@ -1838,7 +1838,7 @@ Item {
             }
         }
         GlobalStates.sidebarRightOpen = false
-        Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"]))
+        Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"]))
     }
 
     // ═════════════════════════════════════════════════════════════
@@ -2108,7 +2108,7 @@ Item {
                 label: Translation.tr("Screenshot")
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false
-                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "screenshot"]))
+                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "screenshot"]))
                 }
             }
 
@@ -2118,7 +2118,7 @@ Item {
                 label: Translation.tr("Record")
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false
-                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "record"]))
+                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "record"]))
                 }
             }
 
@@ -2128,7 +2128,7 @@ Item {
                 label: Translation.tr("OCR")
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false
-                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "ocr"]))
+                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "ocr"]))
                 }
             }
 
@@ -2138,7 +2138,7 @@ Item {
                 label: Translation.tr("Search")
                 onClicked: {
                     GlobalStates.sidebarRightOpen = false
-                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "search"]))
+                    Qt.callLater(() => Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "search"]))
                 }
             }
 

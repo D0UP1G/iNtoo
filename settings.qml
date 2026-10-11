@@ -924,7 +924,7 @@ ApplicationWindow {
                         buttonRadius: Appearance.rounding.full
                         implicitWidth: 35
                         implicitHeight: 35
-                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "lock", "activate"])
+                        onClicked: Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "lock", "activate"])
                         contentItem: MaterialSymbol {
                             anchors.centerIn: parent
                             horizontalAlignment: Text.AlignHCenter
@@ -1414,7 +1414,7 @@ ApplicationWindow {
                         colBackgroundHover: Appearance.colors.colLayer1Hover
 
                         onClicked: {
-                            Quickshell.execDetached([Quickshell.shellPath("scripts/inir"),
+                            Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"),
                                 "ipc", "settings", "openOverlayAt", String(root.currentPage)])
                             Qt.quit()
                         }

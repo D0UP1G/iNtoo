@@ -265,7 +265,7 @@ property string apiFormat: "openai"  // openai | anthropic | gemini (для cust
   `configure_provider(provider, apiBase, apiFormat)` и JSON-запроса с полями
   провайдера.
 - Ручная проверка: `make test-local`; на живой сессии — смена дефолта в
-  настройках, `inir ai diagnose` (уже выводит currentModelId/endpoint/requiresKey,
+  настройках, `intoo ai diagnose` (уже выводит currentModelId/endpoint/requiresKey,
   `Ai.qml:46-77` — добавить defaultProvider/defaultApiFormat в вывод).
 
 ---
@@ -284,12 +284,12 @@ property string apiFormat: "openai"  // openai | anthropic | gemini (для cust
 - Tiered-старт сервисов: Tier 0 критичные / Tier 3 (+500 мс) / Tier 4
   (+1500 мс) — `shell.qml:94-180`.
 - Boot-профилирование в `~/.cache/inir/last-boot.json` (`shell.qml:71-80`,
-  `inir status`).
+  `intoo status`).
 
 ### 2.2 Кандидаты (по приоритету, из аудита загрузки)
 
 **L1. Bash-Process на критическом пути конфига (ВЫСОКИЙ).**
-`Directories.qml:136-148` `configPathResolver` (`bash -c 'source config-path.sh && inir_config_dir'`, `running: true`): `Config.filePath` ждёт `shellConfigResolved`, т.е. чтение пользовательского конфига начинается только после spawn bash+source (~10–30 мс последовательной задержки до `Config.ready`). Исправление: резолвить каталог в `scripts/inir` (launcher) и передавать через env `INIR_CONFIG_DIR`, в QML — fallback; либо однократное чтение с кэшем в state-файле. RAM: 0.
+`Directories.qml:136-148` `configPathResolver` (`bash -c 'source config-path.sh && inir_config_dir'`, `running: true`): `Config.filePath` ждёт `shellConfigResolved`, т.е. чтение пользовательского конфига начинается только после spawn bash+source (~10–30 мс последовательной задержки до `Config.ready`). Исправление: резолвить каталог в `scripts/intoo` (launcher) и передавать через env `INIR_CONFIG_DIR`, в QML — fallback; либо однократное чтение с кэшем в state-файле. RAM: 0.
 
 **L2. 14 форков `execDetached` в Component.onCompleted Directories (ВЫСОКИЙ).**
 `Directories.qml:160-172` — 12 вызовов (mkdir/rm -rf/mkdir для stateUserPath, favicons, coverArt, booruPreviews, latexOutput, cliphistDecode, aiChats, screenTimePath, tempImages) + ещё 2 в `onShellConfigResolvedChanged` (`:153-157`). Каждый — fork/exec в разгар boot-contention. Исправление: один `/bin/sh -c "mkdir -p ... && rm -rf ... && mkdir -p ..."`; чистки кэшей (booruPreviews, latexOutput, cliphistDecode, tempImages) перенести в Tier 3 или делать лениво при первом использовании. RAM: 0.
@@ -336,7 +336,7 @@ LazyLoader::setSource сразу создаёт QQmlComponent — актуаль
 ### 3.1 Уже сделано
 
 - `MemoryPressureService` измеряет `MemAvailable`, RSS/PSS и JSGCHeap-маппинги
-  (`services/MemoryPressureService.qml:91-154`), есть IPC `inir memory stats`.
+  (`services/MemoryPressureService.qml:91-154`), есть IPC `intoo memory stats`.
   Низкий порог уже рулит: retention панелей (`modules/ii/ShellIiPanelsImpl.qml:65,76`,
   waffle `:76,87`, sidebar `:107,145`), эффекты (`Appearance.qml:95`), видео-обои
   (`modules/iris/components/IrisWallpaperView.qml:31`).
@@ -471,11 +471,11 @@ AI-атрибуции.
   дельты T+0 (Component.onCompleted), Config.ready, shellEntryReady, deferred,
   late. Цель: без регрессии T+0 и с уменьшением «Launching config → первый
   кадр» на холодном старте; сравнение минимум по 3 перезапускам.
-- **RAM**: `inir memory stats` (MemoryPressureService) и `/proc/<pid>/smaps_rollup`
+- **RAM**: `intoo memory stats` (MemoryPressureService) и `/proc/<pid>/smaps_rollup`
   (PSS) после 30 минут idle, после открытия/закрытия AI-чата и после длинного
   диалога. Цель: нет роста RSS на idle, снижение пиков GC (JSGCHeap mappings
   deleted counter).
-- **Assistant**: `inir ai diagnose` — defaultProvider/defaultApiFormat/
+- **Assistant**: `intoo ai diagnose` — defaultProvider/defaultApiFormat/
   currentModelId/endpoint корректны; ручной сценарий: выбор DeepSeek по
   умолчанию → рестарт → первый запрос уходит на DeepSeek с OpenAI-форматом;
   политика Local-only не выбирает online-провайдер.
@@ -504,7 +504,7 @@ AI-атрибуции.
    профиле малой памяти» vs «всегда»; сохранить навигацию/поиск через
    Persistent (уже реализовано).
 6. L1 — env `INIR_CONFIG_DIR` должен пройти все пути запуска (systemd-unit,
-   OpenRC-супервайзер, `inir run`, repo-link, package-managed), иначе QML
+   OpenRC-супервайзер, `intoo run`, repo-link, package-managed), иначе QML
    fallback обязан оставаться корректным (`Directories.qml:136-148`).
 7. M1 (plain-JS вместо AiModel-QtObject) затрагивает потребителей
    `Ai.models[...]` в UI (`AiMessage.qml:99-103,132-133`, `AiModelSelector.qml`,

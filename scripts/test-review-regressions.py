@@ -638,7 +638,7 @@ git -C "$REPO_ROOT" init -q -b main || exit 1
 git -C "$REPO_ROOT" config user.name 'Review fixture'
 git -C "$REPO_ROOT" config user.email review@example.invalid
 printf '/user-data\\n' > "$REPO_ROOT/.gitignore"
-git -C "$REPO_ROOT" add .gitignore scripts/inir
+git -C "$REPO_ROOT" add .gitignore scripts/intoo
 git -C "$REPO_ROOT" commit -qm old || exit 1
 old=$(git -C "$REPO_ROOT" rev-parse HEAD)
 git -C "$REPO_ROOT" update-ref --create-reflog refs/remotes/origin/main "$old"
@@ -670,7 +670,7 @@ git -C "$REPO_ROOT" init -q -b main || exit 1
 git -C "$REPO_ROOT" config user.name 'Review fixture'
 git -C "$REPO_ROOT" config user.email review@example.invalid
 printf '/ignored-dir/\\n' > "$REPO_ROOT/.gitignore"
-git -C "$REPO_ROOT" add .gitignore scripts/inir
+git -C "$REPO_ROOT" add .gitignore scripts/intoo
 git -C "$REPO_ROOT" commit -qm old || exit 1
 old=$(git -C "$REPO_ROOT" rev-parse HEAD)
 git -C "$REPO_ROOT" update-ref --create-reflog refs/remotes/origin/main "$old"

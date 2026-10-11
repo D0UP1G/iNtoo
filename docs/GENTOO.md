@@ -88,12 +88,12 @@ Optional controls in `./setup install` add audio, screenshot, toolkit and font p
 On OpenRC, the installer adds a managed Niri startup entry using the absolute path to the installed `inir` executable. It looks like this (the path varies by `XDG_BIN_HOME`):
 
 ```kdl
-spawn-at-startup "/home/alex/.local/bin/inir" "run" "--session"
+spawn-at-startup "/home/alex/.local/bin/intoo" "run" "--session"
 ```
 
-The launcher supervises Quickshell in the user's session. It prevents duplicate supervisors, restarts a failed shell with a bounded retry limit, and stops when Niri's session sockets disappear. Shell helpers are cleaned up at restart; applications launched independently keep running. `inir restart`, `inir stop`, and `inir service start|stop|restart|status|logs` work on OpenRC. On systemd profiles, iNtoo uses its compositor-bound user service.
+The launcher supervises Quickshell in the user's session. It prevents duplicate supervisors, restarts a failed shell with a bounded retry limit, and stops when Niri's session sockets disappear. Shell helpers are cleaned up at restart; applications launched independently keep running. `intoo restart`, `intoo stop`, and `intoo service start|stop|restart|status|logs` work on OpenRC. On systemd profiles, iNtoo uses its compositor-bound user service.
 
-Setup preserves existing Niri configuration and follows active includes when maintaining its startup entries. Install, update, and Doctor repair the managed entry; switching back to systemd removes it to avoid two startup owners. `inir service enable` adds it manually; `inir service disable` removes it and stops the shell.
+Setup preserves existing Niri configuration and follows active includes when maintaining its startup entries. Install, update, and Doctor repair the managed entry; switching back to systemd removes it to avoid two startup owners. `intoo service enable` adds it manually; `intoo service disable` removes it and stops the shell.
 
 OpenRC needs a user D-Bus session and a writable, user-owned `XDG_RUNTIME_DIR`. The Gentoo GURU Niri package provides an OpenRC desktop session; from a logged-in TTY use:
 
@@ -125,7 +125,7 @@ For a system-wide source installation without a systemd unit:
 sudo make install INSTALL_SYSTEMD=0
 ```
 
-Then configure Niri as your normal user with `./setup install --skip-deps` or, for an existing Niri configuration, `inir service enable`. Automatic backend detection checks the running manager, not just installed binaries. `INIR_INIT_SYSTEM=openrc` or `systemd` can explicitly select the backend in unusual session environments.
+Then configure Niri as your normal user with `./setup install --skip-deps` or, for an existing Niri configuration, `intoo service enable`. Automatic backend detection checks the running manager, not just installed binaries. `INIR_INIT_SYSTEM=openrc` or `systemd` can explicitly select the backend in unusual session environments.
 
 ## Verification
 
@@ -142,7 +142,7 @@ The OpenRC tests use temporary Unix sockets and service stubs to verify startup 
 ```bash
 ./setup doctor
 ./setup update
-inir logs
+intoo logs
 ```
 
-The CLI keeps the upstream-compatible `inir` command name. Repository updates come from the iNtoo checkout's `origin` remote, and update notifications query the iNtoo repository.
+The CLI command is `intoo`; `inir` remains a compatibility alias for existing configurations. Repository updates come from the iNtoo checkout's `origin` remote, and update notifications query the iNtoo repository.

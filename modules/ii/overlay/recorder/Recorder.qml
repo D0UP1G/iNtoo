@@ -232,7 +232,7 @@ StyledOverlayWidget {
                     detailText: Translation.tr("Save + copy")
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "screenshot"]);
+                        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "screenshot"]);
                     }
                 }
 
@@ -255,7 +255,7 @@ StyledOverlayWidget {
                     detailText: root.audioModeLabel(root.audioMode)
                     onClicked: {
                         GlobalStates.overlayOpen = false;
-                        Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "region", "recordWithSound"]);
+                        Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "region", "recordWithSound"]);
                     }
                 }
 

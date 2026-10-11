@@ -119,7 +119,7 @@ PanelSurface {
             icon: "settings"
             onClicked: {
                 GlobalStates.controlPanelOpen = false
-                Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "settings"])
+                Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "settings"])
             }
         }
 
@@ -127,7 +127,7 @@ PanelSurface {
             icon: "lock"
             onClicked: {
                 GlobalStates.controlPanelOpen = false
-                Quickshell.execDetached([Quickshell.shellPath("scripts/inir"), "lock", "activate"])
+                Quickshell.execDetached([Quickshell.shellPath("scripts/intoo"), "lock", "activate"])
             }
         }
 

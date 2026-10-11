@@ -168,7 +168,7 @@ systemctl --user start inir.service
 
 ## Notes
 
-- Use `inir logs --full` for runtime errors.
+- Use `intoo logs --full` for runtime errors.
 - The packaged `inir` launcher wraps Quickshell and runtime tools in `PATH`.
 - User preferences still live in iNtoo's normal config/state files; the packaged QML source itself is immutable.
-- `inir update` is not the right update path for a Nix install. Update through your flake inputs and rebuild.
+- `intoo update` is not the right update path for a Nix install. Update through your flake inputs and rebuild.

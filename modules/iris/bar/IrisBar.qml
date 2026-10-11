@@ -79,13 +79,13 @@ Scope {
                 return IrisThemes.all.map(entry => `${entry.id}\t${entry.name}${entry.id === IrisThemes.activeId ? (IrisThemes.modified ? "  (active, changed)" : "  (active)") : ""}`).join("\n")
             case "apply": {
                 const found = IrisThemes.find(arg)
-                if (!found) return "Unknown theme: see `inir iris theme list`"
+                if (!found) return "Unknown theme: see `intoo iris theme list`"
                 IrisThemes.apply(found)
                 return found.name
             }
             case "colours": {
                 const found = IrisThemes.find(arg)
-                if (!found) return "Unknown theme: see `inir iris theme list`"
+                if (!found) return "Unknown theme: see `intoo iris theme list`"
                 IrisThemes.applyColours(found)
                 return found.name
             }
@@ -306,7 +306,7 @@ Scope {
             return next.join(" ")
         }
         function orbit(query: string): string {
-            if (!(Config.options?.iris?.orbit?.enable ?? false)) return "Orbit is off: turn it on in Settings › Orbit or with inir iris set iris.orbit.enable true"
+            if (!(Config.options?.iris?.orbit?.enable ?? false)) return "Orbit is off: turn it on in Settings › Orbit or with intoo iris set iris.orbit.enable true"
             GlobalStates.irisOrbitQuery = query
             GlobalStates.irisOrbitOpen = true
             return "open"

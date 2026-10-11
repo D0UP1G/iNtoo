@@ -209,27 +209,27 @@ BROWSERS = ['firefox', 'zen-browser', 'chromium', 'brave', 'vivaldi']
 
 
 def parse_inir_action(action: str) -> tuple[str, str] | None:
-    ipc_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"ipc"\s+"call"\s+"([\w-]+)"\s+"([\w-]+)"', action)
+    ipc_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"ipc"\s+"call"\s+"([\w-]+)"\s+"([\w-]+)"', action)
     if ipc_match:
         return ipc_match.group(1), ipc_match.group(2)
 
-    settings_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"settings"(?:\s|;|$)', action)
+    settings_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"settings"(?:\s|;|$)', action)
     if settings_match:
         return 'settings', 'open'
 
-    terminal_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"terminal"(?:\s|;|$)', action)
+    terminal_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"terminal"(?:\s|;|$)', action)
     if terminal_match:
         return 'launcher', 'terminal'
 
-    close_window_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"close-window"(?:\s|;|$)', action)
+    close_window_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"close-window"(?:\s|;|$)', action)
     if close_window_match:
         return 'launcher', 'close-window'
 
-    browser_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"browser"(?:\s|;|$)', action)
+    browser_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"browser"(?:\s|;|$)', action)
     if browser_match:
         return 'browser', 'open'
 
-    direct_match = re.search(r'spawn\s+"(?:[^"]*/)?inir"\s+"([\w-]+)"\s+"([\w-]+)"', action)
+    direct_match = re.search(r'spawn\s+"(?:[^"]*/)?(?:intoo|inir)"\s+"([\w-]+)"\s+"([\w-]+)"', action)
     if direct_match:
         return direct_match.group(1), direct_match.group(2)
 
@@ -325,7 +325,7 @@ def categorize_keybind(kb: dict) -> str:
         return 'System'
     
     # iNtoo Shell
-    if any(x in comment for x in ['inir ', 'clipboard', 'lock screen', 'wallpaper', 'settings', 'cheatsheet', 'panel style']):
+    if any(x in comment for x in ['intoo ', 'inir ', 'clipboard', 'lock screen', 'wallpaper', 'settings', 'cheatsheet', 'panel style']):
         return 'iNtoo Shell'
     inir_action = parse_inir_action(action)
     if inir_action:

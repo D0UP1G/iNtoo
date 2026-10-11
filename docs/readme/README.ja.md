@@ -66,7 +66,7 @@ Wayland → GPU
 
 手に負えなくなった個人プロジェクトです。私は毎日使っていて、Discord の多くの人も使っています。でもときどき壊れるし、コードは散らかっているところもあるし、やりながら学んでいます。
 
-何かがおかしければ、`inir doctor` でほとんど直ります。それでもだめなら Discord が活発です。ただ、磨き上げられたソフトウェアは期待しないでください。一人の rice を、たまたま他の人も気に入ってくれているだけです。
+何かがおかしければ、`intoo doctor` でほとんど直ります。それでもだめなら Discord が活発です。ただ、磨き上げられたソフトウェアは期待しないでください。一人の rice を、たまたま他の人も気に入ってくれているだけです。
 
 ### なぜ存在するの？
 
@@ -147,19 +147,19 @@ Wayland → GPU
 
 ### Island
 
-- **Island**：画面の端にある一つの形。「いま何が起きているか」を示し、開いたページ・カード・パネルに変わって、また元に戻ります。上下左右どこにでも（`inir iris edge <side>`、またはドラッグ）。横に置くと縦向きになり、時計は縦積み、バブルが上下に並びます
-- **メニューバー**：ワークスペース、ウィンドウ、ピースが並ぶ細い帯で、Island はノッチのようにそこから下がります（`inir iris layout menubar`）
-- **全幅バーモード**：開始・中央・終端のゾーンに Island、ワークスペース、フォーカス中のウィンドウ、時刻、任意のピースを配置（`inir iris zone start|center|end kinds+joined+with+plus`）
+- **Island**：画面の端にある一つの形。「いま何が起きているか」を示し、開いたページ・カード・パネルに変わって、また元に戻ります。上下左右どこにでも（`intoo iris edge <side>`、またはドラッグ）。横に置くと縦向きになり、時計は縦積み、バブルが上下に並びます
+- **メニューバー**：ワークスペース、ウィンドウ、ピースが並ぶ細い帯で、Island はノッチのようにそこから下がります（`intoo iris layout menubar`）
+- **全幅バーモード**：開始・中央・終端のゾーンに Island、ワークスペース、フォーカス中のウィンドウ、時刻、任意のピースを配置（`intoo iris zone start|center|end kinds+joined+with+plus`）
 - **ピース**：天気、サウンド、マイク、トレイ、通知、ツール、メディア、VPN、ビジュアライザー、アニメ（Airing と Continue）、自分のアプリを、Island の上、画面の輪郭、デスクトップの好きな場所に置けるバブルとして
 - **ピースは触れたものとつながる**：Dock や Island の縁に置くと、上に浮かぶのではなくその本体の一部になります
-- **Dock** はどの端にも（`inir iris dockEdge <side|auto>`）。auto では Island の反対側に置かれ、片方をもう片方の端に送ると入れ替わります
+- **Dock** はどの端にも（`intoo iris dockEdge <side|auto>`）。auto では Island の反対側に置かれ、片方をもう片方の端に送ると入れ替わります
 - **グラス**：あらゆる面の下の壁紙をすりガラスにし、明るい壁紙や情報量の多い壁紙でも文字を読みやすく保ちます。コンポジターのブラーもありますが、まだ作業中なので評価はもう少し待ってください
-- **Themes**：20 の厳選リデザイン（Liquid Glass、Frost、Obsidian、Terminal、Neo Tokyo、Twilight、Lume、Sakura、Unit-01 など）と、共有できる JSON ファイルの自作テーマ（`inir iris theme`）
-- **ライト、インク、ダーク**：それぞれ独自のトーンとすりガラスを持ち、アプリにも適用されるカラーテーマ（Catppuccin、Nord、Rosé Pine、Tokyo Night…）も（`inir iris palette`）
+- **Themes**：20 の厳選リデザイン（Liquid Glass、Frost、Obsidian、Terminal、Neo Tokyo、Twilight、Lume、Sakura、Unit-01 など）と、共有できる JSON ファイルの自作テーマ（`intoo iris theme`）
+- **ライト、インク、ダーク**：それぞれ独自のトーンとすりガラスを持ち、アプリにも適用されるカラーテーマ（Catppuccin、Nord、Rosé Pine、Tokyo Night…）も（`intoo iris palette`）
 - **形**：Island と Dock をカプセル、丸、スクワークル、四角から
-- **シェル上での Customize**：Island、Dock、バブルをタップすると、その場から設定が広がり、Island の下に Themes、Look、Pieces、元に戻すが並びます（`inir iris edit`）。好みなら Studio がすべてを画面横の一つのパネルにまとめます
-- **自分で並べるコントロールセンター**：共有クイックトグル、プレイヤー、各スライダーがセルになり、ドラッグ、角からのリサイズ、横のライブラリからの追加ができます。開始レイアウトは 6 種類、右クリックでコントロールが展開します（`inir iris control edit`）
-- **リハーサルできるロック画面**：本物のロック画面が編集モードで開き、解除するものはありません。時計、プレイヤー、サインイン欄を動かし、背景に流すものを動画も含めて選べます（`inir iris lock edit`）
+- **シェル上での Customize**：Island、Dock、バブルをタップすると、その場から設定が広がり、Island の下に Themes、Look、Pieces、元に戻すが並びます（`intoo iris edit`）。好みなら Studio がすべてを画面横の一つのパネルにまとめます
+- **自分で並べるコントロールセンター**：共有クイックトグル、プレイヤー、各スライダーがセルになり、ドラッグ、角からのリサイズ、横のライブラリからの追加ができます。開始レイアウトは 6 種類、右クリックでコントロールが展開します（`intoo iris control edit`）
+- **リハーサルできるロック画面**：本物のロック画面が編集モードで開き、解除するものはありません。時計、プレイヤー、サインイン欄を動かし、背景に流すものを動画も含めて選べます（`intoo iris lock edit`）
 
 ### テーマと外観
 
@@ -215,7 +215,7 @@ Wayland → GPU
 
 - **GUI 設定**：ファイルに触れずにすべて設定
 - **GameMode**：フルスクリーンアプリでエフェクトを自動オフ
-- **自動更新**：`inir update` はロールバック、マイグレーション、自分の変更の保持に対応
+- **自動更新**：`intoo update` はロールバック、マイグレーション、自分の変更の保持に対応
 - **ロック画面**と**セッション画面**（ログアウト/再起動/シャットダウン/サスペンド）
 - **Polkit エージェント**、**オンスクリーンキーボード**、niri 自身の起動ファイルを使う**自動起動マネージャー**
 - **18 の言語**を自動検出。インドネシア語（`id_ID`）とグリーンランド語（`kl_GL`）も含みます
@@ -238,14 +238,14 @@ cd inir
 ./setup install -y    # automatic, no questions asked
 ```
 
-インストーラーが依存関係、システム設定、テーマを処理します。インストール後は `inir run` でシェルを起動するか、ログアウトして入り直してください。
+インストーラーが依存関係、システム設定、テーマを処理します。インストール後は `intoo run` でシェルを起動するか、ログアウトして入り直してください。
 
 ```bash
-inir run                        # launch the shell
-inir settings                   # open settings GUI
-inir logs                       # check runtime logs
-inir doctor                     # auto-diagnose and fix
-inir update                     # pull + migrate + restart
+intoo run                        # launch the shell
+intoo settings                   # open settings GUI
+intoo logs                       # check runtime logs
+intoo doctor                     # auto-diagnose and fix
+intoo update                     # pull + migrate + restart
 ```
 
 `./setup install` 以外の方法がよければ：
@@ -301,9 +301,9 @@ sudo make install       # system-wide instead of your home
 ## トラブルシューティング
 
 ```bash
-inir logs                       # check recent runtime logs
-inir restart                    # restart the active runtime
-inir repair                     # doctor + restart + filtered log check
+intoo logs                       # check recent runtime logs
+intoo restart                    # restart the active runtime
+intoo repair                     # doctor + restart + filtered log check
 ./setup doctor                  # auto-diagnose and fix common problems
 ./setup rollback                # undo the last update
 ```
