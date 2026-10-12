@@ -1,5 +1,6 @@
 module qs.modules.common
 
+AsyncPanelLoader 1.0 AsyncPanelLoader.qml
 singleton AiProviderPresets 1.0 AiProviderPresets.qml
 singleton Appearance 1.0 Appearance.qml
 singleton Config 1.0 Config.qml

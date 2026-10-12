@@ -114,6 +114,8 @@ Singleton {
                     if (windows.length > 0) {
                         windows = sortWindowsByLayout(windows)
                     }
+                    if (root._windowsDirty)
+                        root._windowSortDirty = true
                     windowOrderChanged()
                 } catch (e) {
                     console.warn("NiriService: Failed to parse outputs:", e)
@@ -391,9 +393,12 @@ Singleton {
 
     function handleWorkspacesChanged(data) {
         const newWorkspaces = {}
+        let sortingChanged = false
 
         for (const ws of data.workspaces) {
             const oldWs = root.workspaces[ws.id]
+            if (!oldWs || oldWs.idx !== ws.idx || oldWs.output !== ws.output)
+                sortingChanged = true
             const updatedWs = {}
             for (const prop in ws)
                 updatedWs[prop] = ws[prop]
@@ -412,6 +417,9 @@ Singleton {
             newWorkspaces[ws.id] = updatedWs
         }
 
+        if (Object.keys(root.workspaces).length !== Object.keys(newWorkspaces).length)
+            sortingChanged = true
+        root._windowSortDirty = root._windowSortDirty || sortingChanged
         root.workspaces = newWorkspaces
         allWorkspaces = Object.values(newWorkspaces).sort((a, b) => a.idx - b.idx)
 
@@ -547,7 +555,8 @@ Singleton {
     function handleWindowsChanged(data) {
         const focused = (data.windows ?? []).find(window => window.is_focused === true)
         root._latestFocusedWindowId = focused ? focused.id : null
-        scheduleWindowsUpdate(data.windows)
+        // An authoritative snapshot may list unchanged windows in any order.
+        scheduleWindowsUpdate(data.windows, true)
     }
 
     function handleWindowClosed(data) {
@@ -598,6 +607,7 @@ Singleton {
     property bool _windowsDirty: false
     property var _pendingWindows: []
     property bool _windowOrderDirty: false
+    property bool _windowSortDirty: false
     property var _latestFocusedWindowId
 
     // WindowLayoutsChanged is applied to _pendingWindows immediately, while the
@@ -612,22 +622,25 @@ Singleton {
         repeat: false
         onTriggered: {
             if (_windowsDirty) {
-                const nextWindows = sortWindowsByLayout(_pendingWindows)
+                const nextWindows = (_windowOrderDirty || _windowSortDirty)
+                    ? sortWindowsByLayout(_pendingWindows) : _pendingWindows
                 const orderChanged = _windowOrderDirty
                 windows = nextWindows
                 activeWindow = nextWindows.find(window => window.is_focused) ?? null
                 _windowsDirty = false
                 _windowOrderDirty = false
+                _windowSortDirty = false
                 if (orderChanged)
                     windowOrderChanged()
             }
         }
     }
 
-    function scheduleWindowsUpdate(newWindowsList) {
+    function scheduleWindowsUpdate(newWindowsList, forceSort = false) {
         const normalizedWindows = root._normalizeWindowFocus(newWindowsList)
         _windowOrderDirty = _windowOrderDirty
             || _windowOrderDiffers(_windowsDirty ? _pendingWindows : windows, normalizedWindows)
+        _windowSortDirty = _windowSortDirty || forceSort
         _pendingWindows = normalizedWindows
         _windowsDirty = true
         if (!windowsUpdateTimer.running) {
@@ -695,14 +708,17 @@ Singleton {
         // Usar _pendingWindows si hay cambios pendientes, o windows actual
         const currentList = _windowsDirty ? _pendingWindows : windows
         const updatedWindows = [...currentList]
+        const windowIndexById = new Map()
+        for (let i = 0; i < updatedWindows.length; i++)
+            windowIndexById.set(updatedWindows[i].id, i)
         let hasChanges = false
 
         for (const change of data.changes) {
             const windowId = change[0]
             const layoutData = change[1]
 
-            const windowIndex = updatedWindows.findIndex(w => w.id === windowId)
-            if (windowIndex < 0)
+            const windowIndex = windowIndexById.get(windowId)
+            if (windowIndex === undefined)
                 continue
 
             const updatedWindow = {}
@@ -741,6 +757,8 @@ Singleton {
 
         // Force immediate update for outputs as it affects geometry calculations significantly
         windows = sortWindowsByLayout(windows)
+        if (root._windowsDirty)
+            root._windowSortDirty = true
         windowOrderChanged()
         fetchOutputs()
     }

@@ -19,6 +19,7 @@ import qs.modules.iris.field as Field
 import qs.modules.iris.pieces
 import qs.modules.iris.sidebar
 import qs.modules.iris.preview
+import "../preview/groupScenes.js" as GroupScenes
 import qs.modules.iris.widgets
 
 Item {
@@ -166,7 +167,6 @@ Item {
         next[key] = !next[key]
         root.unfolded = next
     }
-    IrisGroupPreview { id: sceneProbe; visible: false; section: ""; group: "" }
     readonly property int irisPageIndex: root.pages.findIndex(page => page.key === "iris")
     readonly property var morePages: IrisOptions.morePages.filter(entry => root.pages.some(page => page.key === entry.key))
     readonly property var moreGroups: [...new Set(root.morePages.map(entry => Translation.tr(entry.group)))]
@@ -1171,7 +1171,7 @@ Item {
             IrisNiri.revision
             return groupRow.modelData.rows.filter(spec => root.shown(spec))
         }
-        readonly property bool staged: sceneProbe.sceneFor(root.section, String(groupRow.modelData.key)).length > 0
+        readonly property bool staged: GroupScenes.sceneFor(root.section, String(groupRow.modelData.key)).length > 0
         readonly property bool lone: !groupRow.staged && groupRow.rows.length === 1 && groupRow.rows[0].kind === "switch"
         readonly property bool folds: !groupRow.staged && !groupRow.lone && groupRow.rows.length <= 3
         readonly property string foldKey: root.section + "/" + groupRow.modelData.title

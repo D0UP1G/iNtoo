@@ -2,4 +2,6 @@ module qs.modules.iris.sidebar
 IrisSidebar 1.0 IrisSidebar.qml
 IrisSidebarEditor 1.0 IrisSidebarEditor.qml
 IrisSidebarSection 1.0 IrisSidebarSection.qml
+IrisSidebarSectionFrame 1.0 IrisSidebarSectionFrame.qml
 IrisSidebarEdge 1.0 IrisSidebarEdge.qml
+IrisSidebarGaugeRing 1.0 IrisSidebarGaugeRing.qml

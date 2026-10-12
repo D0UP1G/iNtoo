@@ -22,6 +22,7 @@ import qs.modules.iris.pieces
 import qs.modules.iris.control
 import qs.modules.iris.field as Field
 import qs.modules.iris.bar.island as IslandParts
+import "groupScenes.js" as GroupScenes
 
 ClippingRectangle {
     id: root
@@ -39,34 +40,7 @@ ClippingRectangle {
     readonly property string wallpaper: WallpaperListener.wallpaperUrlForScreen(GlobalStates.focusedScreen)
 
     function sceneFor(section: string, group: string): string {
-        if (group.length === 0)
-            return ({ dock: "dock", player: "player", desktop: "widgets", sidebars: "panels", controlCenter: "controlCenter", spotlight: "spotlight", bubbles: "bubbles",
-                bar: "islandEdge", appearance: "light", motion: "motion", lock: "lock", frameMusic: "frame", notifications: "feedback", sound: "feedback" })[section] ?? ""
-        const key = section + "/" + group
-        return ({
-            "bar/Visibility": "islandReserve", "bar/Interaction": "islandInteraction",
-            "bar/Shape": "shapes", "bar/Layout": "islandEdge", "bar/Bar": "barZones",
-            "appearance/Light": "light", "appearance/Shape": "shapes", "appearance/Colour theme": "glass", "appearance/Scheme": "glass", "appearance/Dark look": "glass", "appearance/Ink look": "glass", "appearance/Light look": "glass", "appearance/Corners per surface": "fusion", "appearance/Glass": "glass", "appearance/Edges": "glass",
-            "appearance/Menus": "menus", "appearance/Settings": "settings",
-            "appearance/Material": "glass", "appearance/Material per surface": "glass", "appearance/Look": "fusion",
-            "appearance/Adaptive": "fusion", "appearance/Accent": "controlCenter", "appearance/Highlight": "controlCenter",
-            "appearance/Faces": "typography", "appearance/Text": "typography", "appearance/Frame": "frame",
-            "desktop/Desktop menu": "menus",
-            "motion/Motion": "motion", "motion/Curve": "motion", "motion/Timing": "motion",
-            "motion/Per surface": "motion", "motion/Style per surface": "motion", "motion/Touch": "motion",
-            "frameMusic/On the edges": "frame", "frameMusic/Frame response": "frame", "frameMusic/Finish": "frame",
-            "lock/Scene": "lock", "lock/Type": "lock", "lock/Clock": "lock", "lock/At a glance": "lock",
-            "lock/Now playing": "lock", "lock/Activity": "lock", "lock/Sign in": "lock", "lock/Status": "lock",
-            "bar/Desktop page": "islandPage", "bar/Pages": "islandPage", "bar/Player page": "islandPage",
-            "bubbles/Behaviour": "bubbles", "bubbles/Floating": "bubbles", "bubbles/On the contour": "bubbles", "bubbles/Size": "bubbles",
-            "bubbles/Cards": "cards", "bubbles/Card contents": "cards", "bubbles/Joining": "joining", "bubbles/Tray": "tray",
-            "dock/Visibility": "dock", "dock/Icons": "dock", "dock/Look": "dock",
-            "desktop/Widgets": "widgets", "desktop/Overview backdrop": "backdrop", "desktop/Wallpaper gallery": "gallery",
-            "spotlight/Spotlight": "spotlight", "controlCenter/Control Center": "controlCenter",
-            "sidebars/Panel look": "panels",
-            "notifications/Banners": "feedback", "notifications/Notifications": "feedback", "sound/Feedback": "feedback",
-            "player/Player": "player", "player/Bubble": "player"
-        })[key] ?? ""
+        return GroupScenes.sceneFor(section, group)
     }
     function opt(path: string, fallback: var): var {
         root.rev

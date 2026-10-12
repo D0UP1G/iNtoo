@@ -11,12 +11,9 @@ import qs.modules.iris.session
 import qs.modules.iris.polkit
 import qs.modules.iris.style
 import qs.modules.iris.pieces
-import qs.modules.iris.settings
-import qs.modules.iris.studio
 import qs.modules.iris.lock
 import qs.modules.iris.sidebar
 import qs.modules.iris.orbit
-import qs.modules.iris.osk
 import qs.modules.background
 import qs.modules.lock
 
@@ -72,6 +69,38 @@ Item {
         activeAsync: enabledPanel && GlobalStates.deferredPanelsReady && resident
     }
 
+    // Large optional surfaces are compiled only when requested and released
+    // after their close grace period. Keep the same feature gates and warm
+    // lifetime as OnDemandPanelLoader above.
+    component CompiledOnDemandPanelLoader: AsyncPanelLoader {
+        id: loader
+        required property string identifier
+        required property bool open
+        property bool extraCondition: true
+        property bool requireEnabledPanel: true
+        property int closeGraceMs: IrisStyle.revealDuration + 30
+        property bool resident: open
+        property Timer closeGrace: Timer {
+            interval: loader.closeGraceMs
+            onTriggered: loader.resident = loader.open
+        }
+        readonly property bool enabledPanel: Config.ready && IrisGate.official
+            && (!requireEnabledPanel || (Config.options?.enabledPanels ?? []).includes(identifier))
+            && extraCondition
+
+        onOpenChanged: {
+            if (open) {
+                closeGrace.stop()
+                resident = true
+            } else {
+                closeGrace.restart()
+            }
+        }
+
+        requested: enabledPanel && GlobalStates.deferredPanelsReady && resident
+        onFailed: (path, errorString) => console.warn("[IslandPanel] Could not load", path, errorString)
+    }
+
     IrisAppsSync {}
 
     // Orbit's hot corner: a few pixels in one screen corner, on Top, only while it is on and something can use it.
@@ -89,22 +118,22 @@ Item {
         component: IrisSidebarEdge { side: "right" }
     }
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisSidebarLeft"
         requireEnabledPanel: false
         open: GlobalStates.sidebarLeftOpen
         extraCondition: Config.options?.iris?.sidebars?.left?.enable ?? true
         closeGraceMs: IrisStyle.settleDuration + 80
-        component: IrisSidebar { side: "left" }
+        sourcePath: "modules/iris/sidebar/IrisLeftSidebarPanel.qml"
     }
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisSidebarRight"
         requireEnabledPanel: false
         open: GlobalStates.sidebarRightOpen
         extraCondition: Config.options?.iris?.sidebars?.right?.enable ?? true
         closeGraceMs: IrisStyle.settleDuration + 80
-        component: IrisSidebar { side: "right" }
+        sourcePath: "modules/iris/sidebar/IrisRightSidebarPanel.qml"
     }
 
     OnDemandPanelLoader {
@@ -118,29 +147,29 @@ Item {
         component: IrisNotificationPopup {}
     }
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisStudio"
         requireEnabledPanel: false
         open: GlobalStates.irisStudioOpen
         closeGraceMs: IrisStyle.settleDuration + 120
-        component: IrisStudio {}
+        sourcePath: "modules/iris/studio/IrisStudio.qml"
     }
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisSettings"
         requireEnabledPanel: false
         open: !root.settingsWindowed && (GlobalStates.settingsOverlayOpen || GlobalStates.irisSettingsWarm)
         closeGraceMs: IrisStyle.settleDuration + 120
-        component: IrisSettingsOverlay {}
+        sourcePath: "modules/iris/settings/IrisSettingsOverlay.qml"
     }
 
     readonly property bool settingsWindowed: (Config.options?.iris?.appearance?.settingsHost ?? "overlay") === "window"
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisSettingsWindow"
         requireEnabledPanel: false
         open: root.settingsWindowed && GlobalStates.settingsOverlayOpen
         closeGraceMs: 0
-        component: IrisSettingsWindow {}
+        sourcePath: "modules/iris/settings/IrisSettingsWindow.qml"
     }
 
     LazyLoader {
@@ -202,12 +231,12 @@ Item {
         source: "../cheatsheet/Cheatsheet.qml"
     }
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisOnScreenKeyboard"
         open: GlobalStates.oskOpen
         requireEnabledPanel: false
         closeGraceMs: IrisStyle.settleDuration + 80
-        component: IrisOnScreenKeyboard {}
+        sourcePath: "modules/iris/osk/IrisOnScreenKeyboard.qml"
     }
 
     OnDemandPanelLoader {
@@ -218,11 +247,11 @@ Item {
     }
 
 
-    OnDemandPanelLoader {
+    CompiledOnDemandPanelLoader {
         identifier: "irisLockRehearsal"
         open: GlobalStates.irisLockEdit
         requireEnabledPanel: false
-        component: IrisLockRehearsal {}
+        sourcePath: "modules/iris/lock/IrisLockRehearsal.qml"
     }
 
     OnDemandPanelLoader {

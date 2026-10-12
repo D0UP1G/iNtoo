@@ -24,6 +24,7 @@ Item {
     readonly property string screenName: root.modelData?.name ?? ""
     readonly property bool occupied: root.anyFloating || root.drag !== null || landing.running || root.cardPresent
     property bool suppressed: false
+    property string instanceToken: ""
     readonly property real d: IrisStyle.density
     readonly property var options: Config.options?.iris?.bubbles ?? ({})
     readonly property var islandSlots: IrisPieces.slotIds
@@ -1287,6 +1288,38 @@ Item {
         && (Config.options?.iris?.player?.cardPinned ?? false)
     readonly property bool cardArmed: root.cardOpen && card.armed && !root.cardKept
     function closeCard(): void { GlobalStates.irisBubbleCard = null }
+    function diagnosticSnapshot(): var {
+        const payload = cardContent.item?.diagnosticSnapshot?.() ?? null
+        return {
+            instanceToken: root.instanceToken,
+            screenName: root.screenName,
+            requestedKind: String(root.cardRequest?.kind ?? ""),
+            retainedKind: root.cardKind,
+            actualKind: String(payload?.actualKind ?? ""),
+            cardOpen: root.cardOpen,
+            cardPresent: root.cardPresent,
+            cardKept: root.cardKept,
+            stageSuppressed: root.suppressed,
+            contentLoader: {
+                active: cardContent.active,
+                status: cardContent.status === Loader.Ready ? "ready"
+                    : cardContent.status === Loader.Loading ? "loading"
+                    : cardContent.status === Loader.Error ? "error" : "null",
+                source: cardContent.source.toString(),
+                itemPresent: cardContent.item !== null
+            },
+            payload: payload,
+            surface: {
+                contentReady: card.contentReady,
+                canArm: card.canArm,
+                armed: card.armed,
+                settled: card.settled,
+                progress: card.progress,
+                width: card.width,
+                height: card.height
+            }
+        }
+    }
 
     readonly property bool mediaKept: (Config.options?.iris?.player?.cardPinned ?? false)
         && MprisController.activePlayer !== null
@@ -1526,13 +1559,30 @@ Item {
                 interactive: cardScroller.contentHeight > cardScroller.height + 1
                 clip: !cardContent.bleeds
 
-                IrisCardContent {
+                Loader {
                     id: cardContent
                     width: cardScroller.width
-                    kind: root.cardKind
-                    screenName: root.screenName
-                    contentActive: root.cardPresent
-                    onNavigate: root.closeCard()
+                    active: root.cardKind.length > 0
+                    asynchronous: true
+                    readonly property real contentHeight: cardContent.item?.contentHeight ?? 0
+                    readonly property bool bleeds: cardContent.item?.bleeds ?? false
+                    readonly property color light: cardContent.item?.light ?? IrisStyle.wallpaperLight
+                    function updateSource(): void {
+                        if (!cardContent.active) { cardContent.source = ""; return }
+                        if (cardContent.source.toString().length > 0) return
+                        cardContent.setSource(Qt.resolvedUrl("IrisCardContent.qml"), {
+                            width: Qt.binding(() => cardScroller.width),
+                            kind: Qt.binding(() => root.cardKind),
+                            screenName: Qt.binding(() => root.screenName),
+                            contentActive: Qt.binding(() => root.cardPresent)
+                        })
+                    }
+                    onActiveChanged: cardContent.updateSource()
+                    Component.onCompleted: cardContent.updateSource()
+                }
+                Connections {
+                    target: cardContent.item
+                    function onNavigate(): void { root.closeCard() }
                 }
             }
 

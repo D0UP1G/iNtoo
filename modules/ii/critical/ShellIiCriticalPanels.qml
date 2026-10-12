@@ -1,13 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import qs
-import qs.modules.bar
-import qs.modules.barM3 as BarM3
-import qs.modules.dock
-import qs.modules.pill
-import qs.modules.verticalBar
 import qs.modules.common
 
 Item {
@@ -17,74 +11,33 @@ Item {
     readonly property bool barPill: (Config.options?.bar?.appearanceStyle ?? "classic") === "pill"
     readonly property bool barM3: (Config.options?.bar?.appearanceStyle ?? "classic") === "m3"
     readonly property bool barStock: !root.barPill && !root.barM3
+    property string loadError: ""
+    readonly property bool ready: root._completed && root.loadError.length === 0
+        && background.ready && stockBar.ready && pillBar.ready && m3Bar.ready
+        && verticalBar.ready && dock.ready
+    property bool _completed: false
+    signal failed(string path, string errorString)
+    Component.onCompleted: root._completed = true
 
-    component CriticalPanelLoader: LazyLoader {
+    function reportFailure(path: string, errorString: string): void {
+        root.loadError = path + ": " + errorString
+        root.failed(path, errorString)
+    }
+
+    component CriticalPanelLoader: AsyncPanelLoader {
         required property string identifier
         property bool extraCondition: true
-        readonly property bool enabledPanel: Config.ready
+        requested: Config.ready
             && (Config.options?.enabledPanels ?? []).includes(identifier)
             && extraCondition
-        loading: enabledPanel
-        activeAsync: enabledPanel
+        onFailed: (path, errorString) => root.reportFailure(path, errorString)
     }
 
-    // Background.qml pulls in the full desktop widget library. Keep that
-    // dependency tree out of this startup file and let QQmlComponent compile
-    // it asynchronously once the Material family and panel are selected.
-    component LazySourcePanelHost: Item {
-        required property string sourcePath
-        required property bool requested
-        property var candidate: null
-
-        function sync(): void {
-            if (!requested) {
-                if (candidate) {
-                    candidate.destroy()
-                    candidate = null
-                }
-                loader.loading = false
-                loader.activeAsync = false
-                loader.component = null
-                return
-            }
-            if (candidate || loader.component) return
-            const component = Qt.createComponent(Quickshell.shellPath(sourcePath), Component.Asynchronous)
-            candidate = component
-            const finish = () => {
-                if (candidate !== component) return
-                if (component.status === Component.Loading) return
-                candidate = null
-                if (component.status === Component.Error) {
-                    console.warn("[PanelLoader] Could not compile", sourcePath, component.errorString())
-                    component.destroy()
-                    return
-                }
-                if (!requested) {
-                    component.destroy()
-                    return
-                }
-                loader.component = component
-                loader.loading = true
-                loader.activeAsync = true
-            }
-            if (component.status === Component.Loading)
-                component.statusChanged.connect(finish)
-            else
-                finish()
-        }
-
-        LazyLoader { id: loader }
-        onRequestedChanged: sync()
-        Component.onCompleted: sync()
-    }
-
-    LazySourcePanelHost {
-        sourcePath: "modules/background/Background.qml"
-        requested: Config.ready && (Config.options?.enabledPanels ?? []).includes("iiBackground")
-    }
-    CriticalPanelLoader { identifier: "iiBar"; extraCondition: !root.barVertical && root.barStock; component: Bar {} }
-    CriticalPanelLoader { identifier: "iiBar"; extraCondition: !root.barVertical && root.barPill && !GlobalStates.widgetEditMode; component: PillBar {} }
-    CriticalPanelLoader { identifier: "iiBar"; extraCondition: !root.barVertical && root.barM3 && !GlobalStates.widgetEditMode; component: BarM3.M3Bar {} }
-    CriticalPanelLoader { identifier: "iiVerticalBar"; extraCondition: root.barVertical; component: VerticalBar {} }
-    CriticalPanelLoader { identifier: "iiDock"; extraCondition: Config.options?.dock?.enable ?? true; component: Dock {} }
+    // Compile only selected sources, including the active bar variant.
+    CriticalPanelLoader { id: background; identifier: "iiBackground"; sourcePath: "modules/background/Background.qml" }
+    CriticalPanelLoader { id: stockBar; identifier: "iiBar"; extraCondition: !root.barVertical && root.barStock; sourcePath: "modules/bar/Bar.qml" }
+    CriticalPanelLoader { id: pillBar; identifier: "iiBar"; extraCondition: !root.barVertical && root.barPill && !GlobalStates.widgetEditMode; sourcePath: "modules/pill/PillBar.qml" }
+    CriticalPanelLoader { id: m3Bar; identifier: "iiBar"; extraCondition: !root.barVertical && root.barM3 && !GlobalStates.widgetEditMode; sourcePath: "modules/barM3/M3Bar.qml" }
+    CriticalPanelLoader { id: verticalBar; identifier: "iiVerticalBar"; extraCondition: root.barVertical; sourcePath: "modules/verticalBar/VerticalBar.qml" }
+    CriticalPanelLoader { id: dock; identifier: "iiDock"; extraCondition: Config.options?.dock?.enable ?? true; sourcePath: "modules/dock/Dock.qml" }
 }

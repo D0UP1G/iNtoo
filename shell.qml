@@ -714,6 +714,29 @@ ShellRoot {
             && (!familyHost.deferredHost || GlobalStates.deferredPanelsReady)
         property var candidate: null
         property string loadedPath: ""
+        readonly property bool criticalReady: familyHost.criticalHost && host.active
+            && host.item.ready === true && !host.item.loadError
+        property bool readinessReported: false
+
+        function checkReadiness(): void {
+            if (!familyHost.criticalHost || !familyHost.selected) return
+            if (host.active && host.item.loadError) {
+                loadGuard.stop()
+                root.rejectPanelFamily(familyHost.family)
+                return
+            }
+            if (familyHost.criticalReady) {
+                loadGuard.stop()
+                if (!familyHost.readinessReported) {
+                    familyHost.readinessReported = true
+                    root._lastGoodPanelFamily = familyHost.family
+                    console.info("[FamilyLoader] ready", familyHost.family)
+                }
+            } else {
+                familyHost.readinessReported = false
+                if (!loadGuard.running) loadGuard.start()
+            }
+        }
 
         function release(): void {
             if (familyHost.candidate) {
@@ -727,6 +750,7 @@ ShellRoot {
                 familyHost.loadedPath = ""
             }
             loadGuard.stop()
+            familyHost.readinessReported = false
         }
 
         function load(): void {
@@ -770,25 +794,27 @@ ShellRoot {
 
         LazyLoader {
             id: host
-            onActiveChanged: {
-                if (active && familyHost.criticalHost) {
-                    loadGuard.stop()
-                    root._lastGoodPanelFamily = familyHost.family
-                    console.info("[FamilyLoader] ready", familyHost.family)
-                }
+            onActiveChanged: familyHost.checkReadiness()
+        }
+        Connections {
+            target: familyHost.criticalHost && host.active ? host.item : null
+            function onFailed(path: string, errorString: string): void {
+                console.warn("[FamilyLoader] critical panel failed", path, errorString)
+                root.rejectPanelFamily(familyHost.family)
             }
         }
         Timer {
             id: loadGuard
             interval: 20000
             onTriggered: {
-                if (familyHost.criticalHost && familyHost.selected && !host.active) {
+                if (familyHost.criticalHost && familyHost.selected && !familyHost.criticalReady) {
                     console.warn("[FamilyLoader]", familyHost.family, "critical panels did not become ready")
                     familyHost.release()
                     root.rejectPanelFamily(familyHost.family)
                 }
             }
         }
+        onCriticalReadyChanged: familyHost.checkReadiness()
         onSelectedChanged: familyHost.load()
         Component.onCompleted: familyHost.load()
     }

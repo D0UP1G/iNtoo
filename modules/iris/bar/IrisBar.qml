@@ -16,13 +16,9 @@ import qs.modules.iris.field
 import qs.modules.iris.frame
 import qs.modules.iris.stage
 import qs.modules.iris.lock
-import qs.modules.iris.widgets
 import qs.modules.iris.dock
-import qs.modules.iris.edit
 import qs.modules.iris.notificationPopup
-import qs.modules.iris.palette
-import qs.modules.iris.orbit
-import qs.modules.iris.wallpaper
+import qs.modules.iris.widgets
 import qs.modules.iris.style
 import qs.modules.iris.components as IrisParts
 import qs.modules.iris.pieces
@@ -40,6 +36,39 @@ Scope {
     signal pieceTapRequested(string kind)
     property bool pieceTapped: false
     property string editScreen: ""
+    property var diagnosticStages: ({})
+    property var diagnosticIslandPages: ({})
+    property int stageInstanceCounter: 0
+    function registerStage(stageItem: var): void {
+        const token = "iris-stage-" + (++root.stageInstanceCounter)
+        stageItem.instanceToken = token
+        const next = Object.assign({}, root.diagnosticStages)
+        next[token] = stageItem
+        root.diagnosticStages = next
+    }
+    function unregisterStage(token: string): void {
+        if (!token || !root.diagnosticStages[token]) return
+        const next = Object.assign({}, root.diagnosticStages)
+        delete next[token]
+        root.diagnosticStages = next
+    }
+    function cardDiagnostics(): string {
+        const stages = []
+        for (const token of Object.keys(root.diagnosticStages)) {
+            const stageItem = root.diagnosticStages[token]
+            if (!stageItem) continue
+            const snapshot = stageItem.diagnosticSnapshot()
+            if (snapshot) stages.push(snapshot)
+        }
+        return JSON.stringify({ schemaVersion: 1, stages: stages })
+    }
+    function setDiagnosticIslandPage(screen: string, page: string): void {
+        if (!screen) return
+        const next = Object.assign({}, root.diagnosticIslandPages)
+        if (page.length) next[screen] = page
+        else delete next[screen]
+        root.diagnosticIslandPages = next
+    }
     Connections {
         target: GlobalStates
         function onIrisEditChanged(): void {
@@ -573,6 +602,8 @@ Scope {
                 islandExpanded: GlobalStates.irisIslandExpanded,
                 islandShape: GlobalStates.irisIslandShape,
                 islandPage: GlobalStates.irisIslandPage,
+                focusedScreen: GlobalStates.focusedScreen?.name ?? "",
+                islandPages: root.diagnosticIslandPages,
                 accent: Config.options?.iris?.appearance?.accent ?? "blue",
                 preset: IrisStyle.presetName,
                 bubbleCard: GlobalStates.irisBubbleCard?.kind ?? "",
@@ -599,6 +630,7 @@ Scope {
                 } : null
             })
         }
+        function cardDiagnostics(): string { return root.cardDiagnostics() }
     }
 
     function islandAllowed(screen: var): bool {
@@ -1053,6 +1085,9 @@ Scope {
                         compactHeight: root.barHeight
                         edge: windowLoader.loadedEdge
                         screenOffsetY: 0
+                        Component.onCompleted: root.setDiagnosticIslandPage(barWindow.screen?.name ?? "", island.page)
+                        Component.onDestruction: root.setDiagnosticIslandPage(barWindow.screen?.name ?? "", "")
+                        onPageChanged: root.setDiagnosticIslandPage(barWindow.screen?.name ?? "", island.page)
                         Connections {
                             target: root
                             function onPieceTapRequested(kind: string): void {
@@ -1079,6 +1114,8 @@ Scope {
 
                 // These full-screen tools exist only on the output that owns them,
                 // and only while open. They otherwise retain a loader per monitor.
+                // Initial screen properties must precede each tool's completion hook;
+                // the Binding below keeps the screen current after creation.
                 Loader {
                     id: spotlightLoader
                     z: 2.5
@@ -1090,7 +1127,18 @@ Scope {
                         && GlobalStates.searchOpen
                         && barWindow.screen?.name === GlobalStates.focusedScreen?.name
                     asynchronous: true
-                    sourceComponent: IrisPalette { screen: barWindow.screen }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../palette/IrisPalette.qml"), { screen: barWindow.screen })
+                    }
+                    onActiveChanged: syncSource()
+                    Component.onCompleted: syncSource()
+                    Binding {
+                        target: spotlightLoader.item
+                        property: "screen"
+                        value: barWindow.screen
+                    }
                 }
 
                 Loader {
@@ -1104,10 +1152,21 @@ Scope {
                         && GlobalStates.wallpaperSelectorOpen
                         && barWindow.screen?.name === galleryLoader.targetOutput
                     asynchronous: true
-                    sourceComponent: IrisWallpaperPicker { screen: barWindow.screen }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../wallpaper/IrisWallpaperPicker.qml"), { screen: barWindow.screen })
+                    }
+                    onActiveChanged: syncSource()
+                    Component.onCompleted: syncSource()
+                    Binding {
+                        target: galleryLoader.item
+                        property: "screen"
+                        value: barWindow.screen
+                    }
                 }
 
-                // A Place like Spotlight: resident, so it opens on a warm frame and grows from where the Island rests.
+                // A Place like Spotlight, growing from where the Island rests.
                 Loader {
                     id: orbitLoader
                     z: 2.5
@@ -1119,7 +1178,18 @@ Scope {
                         && (!(GlobalStates.irisOrbitOutput ?? "")
                             || barWindow.screen?.name === GlobalStates.irisOrbitOutput)
                     asynchronous: true
-                    sourceComponent: IrisOrbit { screen: barWindow.screen }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../orbit/IrisOrbit.qml"), { screen: barWindow.screen })
+                    }
+                    onActiveChanged: syncSource()
+                    Component.onCompleted: syncSource()
+                    Binding {
+                        target: orbitLoader.item
+                        property: "screen"
+                        value: barWindow.screen
+                    }
                 }
 
                 IrisBanners {
@@ -1152,6 +1222,8 @@ Scope {
                     anchors.fill: parent
                     modelData: barWindow.screen
                     suppressed: barWindow.canvasSuppressed
+                    Component.onCompleted: root.registerStage(stage)
+                    Component.onDestruction: root.unregisterStage(stage.instanceToken)
                 }
 
                 Loader {
@@ -1172,7 +1244,17 @@ Scope {
                     }
                     Timer { id: editRelease; interval: 0; onTriggered: editLoader.lingering = editLoader.item?.shown ?? false }
                     active: barWindow.editHere || editLoader.lingering
-                    sourceComponent: IrisEditBar { screenData: barWindow.screen; shapes: barWindow.fieldShapes.concat(stage.pieceShapes, islandLoader.item?.carriedShapes ?? [], dockLoader.item?.editShapes ?? []) }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../edit/IrisEditBar.qml"), {
+                                screenData: Qt.binding(() => barWindow.screen),
+                                shapes: Qt.binding(() => barWindow.fieldShapes.concat(stage.pieceShapes,
+                                    islandLoader.item?.carriedShapes ?? [], dockLoader.item?.editShapes ?? []))
+                            })
+                    }
+                    onActiveChanged: syncSource()
+                    Component.onCompleted: syncSource()
                 }
 
                 Loader {
@@ -1192,7 +1274,15 @@ Scope {
                     }
                     Timer { id: widgetBarRelease; interval: 0; onTriggered: widgetBarLoader.lingering = widgetBarLoader.item?.shown ?? false }
                     active: (GlobalStates.widgetEditMode || widgetBarLoader.lingering) && !barWindow.canvasSuppressed
-                    sourceComponent: IrisWidgetBar { screenData: barWindow.screen }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../edit/IrisWidgetBar.qml"), {
+                                screenData: Qt.binding(() => barWindow.screen)
+                            })
+                    }
+                    onActiveChanged: syncSource()
+                    Component.onCompleted: syncSource()
                 }
 
                 Loader {
@@ -1218,10 +1308,20 @@ Scope {
                             controlCentreLoader.releaseTimer.restart()
                         }
                     }
-                    Component.onCompleted: if (controlCentreLoader.wanted) controlCentreLoader.resident = true
+                    Component.onCompleted: {
+                        if (controlCentreLoader.wanted) controlCentreLoader.resident = true
+                        syncSource()
+                    }
                     active: (Config.options?.iris?.modules?.controlCenter ?? true) && controlCentreLoader.resident
                     asynchronous: true
-                    sourceComponent: IrisControlCenter { screenData: barWindow.screen }
+                    function syncSource(): void {
+                        if (!active) source = ""
+                        else if (source.toString().length === 0)
+                            setSource(Qt.resolvedUrl("../control/IrisControlCenter.qml"), {
+                                screenData: Qt.binding(() => barWindow.screen)
+                            })
+                    }
+                    onActiveChanged: syncSource()
                 }
             }
             }

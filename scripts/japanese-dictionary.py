@@ -382,12 +382,14 @@ def smart_scan(db: sqlite3.Connection, text: str, limit: int, max_chars: int) ->
         fallback = re.sub(r"^[\s\u3000、。！？!?「」『』（）()【】]+", "", text.strip())
         japanese_runs = [fallback] if fallback else []
 
-    best: tuple[tuple[int, int, float, int, int], dict[str, Any]] | None = None
+    best: tuple[tuple[int, int, int, int, float], dict[str, Any]] | None = None
     for run_index, raw_run in enumerate(japanese_runs):
         run = raw_run[:max_chars]
         for start in range(len(run)):
             tail = run[start:]
-            for size in range(len(tail), 0, -1):
+            # Once a single character wins, later singles cannot beat its
+            # earlier run/offset. Keep looking for a multi-character match.
+            for size in range(len(tail), 1 if best is not None else 0, -1):
                 surface = tail[:size]
                 match = _smart_surface_match(db, surface, limit)
                 if match is None:
@@ -395,23 +397,31 @@ def smart_scan(db: sqlite3.Connection, text: str, limit: int, max_chars: int) ->
                 base, reason, accepted = match
                 top_score = max(float(term.get("score") or 0) for term in accepted)
                 # Multi-character expressions are overwhelmingly more useful
-                # for OCR lookup than isolated kana. Length outranks dictionary
-                # frequency; score and earlier position break ties.
+                # for OCR lookup than isolated kana. Within that class, earlier
+                # runs/offsets win, then length and dictionary score.
                 rank = (1 if len(surface) > 1 else 0, -run_index, -start, len(surface), top_score)
                 reading = accepted[0].get("reading") or base
                 payload = {
                     "query": text, "surface": surface, "matched": base, "consumed": len(surface),
                     "deinflection": reason, "reading": reading, "romaji": romanize_kana(reading),
-                    "terms": accepted, "metadata": _metadata_for(db, base),
-                    "kanji": kanji_lookup(db, base).get("kanji", []),
+                    "terms": accepted, "metadata": None, "kanji": None,
                     "segment": run, "segmentOffset": start,
                 }
                 if best is None or rank > best[0]:
                     best = (rank, payload)
                 break
+            # Sizes descend and positions ascend, so the first multi-character
+            # match cannot be beaten by any remaining run or offset.
+            if best is not None and best[0][0] == 1:
+                break
+        if best is not None and best[0][0] == 1:
+            break
 
     if best is not None:
-        return best[1]
+        payload = best[1]
+        payload["metadata"] = _metadata_for(db, payload["matched"])
+        payload["kanji"] = kanji_lookup(db, payload["matched"]).get("kanji", [])
+        return payload
     return {"query": text, "surface": "", "matched": "", "consumed": 0, "deinflection": "", "reading": "", "romaji": "",
             "terms": [], "metadata": {"pitch": [], "frequency": [], "ipa": []}, "kanji": []}
 

@@ -1,40 +1,49 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import qs.modules.common
-import qs.modules.iris.background
-import qs.modules.iris.bar
-import qs.modules.iris.frame
 import qs.modules.iris.style
 
 Item {
     id: root
+    property string loadError: ""
+    readonly property bool ready: root._completed && root.loadError.length === 0
+        && background.ready && reservations.ready && bar.ready
+    property bool _completed: false
+    signal failed(string path, string errorString)
+    Component.onCompleted: root._completed = true
 
-    component CriticalPanelLoader: LazyLoader {
+    function reportFailure(path: string, errorString: string): void {
+        root.loadError = path + ": " + errorString
+        root.failed(path, errorString)
+    }
+
+    component CriticalPanelLoader: AsyncPanelLoader {
         required property string identifier
         property bool extraCondition: true
-        readonly property bool enabledPanel: Config.ready && IrisGate.official
+        requested: Config.ready && IrisGate.official
             && (Config.options?.enabledPanels ?? []).includes(identifier)
             && extraCondition
-        loading: enabledPanel
-        activeAsync: enabledPanel
+        onFailed: (path, errorString) => root.reportFailure(path, errorString)
     }
 
     CriticalPanelLoader {
+        id: background
         identifier: "irisBackground"
         extraCondition: !(Config.options?.iris?.modules?.desktopWidgets ?? true)
-        component: IrisBackground {}
+        sourcePath: "modules/iris/background/IrisBackground.qml"
     }
 
-    LazyLoader {
-        loading: Config.ready && IrisGate.official
-        activeAsync: Config.ready && IrisGate.official
-        component: IrisReservations {}
+    AsyncPanelLoader {
+        id: reservations
+        requested: Config.ready && IrisGate.official
+        sourcePath: "modules/iris/frame/IrisReservations.qml"
+        onFailed: (path, errorString) => root.reportFailure(path, errorString)
     }
 
     CriticalPanelLoader {
+        id: bar
         identifier: "irisBar"
-        component: IrisBar {}
+        sourcePath: "modules/iris/bar/IrisBar.qml"
     }
 }

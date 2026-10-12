@@ -187,7 +187,9 @@ ListView {
 
 ## 10. Lazy Loading (Quickshell)
 
-Use LazyLoader for panels not immediately needed:
+Use LazyLoader for small components already compiled with their parent. For large
+optional panel sources, use the AsyncPanelLoader pattern below so unselected
+source files do not compile before they are requested:
 
 ```qml
 // LazyLoader properties:
@@ -251,12 +253,25 @@ property string title: NiriService.activeWindow?.title ?? ""
 ### PanelLoader Pattern
 
 ```qml
-component PanelLoader: LazyLoader {
+component PanelLoader: AsyncPanelLoader {
     required property string identifier
     property bool extraCondition: true
-    active: Config.ready && (Config.options?.enabledPanels ?? []).includes(identifier) && extraCondition
+    requested: Config.ready
+        && (Config.options?.enabledPanels ?? []).includes(identifier)
+        && extraCondition
+}
+
+PanelLoader {
+    identifier: "wBar"
+    sourcePath: "modules/waffle/bar/WaffleBar.qml"
 }
 ```
+
+AsyncPanelLoader starts asynchronous source compilation only when requested,
+creates the panel asynchronously, and releases it when the request ends. Its
+`ready` property becomes true after an unrequested loader completes, or after a
+requested child is active. Critical hosts aggregate child readiness and propagate
+load failures to the shell family fallback.
 
 ### StyledImage
 
@@ -297,6 +312,109 @@ effects. When **Disable audio visualizers** is enabled, shared Cava consumers
 unsubscribe and visualizer render loops stop for both manual and fullscreen
 Game Mode activation; they resume from the same configuration afterward.
 
+
+## Measured runtime changes
+
+The changes preserve desktop appearance and public search, service and launcher
+behavior. They reduce work in shared matching functions, event bursts and helper
+startup. No runtime dependency was added.
+
+### Reproduce the checks
+
+Run the behavioral suites from the repository root:
+
+```sh
+make test-audit
+make test-local
+```
+
+The audit includes native Quickshell checks in temporary HOME/XDG directories,
+private PID/network namespaces and a headless compositor. The local suite uses
+temporary fixtures and command stubs for installation/session contracts. Neither
+command installs this checkout or restarts the user's desktop. `make test-local`
+also runs `make build`, which sets script executable permissions.
+
+These commands report benchmark samples without imposing timing thresholds:
+
+```sh
+node scripts/test-levendist-performance.js --benchmark
+python3 scripts/test-color-generation-performance.py --python /path/to/venv/bin/python3 --benchmark
+python3 scripts/test-dictionary-performance.py --benchmark --runs 20
+python3 scripts/test-translation-performance.py --benchmark
+node scripts/test-resource-frequency.js --benchmark
+```
+
+The color comparison requires the existing NumPy, Pillow and materialyoucolor
+dependencies. Its default stdlib-only import tests always run; real generator
+comparisons explicitly report a skip when the selected interpreter lacks those
+dependencies. The measured interpreter in this workspace was
+`/home/dpg/.local/state/quickshell/.venv/bin/python3`.
+
+For event burst counts and native scoring/scheduler regressions separately:
+
+```sh
+node scripts/test-hyprland-refresh.js
+node scripts/test-runtime-performance.js
+python3 -m unittest -v scripts/test-shell-startup.py -k native_qml
+```
+
+Run timing samples with other benchmarks stopped. Host load, CPU frequency,
+interpreter version and caches affect elapsed time. Deterministic operation
+counts and output comparisons are the acceptance criteria.
+
+### Recorded measurements
+
+These samples were collected on Linux x86_64 with Qt 6.11.2 and Quickshell 0.3.1.
+They measure individual algorithms or helpers, rather than whole-desktop FPS,
+idle CPU, memory consumption or total login time.
+
+| Change | Measured workload | Before → after |
+| --- | --- | --- |
+| Shared Levenshtein matching | Native QML, 100 launcher typo scores, median of 5 samples | 10 → 3 ms |
+| Shared Levenshtein matching | Native QML, 2 clipboard scores with one typo, median of 5 samples | 146 → 8 ms |
+| Hyprland refresh coalescing | 50 synchronous raw events, modeled Quickshell process semantics | 10 → 5 collector launches; 250 → 5 `running` assignments |
+| Lazy color imports | Fixed color, dark tonal-spot and terminal outputs, 7 interleaved cold subprocess samples | 0.4847 → 0.3315 s median |
+| Dictionary traversal pruning | Synthetic 21-character OCR text, temporary SQLite, 20 interleaved warm samples | 273 → 23 SELECTs; 36.532 → 2.889 ms median |
+| Translation scanner batching | Repository's 18 catalogues, 9 interleaved subprocess samples | 18 → 1 basename helpers; 37.560 → 4.005 ms median |
+| Direct CPU frequency query | Real `lscpu` output plus parser, 9 interleaved samples | 13.031 → 8.033 ms median; 4 → 1 executables by command structure |
+
+The matching formulas remain exact. Tests compare a frozen baseline and an
+independent full-matrix distance oracle across exhaustive, random and adversarial
+UTF-16 inputs. Prefix/suffix trimming, direct window access and bounded distance
+work improve relevant workloads; the worst-case asymptotic complexity remains.
+Node's unrelated-string microbenchmarks were 2–3% slower in one run, while the
+native Qt samples improved. Node timings do not substitute for Qt measurements.
+
+Hyprland's old Process API already queued one rerun while a collector was busy;
+the baseline is therefore 10 launches for this synchronous burst, rather than
+250. Requests received during collection still cause a subsequent refresh. A
+native regression verifies real Process completion and the final published
+snapshot. Translation batching uses the project's GNU/Linux tools; `basename
+-s` supports multiple inputs and `--` protects the option boundary.
+
+Color tests compare stdout and all seven generated output types byte for byte
+for fixed colors, fixed/automatic image schemes, smart mode and source precedence.
+Existing warning source locations are normalized. Dictionary tests preserve
+complete payloads, term ordering, deinflection and run/offset priorities.
+
+Earlier optimizations also retain behavioral regressions: asynchronous critical
+panel readiness for all three panel families, cached launcher ranking, Niri
+window-event batching and wallpaper-luminance job deduplication. Comparable
+whole-desktop timing measurements for those changes were not collected.
+
+### Further profiling targets
+
+| Target | Measurement needed before another change | Current boundary |
+| --- | --- | --- |
+| Native visual effects and hidden panels | Same compositor, screens, wallpaper and interaction; frame times and idle CPU/GPU before/after | Headless software startup checks establish loading/readiness, not live visual performance |
+| Thumbnail workers | Cold/warm folders of known size; process starts, wall time and shutdown behavior for one versus several workers | Changing the pool strategy needs representative image/video and GnomeDesktop workloads |
+| Dictionary searches without a match | Large real dictionaries; query counts and latency for bounded OCR selections | Current exact pruning accelerates found winners; no-match scanning still examines candidates |
+| Memory-pressure collection | Per-poll process count and total five-minute idle CPU cost | Existing five-minute cadence makes helper consolidation a small unmeasured saving |
+
+The installed desktop was not updated or restarted for these measurements.
+Live figures from another installed checkout cannot establish gains for this
+working tree. Further changes should have a measured workload and preserve the
+same observable behavior; an absolute optimization maximum is not established.
 
 ## Tools
 

@@ -203,7 +203,11 @@ Singleton {
         const entries = Array.from(DesktopEntries.applications.values)
             .sort((a, b) => a.name.localeCompare(b.name))
         _cachedList = entries
-        _cachedPreppedNames = entries.map(a => ({ name: Fuzzy.prepare(`${a.name} `), entry: a }))
+        _cachedPreppedNames = entries.map(a => ({
+            name: Fuzzy.prepare(`${a.name} `),
+            nameLower: a.name?.toLowerCase() ?? "",
+            entry: a
+        }))
         _cachedPreppedIcons = entries.map(a => ({ name: Fuzzy.prepare(`${a.icon} `), entry: a }))
 
         // Build reverse-lookup maps for matching toplevel appIds to desktop entries.
@@ -263,8 +267,8 @@ Singleton {
 
         if (root.sloppySearch) {
             // Levenshtein-based scoring
-            const results = _cachedList.map(obj => {
-                const nameLower = obj.name?.toLowerCase() ?? ""
+            const results = preppedNames.map(row => {
+                const nameLower = row.nameLower
                 let score = Levendist.computeScore(nameLower, searchLower)
 
                 // Boost for prefix match
@@ -280,11 +284,11 @@ Singleton {
                     score += 0.1
                 }
 
-                return { entry: obj, score: Math.min(1.0, score) }
+                return { row, score: Math.min(1.0, score) }
             }).filter(item => item.score > root.scoreThreshold)
               .sort((a, b) => b.score - a.score)
 
-            return results.map(item => root._decorateEntry(item.entry))
+            return results.map(item => root._decorateEntry(item.row.entry))
         }
 
         // Hybrid approach: combine fuzzysort with smart scoring
@@ -296,8 +300,7 @@ Singleton {
 
         // Score and sort results
         const scoredResults = fuzzyResults.map(r => {
-            const entry = r.obj.entry
-            const nameLower = entry.name?.toLowerCase() ?? ""
+            const nameLower = r.obj.nameLower
             let score = r.score
 
             // Significant boost for exact prefix match
@@ -313,10 +316,10 @@ Singleton {
                 score += 10000
             }
 
-            return { entry, score }
+            return { row: r.obj, score }
         }).sort((a, b) => b.score - a.score)
 
-        return scoredResults.map(item => root._decorateEntry(item.entry))
+        return scoredResults.map(item => root._decorateEntry(item.row.entry))
     }
 
     function _decorateEntry(entry): var {

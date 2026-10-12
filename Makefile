@@ -29,6 +29,13 @@ test-audit:
 	python3 scripts/test-review-regressions.py || status=1; \
 	python3 scripts/test-production-round2.py || status=1; \
 	python3 scripts/test-shell-startup.py || status=1; \
+	node scripts/test-runtime-performance.js || status=1; \
+	node scripts/test-levendist-performance.js || status=1; \
+	node scripts/test-hyprland-refresh.js || status=1; \
+	python3 scripts/test-color-generation-performance.py || status=1; \
+	python3 scripts/test-dictionary-performance.py || status=1; \
+	python3 scripts/test-translation-performance.py || status=1; \
+	node scripts/test-resource-frequency.js || status=1; \
 	exit $$status
 
 install-bin:

@@ -446,12 +446,13 @@ Singleton {
                 LANG: "C",
                 LC_ALL: "C"
             })
-        command: ["/usr/bin/bash", "-c", "/usr/bin/lscpu | /usr/bin/grep 'CPU max MHz' | /usr/bin/awk '{print $4}'"]
+        command: ["/usr/bin/lscpu"]
         running: false
         stdout: StdioCollector {
             id: outputCollector
             onStreamFinished: {
-                const mhz = parseFloat(outputCollector.text);
+                const maxFrequency = outputCollector.text.match(/^[ \t]*CPU max MHz:[ \t]*([^\r\n]*)/m);
+                const mhz = parseFloat(maxFrequency ? maxFrequency[1] : "");
                 if (isNaN(mhz) || mhz <= 0) {
                     root.maxAvailableCpuString = "--";
                 } else {

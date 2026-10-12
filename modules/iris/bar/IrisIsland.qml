@@ -2406,7 +2406,20 @@ Item {
                             active: controlsPage.resident
                             asynchronous: !controlsPage.current
                             visible: active
-                            sourceComponent: IrisQuickPanel { width: controlsLoader.width; targetScreen: root.targetScreen }
+                            function updateSource(): void {
+                                if (active) {
+                                    if (source.toString() === "") {
+                                        setSource(Qt.resolvedUrl("../control/IrisQuickPanel.qml"), {
+                                            width: Qt.binding(() => controlsLoader.width),
+                                            targetScreen: Qt.binding(() => root.targetScreen)
+                                        })
+                                    }
+                                } else {
+                                    source = ""
+                                }
+                            }
+                            onActiveChanged: updateSource()
+                            Component.onCompleted: updateSource()
                         }
                     }
                     Page {
@@ -2418,9 +2431,22 @@ Item {
                             Layout.preferredHeight: item?.implicitHeight ?? 0
                             active: toolsPage.resident
                             asynchronous: !toolsPage.current
-                            sourceComponent: IrisTools {
-                                width: toolsLoader.width
-                                onActivityRequested: root.page = "activity"
+                            function updateSource(): void {
+                                if (active) {
+                                    if (source.toString() === "") {
+                                        setSource(Qt.resolvedUrl("IrisTools.qml"), {
+                                            width: Qt.binding(() => toolsLoader.width)
+                                        })
+                                    }
+                                } else {
+                                    source = ""
+                                }
+                            }
+                            onActiveChanged: updateSource()
+                            Component.onCompleted: updateSource()
+                            Connections {
+                                target: toolsLoader.item
+                                function onActivityRequested(): void { root.page = "activity" }
                             }
                         }
                     }
@@ -2435,7 +2461,20 @@ Item {
                             Layout.preferredHeight: item?.implicitHeight ?? 0
                             active: mediaPage.resident
                             asynchronous: !mediaPage.current
-                            sourceComponent: IslandMediaPage { width: mediaLoader.width; island: root }
+                            function updateSource(): void {
+                                if (active) {
+                                    if (source.toString() === "") {
+                                        setSource(Qt.resolvedUrl("island/IslandMediaPage.qml"), {
+                                            width: Qt.binding(() => mediaLoader.width),
+                                            island: root
+                                        })
+                                    }
+                                } else {
+                                    source = ""
+                                }
+                            }
+                            onActiveChanged: updateSource()
+                            Component.onCompleted: updateSource()
                         }
                     }
 
@@ -2449,7 +2488,20 @@ Item {
                             Layout.preferredHeight: item?.implicitHeight ?? 0
                             active: activityPage.resident
                             asynchronous: !activityPage.current
-                            sourceComponent: IslandActivityPage { width: activityLoader.width; island: root }
+                            function updateSource(): void {
+                                if (active) {
+                                    if (source.toString() === "") {
+                                        setSource(Qt.resolvedUrl("island/IslandActivityPage.qml"), {
+                                            width: Qt.binding(() => activityLoader.width),
+                                            island: root
+                                        })
+                                    }
+                                } else {
+                                    source = ""
+                                }
+                            }
+                            onActiveChanged: updateSource()
+                            Component.onCompleted: updateSource()
                         }
                     }
 
@@ -2464,11 +2516,21 @@ Item {
                             Layout.preferredHeight: item?.implicitHeight ?? 0
                             active: desktopPage.resident
                             asynchronous: !desktopPage.current
-                            sourceComponent: IslandDesktopPage {
-                                width: desktopLoader.width
-                                island: root
-                                navOffset: navFrame.height + expandedContent.rowSpacing
+                            function updateSource(): void {
+                                if (active) {
+                                    if (source.toString() === "") {
+                                        setSource(Qt.resolvedUrl("island/IslandDesktopPage.qml"), {
+                                            width: Qt.binding(() => desktopLoader.width),
+                                            island: root,
+                                            navOffset: Qt.binding(() => navFrame.height + expandedContent.rowSpacing)
+                                        })
+                                    }
+                                } else {
+                                    source = ""
+                                }
                             }
+                            onActiveChanged: updateSource()
+                            Component.onCompleted: updateSource()
                         }
                     }
                 }

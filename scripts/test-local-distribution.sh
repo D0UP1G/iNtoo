@@ -44,6 +44,15 @@ python3 "$runtime_root/scripts/test-intoo-command.py"
 step "assistant default provider"
 python3 "$runtime_root/scripts/test-ai-default-provider.py"
 
+step "runtime optimization contracts"
+node "$runtime_root/scripts/test-runtime-performance.js"
+node "$runtime_root/scripts/test-levendist-performance.js"
+node "$runtime_root/scripts/test-hyprland-refresh.js"
+python3 "$runtime_root/scripts/test-color-generation-performance.py"
+python3 "$runtime_root/scripts/test-dictionary-performance.py"
+python3 "$runtime_root/scripts/test-translation-performance.py"
+node "$runtime_root/scripts/test-resource-frequency.js"
+
 step "session tray ordering"
 service_unit="$runtime_root/assets/systemd/inir.service"
 if ! grep -qx 'Type=dbus' "$service_unit" \
@@ -500,6 +509,8 @@ with (root / "defaults/config.json").open(encoding="utf-8") as handle:
 schema = (root / "modules/common/Config.qml").read_text(encoding="utf-8")
 wizard = (root / "welcome.qml").read_text(encoding="utf-8")
 iris_background = (root / "modules/iris/background/IrisBackground.qml").read_text(encoding="utf-8")
+iris_background_actions = (root / "modules/iris/background/IrisDesktopActions.qml").read_text(encoding="utf-8")
+iris_critical_panels = (root / "modules/iris/critical/ShellIrisCriticalPanels.qml").read_text(encoding="utf-8")
 iris_panels = (root / "modules/iris/ShellIrisPanelsImpl.qml").read_text(encoding="utf-8")
 bar_settings = (root / "modules/settings/BarConfig.qml").read_text(encoding="utf-8")
 right_sidebar_button = (root / "modules/barM3/RightSidebarButton.qml").read_text(encoding="utf-8")
@@ -606,7 +617,8 @@ schema_checks = {
     ]),
     "Island lightweight background retains bare-desktop menu": all(fragment in iris_background for fragment in [
         "IrisDesktopMenu {", "acceptedButtons: Qt.RightButton | Qt.LeftButton", "IrisDesktopActions.menu("
-    ]) and 'Config.setNestedValue("iris.modules.desktopWidgets", true)' in (root / "modules/iris/background/IrisDesktopActions.qml").read_text(encoding="utf-8") and 'component: IrisBackground {}' in (root / "modules/iris/critical/ShellIrisCriticalPanels.qml").read_text(encoding="utf-8")
+    ]) and 'Config.setNestedValue("iris.modules.desktopWidgets", true)' in iris_background_actions
+        and 'sourcePath: "modules/iris/background/IrisBackground.qml"' in iris_critical_panels
         and 'component: Background {}' in iris_panels,
     "wizard style catalog covers all ii global styles": all(preset in wizard for preset in [
         'id: "material"', 'id: "cards"', 'id: "aurora"', 'id: "inir"',

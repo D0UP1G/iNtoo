@@ -38,7 +38,8 @@ Singleton {
         if (!path || width <= 0 || height <= 0)
             return
         const key = root.keyFor(path, width, height)
-        if (root.maps[key] !== undefined || root._failed[key] || root._queue.some(job => job.key === key))
+        if (root.maps[key] !== undefined || root._failed[key] || proc.job?.key === key
+                || root._queue.some(job => job.key === key))
             return
         root._queue.push({ key: key, path: path, width: width, height: height })
         // Browsing previews asks for one wallpaper after another: only the latest few are worth reading.
@@ -105,6 +106,10 @@ Singleton {
     }
 
     function _next(): void {
+        // A queued preview may already have finished or failed by the time its turn arrives.
+        while (root._queue.length > 0
+                && (root.maps[root._queue[0].key] !== undefined || root._failed[root._queue[0].key]))
+            root._queue.shift()
         if (proc.running || proc.job !== null || root._queue.length === 0)
             return
         const job = root._queue.shift()

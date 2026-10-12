@@ -1,38 +1,47 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import Quickshell
 import qs.modules.common
-import qs.modules.waffle.background as WaffleBackgroundModule
-import qs.modules.waffle.bar as WaffleBarModule
-import qs.modules.waffle.backdrop as WaffleBackdropModule
 
 Item {
     id: root
+    property string loadError: ""
+    readonly property bool ready: root._completed && root.loadError.length === 0
+        && bar.ready && background.ready && backdrop.ready
+    property bool _completed: false
+    signal failed(string path, string errorString)
+    Component.onCompleted: root._completed = true
 
-    component CriticalPanelLoader: LazyLoader {
+    function reportFailure(path: string, errorString: string): void {
+        root.loadError = path + ": " + errorString
+        root.failed(path, errorString)
+    }
+
+    component CriticalPanelLoader: AsyncPanelLoader {
         required property string identifier
         property bool extraCondition: true
-        readonly property bool enabledPanel: Config.ready
+        requested: Config.ready
             && (Config.options?.enabledPanels ?? []).includes(identifier)
             && extraCondition
-        loading: enabledPanel
-        activeAsync: enabledPanel
+        onFailed: (path, errorString) => root.reportFailure(path, errorString)
     }
 
     CriticalPanelLoader {
+        id: bar
         identifier: "wBar"
-        component: WaffleBarModule.WaffleBar {}
+        sourcePath: "modules/waffle/bar/WaffleBar.qml"
     }
 
     CriticalPanelLoader {
+        id: background
         identifier: "wBackground"
-        component: WaffleBackgroundModule.WaffleBackground {}
+        sourcePath: "modules/waffle/background/WaffleBackground.qml"
     }
 
     CriticalPanelLoader {
+        id: backdrop
         identifier: "wBackdrop"
         extraCondition: Config.options?.waffles?.background?.backdrop?.enable ?? true
-        component: WaffleBackdropModule.WaffleBackdrop {}
+        sourcePath: "modules/waffle/backdrop/WaffleBackdrop.qml"
     }
 }

@@ -21,10 +21,16 @@ Singleton {
     Timer {
         id: debounceTimer
         interval: 80  // 80ms debounce - fast enough to feel responsive
-        onTriggered: root._debouncedQuery = root.query
+        onTriggered: {
+            if (root._debouncedQuery === root.query)
+                root._queueMath()
+            else
+                root._debouncedQuery = root.query
+        }
     }
     
     onQueryChanged: {
+        root._cancelMath()
         // Immediate update for empty query (instant clear)
         if (query === "") {
             _debouncedQuery = ""
@@ -56,16 +62,38 @@ Singleton {
     property var allActions: GlobalActions.searchActions
 
     property string mathResult: ""
+    property int _mathGeneration: 0
+    readonly property string _mathPrefix: Config.options?.search?.prefix?.math ?? "="
+    readonly property string _mathQuery: {
+        const q = root._debouncedQuery
+        const clipboard = Config.options?.search?.prefix?.clipboard ?? ";"
+        const emoji = Config.options?.search?.prefix?.emojis ?? ":"
+        return q.startsWith(clipboard) || q.startsWith(emoji) ? "" : q
+    }
+    on_MathQueryChanged: root._queueMath()
+    on_MathPrefixChanged: root._queueMath()
+
+    function _cancelMath(): void {
+        root._mathGeneration++
+        mathTimer.stop()
+        mathProc.running = false
+        root.mathResult = ""
+    }
+
+    function _queueMath(): void {
+        root._cancelMath()
+        if (root._mathQuery !== "" && root.query === root._debouncedQuery)
+            mathTimer.restart()
+    }
 
     Timer {
         id: mathTimer
         interval: Config.options?.search?.nonAppResultDelay ?? 150
         onTriggered: {
-            let expr = root._debouncedQuery
-            const mathPrefix = Config.options?.search?.prefix?.math ?? "="
-            if (expr.startsWith(mathPrefix)) {
-                expr = expr.slice(mathPrefix.length)
-            }
+            if (root.query !== root._debouncedQuery || root._mathQuery === "") return
+            let expr = root._mathQuery
+            if (expr.startsWith(root._mathPrefix))
+                expr = expr.slice(root._mathPrefix.length)
             mathProc.calculateExpression(expr)
         }
     }
@@ -73,16 +101,62 @@ Singleton {
     Process {
         id: mathProc
         property list<string> baseCommand: ["qalc", "-t"]
+        property string requestQuery: ""
+        property int requestGeneration: -1
         function calculateExpression(expression: string): void {
             mathProc.running = false
+            mathProc.requestQuery = root._debouncedQuery
+            mathProc.requestGeneration = root._mathGeneration
             mathProc.command = baseCommand.concat(expression)
             mathProc.running = true
         }
         stdout: SplitParser {
             onRead: data => {
-                root.mathResult = data
+                if (mathProc.requestGeneration === root._mathGeneration
+                    && mathProc.requestQuery === root._debouncedQuery
+                    && mathProc.requestQuery === root.query)
+                    root.mathResult = data
             }
         }
+    }
+
+    // Rank applications only when their query/catalog/search policy changes.
+    // Calculator output and translated presentation rows must not repeat ranking.
+    readonly property string _appQuery: {
+        const q = root._debouncedQuery
+        if (q === "" || q.startsWith(Config.options?.search?.prefix?.clipboard ?? ";")
+            || q.startsWith(Config.options?.search?.prefix?.emojis ?? ":")) return ""
+        return StringUtils.cleanPrefix(q, Config.options?.search?.prefix?.app ?? ">")
+    }
+    readonly property var _appEntries: root._appQuery === "" ? [] : AppSearch.fuzzyQuery(root._appQuery)
+    readonly property var _appResults: {
+        const appEntries = root._appEntries
+        const seenAppNames = new Set()
+        const appResults = []
+        for (let i = 0; i < appEntries.length; i++) {
+            const entry = appEntries[i]
+            const nameKey = (entry?.name ?? "").trim().toLowerCase()
+            if (nameKey.length === 0) continue
+            if (seenAppNames.has(nameKey)) {
+                if (root._debugDedupe)
+                    console.log(`[LauncherSearch] dedupe: skipping duplicate app name='${entry?.name ?? ""}' id='${entry?.id ?? ""}' query='${root._appQuery}'`)
+                continue
+            }
+            seenAppNames.add(nameKey)
+            appResults.push({
+                type: Translation.tr("App"),
+                id: entry.id ?? entry.name ?? "",
+                name: entry.name,
+                iconName: entry.icon,
+                iconType: LauncherSearchResult.IconType.System,
+                verb: Translation.tr("Launch"),
+                comment: entry.comment ?? "",
+                runInTerminal: entry.runInTerminal ?? false,
+                genericName: entry.genericName ?? "",
+                execute: () => { AppSearch.launchEntry(entry) }
+            })
+        }
+        return appResults
     }
 
     property list<var> results: {
@@ -95,7 +169,6 @@ Singleton {
         const shellPrefix = Config.options?.search?.prefix?.shellCommand ?? "$"
         const webPrefix = Config.options?.search?.prefix?.webSearch ?? "?"
         const actionPrefix = Config.options?.search?.prefix?.action ?? "/"
-        const appPrefix = Config.options?.search?.prefix?.app ?? ">"
 
         // Clipboard search
         if (q.startsWith(clipboardPrefix)) {
@@ -129,9 +202,6 @@ Singleton {
                 })
             }).filter(Boolean)
         }
-
-        // Start math calculation
-        mathTimer.restart()
 
         // Build results
         let result = []
@@ -192,40 +262,7 @@ Singleton {
             result.push(webObj)
         }
 
-        // Apps
-        const appQuery = StringUtils.cleanPrefix(q, appPrefix)
-        const appEntries = AppSearch.fuzzyQuery(appQuery)
-
-        // Dedupe by display name. Some systems have multiple desktop entries for the same app
-        // (e.g. Flatpak + system), which otherwise shows up as duplicated results.
-        const seenAppNames = new Set();
-        const appResults = []
-        for (let i = 0; i < appEntries.length; i++) {
-            const entry = appEntries[i]
-            const nameKey = (entry?.name ?? "").trim().toLowerCase()
-            if (nameKey.length === 0) continue
-            if (seenAppNames.has(nameKey)) {
-                if (root._debugDedupe) {
-                    console.log(`[LauncherSearch] dedupe: skipping duplicate app name='${entry?.name ?? ""}' id='${entry?.id ?? ""}' query='${appQuery}'`)
-                }
-                continue
-            }
-            seenAppNames.add(nameKey)
-
-            appResults.push(({
-                type: Translation.tr("App"),
-                id: entry.id ?? entry.name ?? "",
-                name: entry.name,
-                iconName: entry.icon,
-                iconType: LauncherSearchResult.IconType.System,
-                verb: Translation.tr("Launch"),
-                comment: entry.comment ?? "",
-                runInTerminal: entry.runInTerminal ?? false,
-                genericName: entry.genericName ?? "",
-                execute: () => { AppSearch.launchEntry(entry) }
-            }))
-        }
-        result = result.concat(appResults)
+        result = result.concat(root._appResults)
 
         // Actions (built-in + user scripts)
         const actionResults = root.allActions.map(action => {

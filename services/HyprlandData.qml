@@ -22,38 +22,67 @@ Singleton {
     property var monitors: []
     property var layers: ({})
 
-    function updateWindowList() {
+    // One bit per collector: clients, monitors, layers, workspaces, active workspace.
+    property int _pendingRefresh: 0
+
+    function _scheduleRefresh() {
+        if (CompositorService.isHyprland && _pendingRefresh !== 0 && !refreshTimer.running)
+            refreshTimer.start();
+    }
+
+    function _requestRefresh(mask) {
         if (!CompositorService.isHyprland)
             return;
-        getClients.running = true;
+        _pendingRefresh |= mask;
+        _scheduleRefresh();
+    }
+
+    function _startRefresh(process, mask) {
+        if ((_pendingRefresh & mask) === 0 || process.running)
+            return;
+        // Clear before starting so requests arriving during collection remain pending.
+        _pendingRefresh &= ~mask;
+        process.running = true;
+    }
+
+    function _flushRefresh() {
+        if (!CompositorService.isHyprland) {
+            _pendingRefresh = 0;
+            return;
+        }
+        _startRefresh(getClients, 1);
+        _startRefresh(getMonitors, 2);
+        _startRefresh(getLayers, 4);
+        _startRefresh(getWorkspaces, 8);
+        _startRefresh(getActiveWorkspace, 16);
+        // Busy collectors keep their bits; their completion schedules the next tick.
+    }
+
+    Timer {
+        id: refreshTimer
+        interval: 0
+        repeat: false
+        onTriggered: root._flushRefresh()
+    }
+
+    function updateWindowList() {
+        _requestRefresh(1);
     }
 
     function updateLayers() {
-        if (!CompositorService.isHyprland)
-            return;
-        getLayers.running = true;
+        _requestRefresh(4);
     }
 
     function updateMonitors() {
-        if (!CompositorService.isHyprland)
-            return;
-        getMonitors.running = true;
+        _requestRefresh(2);
     }
 
     function updateWorkspaces() {
-        if (!CompositorService.isHyprland)
-            return;
-        getWorkspaces.running = true;
-        getActiveWorkspace.running = true;
+        _requestRefresh(8 | 16);
     }
 
     function updateAll() {
-        if (!CompositorService.isHyprland)
-            return;
-        updateWindowList();
-        updateMonitors();
-        updateLayers();
-        updateWorkspaces();
+        _requestRefresh(1 | 2 | 4 | 8 | 16);
     }
 
     function biggestWindowForWorkspace(workspaceId) {
@@ -84,6 +113,7 @@ Singleton {
     Process {
         id: getClients
         command: ["/usr/bin/hyprctl", "clients", "-j"]
+        onRunningChanged: if (!running) root._scheduleRefresh()
         stdout: StdioCollector {
             id: clientsCollector
             onStreamFinished: {
@@ -107,6 +137,7 @@ Singleton {
     Process {
         id: getMonitors
         command: ["/usr/bin/hyprctl", "monitors", "-j"]
+        onRunningChanged: if (!running) root._scheduleRefresh()
         stdout: StdioCollector {
             id: monitorsCollector
             onStreamFinished: {
@@ -123,6 +154,7 @@ Singleton {
     Process {
         id: getLayers
         command: ["/usr/bin/hyprctl", "layers", "-j"]
+        onRunningChanged: if (!running) root._scheduleRefresh()
         stdout: StdioCollector {
             id: layersCollector
             onStreamFinished: {
@@ -139,6 +171,7 @@ Singleton {
     Process {
         id: getWorkspaces
         command: ["/usr/bin/hyprctl", "workspaces", "-j"]
+        onRunningChanged: if (!running) root._scheduleRefresh()
         stdout: StdioCollector {
             id: workspacesCollector
             onStreamFinished: {
@@ -162,6 +195,7 @@ Singleton {
     Process {
         id: getActiveWorkspace
         command: ["/usr/bin/hyprctl", "activeworkspace", "-j"]
+        onRunningChanged: if (!running) root._scheduleRefresh()
         stdout: StdioCollector {
             id: activeWorkspaceCollector
             onStreamFinished: {

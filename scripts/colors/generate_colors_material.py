@@ -6,15 +6,10 @@ import os
 import re
 import sys
 
-import numpy as np
-
 try:
     import tomllib
 except ModuleNotFoundError:
     tomllib = None
-from PIL import Image
-from materialyoucolor.quantize import QuantizeCelebi
-from materialyoucolor.score.score import Score
 from materialyoucolor.hct import Hct
 from materialyoucolor.dynamiccolor.material_dynamic_colors import MaterialDynamicColors
 from materialyoucolor.utils.color_utils import (
@@ -179,6 +174,8 @@ def _auto_detect_scheme(pil_image):
     """Detect optimal material scheme from image statistics.
     Uses the same decision tree as scheme_for_image.py but operates on an
     already-loaded PIL image, avoiding a separate Python process + cv2 import."""
+    import numpy as np
+
     arr = np.array(pil_image, dtype=np.float64)
     if arr.ndim != 3 or arr.shape[2] < 3:
         return "scheme-tonal-spot"
@@ -654,6 +651,10 @@ darkmode = args.mode == "dark"
 transparent = args.transparency == "transparent"
 
 if args.path is not None:
+    from PIL import Image
+    from materialyoucolor.quantize import QuantizeCelebi
+    from materialyoucolor.score.score import Score
+
     image = Image.open(args.path)
 
     if image.format == "GIF":
