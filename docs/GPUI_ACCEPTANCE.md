@@ -1663,6 +1663,119 @@ Feature: ii Overview application catalog and launch
     Then the Overview closes
 ```
 
+## Waffle Start Menu search results
+
+The QML references are `modules/waffle/startMenu/StartMenuContent.qml`,
+`SearchResults.qml`, and `WSearchResultButton.qml`. The scenarios in the first
+feature capture the confirmed QML interaction semantics for displayed search
+results; they are acceptance criteria, not evidence that the GPUI implementation
+passes. The accessibility scenario is a separate GPUI recommendation and does
+not claim that the QML reference already exposes equivalent list semantics.
+
+```gherkin
+Feature: Waffle Start Menu search result interaction parity
+
+  Background:
+    Given the Waffle Start Menu is open
+    And the current query has a displayed result list
+
+  Scenario: Launch a clicked result once and close the Start Menu
+    Given a displayed result has a launch action
+    When the user clicks that result once
+    Then its launch action is invoked exactly once
+    And the Start Menu closes
+
+  Scenario: Move the selected result and preview with Up and Down
+    Given the displayed result list contains more than one result
+    And a result is selected
+    When the user presses or holds Up or Down
+    Then each key press, including each held-key repeat, moves the selection by one displayed result in that direction
+    And the preview follows the selected displayed result
+    And selection remains clamped to the first and last displayed results
+    And no result is launched by navigation
+
+  Scenario: Launch the selected Ready result from focused search once
+    Given the search field has keyboard focus
+    And the current query is nonempty
+    And a selected Ready result belongs to the current query
+    When the user initially presses Enter
+    Then only the selected Ready result is activated exactly once
+    And the search field retains keyboard focus until activation is dispatched
+    And subsequent Enter key-repeat events while the key remains held do not activate it again
+    And the Start Menu closes
+
+  Scenario: Insert a space while editing the focused search query
+    Given the search field has keyboard focus
+    When the user presses Space
+    Then a space is inserted at the search caret
+    And no result is activated
+
+  Scenario: Do not launch stale or unavailable search results
+    Given the query has changed, or search results are loading, empty, or failed
+    When a previously displayed result is no longer current for the query
+    Then no launch action is invoked for that stale result
+    And Enter does not launch a stale result
+    And an empty or failed result state remains non-launchable
+```
+
+### Intentional GPUI query-state divergence
+
+The QML Start Menu can fall through to its default generic result presentation
+for a whitespace-only query. GPUI intentionally keeps a nonempty whitespace-only
+query in search mode, but treats it as having no matching result; it must not
+fall back to showing the installed application catalog or present a completed
+search as still loading. A stale `Ready` snapshot is not current completion:
+while the editor query and adapter snapshot disagree, show a waiting/searching
+status even if the adapter still labels its previous snapshot `Ready`. Route the
+page from the editor's raw text immediately: exact-empty returns home, while any
+nonempty text including whitespace stays in search mode as the adapter catches
+up. Once the current whitespace-only query is confirmed `Ready`, show the
+explicit empty-result state. This safety and usability behavior is an
+intentional divergence from QML and is not visual or behavioral parity.
+
+```gherkin
+Feature: Waffle Start Menu empty-query state
+
+  Scenario: Return to the home page for an exactly empty query
+    Given the Waffle Start Menu search page is open
+    When the current query becomes the empty string
+    Then the Start Menu returns to its home page
+    And the search results page is not shown
+
+  Scenario: Keep a whitespace-only query in an explicit empty search state
+    Given the Waffle Start Menu search page is open
+    And the current query contains one or more whitespace characters
+    When search completes with no matching results
+    Then the search page remains open
+    And the installed application catalog is not shown as a fallback
+    And a clear empty-result or status prompt is shown
+    And the completed search is not presented as loading
+
+  Scenario: Route immediately from editor text while the adapter snapshot is stale
+    Given the editor text changes before the adapter snapshot catches up
+    When the current editor text is nonempty, including whitespace
+    Then the search page remains visible
+    And it shows a waiting status until results for that text are current
+    When the current editor text becomes exactly empty
+    Then the Start Menu returns home without waiting for the adapter snapshot
+```
+
+### GPUI accessibility recommendation
+
+This scenario is an accessibility target for the GPUI implementation, separate
+from the confirmed QML interaction semantics above. It is not a claim of current
+runtime support or an assertion about QML accessibility metadata.
+
+```gherkin
+Feature: Accessible Waffle Start Menu search results
+
+  Scenario: Announce the selected search result without adding row tab stops
+    Given the search results are exposed as a list with selectable options, or the search field exposes the active descendant
+    When keyboard navigation changes the selected result
+    Then assistive technology is informed which result is selected
+    And individual result rows do not each add a stop to sequential Tab navigation
+```
+
 ## Waffle taskbar visual and interaction slice
 
 The QML reference is `modules/waffle/bar/tasks/Tasks.qml`,

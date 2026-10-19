@@ -355,8 +355,16 @@ pub fn render<T: 'static>(
                     search.sync_controlled_query(query, on_query_changed, cx);
                 });
                 let search_focus = search_input.focus_handle(cx);
-                let results_current = search_input.read(cx).confirms_query(&menu.query);
-                start_menu::render(menu, search_input, search_focus, results_current)
+                let search = search_input.read(cx);
+                let current_query = search.current_query().to_owned();
+                let results_current = search.confirms_query(&menu.query);
+                start_menu::render(
+                    menu,
+                    search_input,
+                    search_focus,
+                    current_query,
+                    results_current,
+                )
             })
             .map(|menu| {
                 div()
@@ -491,7 +499,7 @@ fn taskbar_button_inner(
         style.background
     };
     let hover_surface = style.hover_surface;
-    let button = crate::components::material::focusable_button(
+    let button = crate::components::material::focusable_button_with_roles(
         div()
             .id(id)
             .min_h(px(36.))
@@ -506,7 +514,7 @@ fn taskbar_button_inner(
             .aria_label(accessible_label)
             .focusable()
             .tab_stop(true),
-        &style.material,
+        style.accent,
         style.accent,
     )
     .hover(move |hover_style| hover_style.bg(hover_surface))

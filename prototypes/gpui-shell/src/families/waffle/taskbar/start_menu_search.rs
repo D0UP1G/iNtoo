@@ -134,6 +134,11 @@ impl StartMenuSearch {
         self.pending_controlled_query.is_none() && self.content == query
     }
 
+    /// Current raw editor text, which may be newer than the adapter snapshot.
+    pub fn current_query(&self) -> &str {
+        &self.content
+    }
+
     fn cursor_offset(&self) -> usize {
         if self.selection_reversed {
             self.selection.start

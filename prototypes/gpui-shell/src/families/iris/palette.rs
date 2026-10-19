@@ -8,7 +8,10 @@ use std::{rc::Rc, sync::Arc};
 use gpui::{AnyElement, IntoElement, Role, div, prelude::*, px};
 use gpui::{App, Entity, FocusHandle, KeyDownEvent, ScrollHandle, Window};
 
-use crate::theme::ThemeTokens;
+use crate::{
+    components::material,
+    theme::{MaterialThemeContext, ThemeTokens},
+};
 
 #[path = "style_tokens.rs"]
 mod style_tokens;
@@ -19,9 +22,12 @@ pub type ResultDismissAction = Rc<dyn Fn(&mut Window, &mut App)>;
 pub type PaletteKeyAction = Rc<dyn Fn(&KeyDownEvent, &mut Window, &mut App)>;
 pub type QueryAction = Arc<dyn Fn(String) + Send + Sync>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct PaletteStyle {
     pub tokens: IrisPalette,
+    /// Shared Material surface helpers supply the structural radius/frame.
+    /// Visible fills come from IrisStyle tokens applied after that base.
+    pub material: MaterialThemeContext,
     pub radius: f32,
     pub row_radius: f32,
     pub padding: f32,
@@ -34,6 +40,7 @@ impl PaletteStyle {
     pub fn from_theme(theme: &ThemeTokens, width: f32, max_height: f32) -> Option<Self> {
         Some(Self {
             tokens: IrisPalette::from_theme(theme)?,
+            material: theme.material.clone(),
             radius: 28.0,
             row_radius: 14.0,
             padding: 16.0,
@@ -155,27 +162,27 @@ pub fn render_with_editor(
             if input.active_index == Some(index) {
                 active_child = Some(children.len());
             }
-            let mut row = div()
-                .id(format!("iris.palette.result.{}", result.id))
-                .w_full()
-                .min_h(px(style.row_height))
-                .px(px(style.padding))
-                .py(px(8.0))
-                .rounded(px(style.row_radius))
-                .flex()
-                .items_center()
-                .gap(px(12.0))
-                .bg(background)
-                .text_color(tokens.text)
-                .aria_label(result.accessible_label.clone())
-                .focusable()
-                .tab_stop(false)
-                .role(Role::ListBoxOption)
-                .aria_selected(is_active)
-                .on_click(move |_, window, cx| {
-                    action(result_id.clone());
-                    dismiss(window, cx);
-                });
+            let mut row =
+                material::surface(&style.material, tokens.material_high, style.row_radius)
+                    .id(format!("iris.palette.result.{}", result.id))
+                    .w_full()
+                    .min_h(px(style.row_height))
+                    .px(px(style.padding))
+                    .py(px(8.0))
+                    .flex()
+                    .items_center()
+                    .gap(px(12.0))
+                    .bg(background)
+                    .text_color(tokens.text)
+                    .aria_label(result.accessible_label.clone())
+                    .focusable()
+                    .tab_stop(false)
+                    .role(Role::ListBoxOption)
+                    .aria_selected(is_active)
+                    .on_click(move |_, window, cx| {
+                        action(result_id.clone());
+                        dismiss(window, cx);
+                    });
 
             if let Some(leading) = &result.leading {
                 row = row.child(
@@ -269,14 +276,13 @@ pub fn render_with_editor(
         );
     }
 
-    let mut palette = div()
+    let mut palette = material::surface(&style.material, tokens.material_high, style.radius)
         .id("iris.palette.combobox")
         .w(px(style.width))
         .max_h(px(style.max_height))
         .flex()
         .flex_col()
         .overflow_hidden()
-        .rounded(px(style.radius))
         .border_1()
         .border_color(tokens.hairline)
         .bg(tokens.material_high)

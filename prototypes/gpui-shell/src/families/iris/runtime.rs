@@ -928,8 +928,8 @@ impl Render for IrisRuntime {
             self.palette_selected
                 .store(result_count - 1, Ordering::Relaxed);
         }
-        let palette_input = self.palette_style.map(|style| PaletteInput {
-            style,
+        let palette_input = self.palette_style.as_ref().map(|style| PaletteInput {
+            style: style.clone(),
             query: palette_data.query,
             placeholder: "Search applications".to_owned(),
             groups: palette_data.groups,

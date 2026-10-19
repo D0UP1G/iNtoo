@@ -494,13 +494,13 @@ impl StartMenuDataSource for XdgDesktopEntrySource {
             .entries
             .iter()
             .filter(|entry| {
-                query.is_empty()
-                    || entry.name.to_lowercase().contains(&query)
-                    || entry.comment.to_lowercase().contains(&query)
-                    || entry
-                        .categories
-                        .iter()
-                        .any(|category| category.to_lowercase().contains(&query))
+                !query.is_empty()
+                    && (entry.name.to_lowercase().contains(&query)
+                        || entry.comment.to_lowercase().contains(&query)
+                        || entry
+                            .categories
+                            .iter()
+                            .any(|category| category.to_lowercase().contains(&query)))
             })
             .collect::<Vec<_>>();
         let results = matches
@@ -538,6 +538,7 @@ impl StartMenuDataSource for XdgDesktopEntrySource {
         if let Ok(mut catalog) = self.catalog.lock() {
             catalog.query = value;
             catalog.selected.clear();
+            catalog.show_all_apps = false;
         }
     }
 

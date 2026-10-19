@@ -82,7 +82,9 @@ impl Render for WaffleStartMenuOverlay {
         });
 
         let close = Arc::clone(&self.on_close);
-        let results_current = self.search_input.read(cx).confirms_query(&self.input.query);
+        let search = self.search_input.read(cx);
+        let current_query = search.current_query().to_owned();
+        let results_current = search.confirms_query(&self.input.query);
         let display_width = f32::from(self.anchor.display_size.width);
         let display_height = f32::from(self.anchor.display_size.height);
         let menu_width = MENU_WIDTH.min((display_width - HORIZONTAL_MARGIN * 2.).max(1.));
@@ -122,6 +124,7 @@ impl Render for WaffleStartMenuOverlay {
                 self.input.clone(),
                 self.search_input.clone(),
                 self.search_input.focus_handle(cx),
+                current_query,
                 results_current,
                 px(menu_width),
                 px(menu_height),

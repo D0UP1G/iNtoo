@@ -37,6 +37,19 @@ where
         .outline
         .or(theme.colors.outline_variant)
         .unwrap_or(focus);
+    focusable_button_with_roles(element, focus, edge)
+}
+
+/// Add keyboard focus styling with caller-selected family roles.
+///
+/// This variant lets an environment retain its own focus hierarchy while
+/// still using the shared Material focus treatment. The caller chooses the
+/// fill and inset edge independently; the default helper above continues to
+/// prefer Material primary and outline roles.
+pub fn focusable_button_with_roles<E>(element: E, focus: Hsla, edge: Hsla) -> E
+where
+    E: InteractiveElement + Styled,
+{
     element.focus_visible(move |style| {
         style.bg(focus.opacity(0.16)).shadow(vec![
             BoxShadow::new(px(0.), px(0.), edge)

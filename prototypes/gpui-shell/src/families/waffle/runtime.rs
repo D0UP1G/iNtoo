@@ -492,6 +492,7 @@ pub(crate) fn start_menu_style(
     style: &taskbar::WaffleTaskbarStyle,
 ) -> StartMenuStyle {
     StartMenuStyle {
+        material: theme.material.clone(),
         background: style.background,
         surface: theme.colors.surface.unwrap_or(style.active_surface),
         surface_hover: style.hover_surface,
