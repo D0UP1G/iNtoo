@@ -522,62 +522,60 @@ impl Render for TopBar {
 
         let settings_entity = this.clone();
         let launch_display = self.display_id;
-        let launcher_button = div()
-            .id("gpui-mvp-launcher-button")
-            .px(px(10.))
-            .py(px(6.))
-            .rounded_lg()
-            .border_1()
-            .border_color(rgba(0xffffff22))
-            .text_color(foreground_color)
-            .role(Role::Button)
-            .aria_label("Open app launcher")
-            .focusable()
-            .tab_stop(true)
-            .focus_visible(|style| style.border_1().border_color(rgba(0x7aa2f7ff)))
-            .on_click(move |_, _, _| crate::surface_manager::toggle_app_launcher(launch_display))
-            .on_key_down(move |event, _, _| {
-                if activation_pressed(event) {
-                    crate::surface_manager::toggle_app_launcher(launch_display);
-                }
-            })
-            .child("Apps");
+        let launcher_button = material::action_button(
+            div()
+                .id("gpui-mvp-launcher-button")
+                .role(Role::Button)
+                .aria_label("Open app launcher")
+                .focusable()
+                .tab_stop(true)
+                .on_click(move |_, _, _| {
+                    crate::surface_manager::toggle_app_launcher(launch_display)
+                })
+                .on_key_down(move |event, _, _| {
+                    if activation_pressed(event) {
+                        crate::surface_manager::toggle_app_launcher(launch_display);
+                    }
+                })
+                .child("Apps"),
+            &self.theme.material,
+            foreground_color,
+            rgba(0xffffff22).into(),
+            focus_outline,
+            false,
+        );
         let settings_keyboard_entity = this.clone();
-        let settings_button = div()
-            .id("gpui-mvp-settings-button")
-            .px(px(10.))
-            .py(px(6.))
-            .rounded_lg()
-            .border_1()
-            .border_color(if self.settings_open {
-                focus_outline
-            } else {
-                rgba(0xffffff22).into()
-            })
-            .text_color(foreground_color)
-            .role(Role::Button)
-            .aria_label("Open shell settings")
-            .focusable()
-            .tab_stop(true)
-            .focus_visible(move |style| style.border_1().border_color(focus_outline))
-            .hover(move |style| style.bg(hover_surface))
-            .on_click(move |_, _, cx| {
-                let _ = settings_entity.update(cx, |view, cx| {
-                    view.settings_open = !view.settings_open;
-                    view.settings_status = None;
-                    cx.notify();
-                });
-            })
-            .on_key_down(move |event, _, cx| {
-                if activation_pressed(event) {
-                    let _ = settings_keyboard_entity.update(cx, |view, cx| {
+        let settings_button = material::action_button(
+            div()
+                .id("gpui-mvp-settings-button")
+                .role(Role::Button)
+                .aria_label("Open shell settings")
+                .aria_expanded(self.settings_open)
+                .focusable()
+                .tab_stop(true)
+                .on_click(move |_, _, cx| {
+                    let _ = settings_entity.update(cx, |view, cx| {
                         view.settings_open = !view.settings_open;
                         view.settings_status = None;
                         cx.notify();
                     });
-                }
-            })
-            .child("Settings");
+                })
+                .on_key_down(move |event, _, cx| {
+                    if activation_pressed(event) {
+                        let _ = settings_keyboard_entity.update(cx, |view, cx| {
+                            view.settings_open = !view.settings_open;
+                            view.settings_status = None;
+                            cx.notify();
+                        });
+                    }
+                })
+                .child("Settings"),
+            &self.theme.material,
+            foreground_color,
+            rgba(0xffffff22).into(),
+            focus_outline,
+            self.settings_open,
+        );
 
         let escape_entity = this.clone();
         let settings_overlay = if self.settings_open {
