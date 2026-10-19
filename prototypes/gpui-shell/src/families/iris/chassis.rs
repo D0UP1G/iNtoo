@@ -6,7 +6,10 @@
 //! docking, morph origins and page content); this component is a first visual
 //! port boundary and deliberately does not claim pixel or behavior parity.
 
-use crate::theme::ThemeTokens;
+use crate::{
+    components::material,
+    theme::{MaterialThemeContext, ThemeTokens},
+};
 use gpui::{Hsla, IntoElement, div, prelude::*, px};
 
 #[path = "style_tokens.rs"]
@@ -49,6 +52,9 @@ pub struct IrisPiece {
 
 #[derive(Debug, Clone)]
 pub struct IrisChassisStyle {
+    /// Shared Material base context. Iris keeps its own palette and silhouette
+    /// while inheriting common component primitives and spacing defaults.
+    pub material: MaterialThemeContext,
     pub body: Hsla,
     pub body_expanded: Hsla,
     pub piece: Hsla,
@@ -74,6 +80,7 @@ impl Default for IrisChassisStyle {
         // Neutral preview values only. The IrisStyle/QML theme resolver must
         // supply production material, geometry, density and family overrides.
         Self {
+            material: MaterialThemeContext::default(),
             body: gpui::rgba(0x202126f2).into(),
             body_expanded: gpui::rgba(0x202126f8).into(),
             piece: gpui::rgba(0x32343bee).into(),
@@ -116,6 +123,7 @@ impl IrisChassisStyle {
         let density = theme.shape.density.clamp(0.8, 1.35);
         let transparent_clip = gpui::rgba(0x00000001).into();
         Some(Self {
+            material: theme.material.clone(),
             // IrisIsland paints a 0.004-alpha clipping body; the actual
             // material/backdrop belongs to IrisFrame's field renderer.
             body: transparent_clip,
@@ -133,7 +141,7 @@ impl IrisChassisStyle {
             expanded_height: geometry.expanded_height,
             corner_radius: 21.0,
             piece_radius: 21.0,
-            gap: 8.0,
+            gap: theme.material.spacing.sm,
             padding: 20.0,
             density,
         })
@@ -360,7 +368,7 @@ fn render_island_core(
                 }),
         );
 
-    div()
+    material::surface(&style.material, background, radius)
         .id("iris.chassis")
         .w(px(body_width.max(1.0)))
         .h(px(body_height.max(1.0)))
@@ -368,7 +376,9 @@ fn render_island_core(
         .items_center()
         .justify_center()
         .overflow_hidden()
-        .rounded(px(radius))
+        // Keep the Iris capsule/morph geometry and transparent backdrop mask;
+        // Material supplies the reusable surface primitive, Iris supplies its
+        // family-specific paint.
         .bg(background)
         .border_1()
         .border_color(style.outline)

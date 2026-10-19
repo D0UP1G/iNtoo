@@ -12,6 +12,8 @@ use gpui::{
     img, prelude::*, px,
 };
 
+use crate::theme::MaterialThemeContext;
+
 pub mod niri_tasks;
 #[path = "start_menu.rs"]
 pub mod start_menu;
@@ -48,6 +50,9 @@ pub struct TrayEntry {
 
 #[derive(Clone, Debug)]
 pub struct WaffleTaskbarStyle {
+    /// Shared Material base; Waffle palette values below remain the family
+    /// overrides used for the Fluent taskbar composition.
+    pub material: MaterialThemeContext,
     pub background: Hsla,
     pub foreground: Hsla,
     pub muted_foreground: Hsla,
@@ -485,26 +490,28 @@ fn taskbar_button_inner(
     } else {
         style.background
     };
-    let border = style.border;
     let hover_surface = style.hover_surface;
-    let button = div()
-        .id(id)
-        .min_h(px(36.))
-        .px(px(10.))
-        .rounded(px(style.button_radius))
-        .flex()
-        .items_center()
-        .justify_center()
-        .bg(background)
-        .text_color(style.foreground)
-        .role(Role::Button)
-        .aria_label(accessible_label)
-        .focusable()
-        .tab_stop(true)
-        .focus_visible(move |focus_style| focus_style.border_1().border_color(border))
-        .hover(move |hover_style| hover_style.bg(hover_surface))
-        .on_click(on_click)
-        .on_key_down(on_key_down);
+    let button = crate::components::material::focusable_button(
+        div()
+            .id(id)
+            .min_h(px(36.))
+            .px(px(10.))
+            .rounded(px(style.button_radius))
+            .flex()
+            .items_center()
+            .justify_center()
+            .bg(background)
+            .text_color(style.foreground)
+            .role(Role::Button)
+            .aria_label(accessible_label)
+            .focusable()
+            .tab_stop(true),
+        &style.material,
+        style.accent,
+    )
+    .hover(move |hover_style| hover_style.bg(hover_surface))
+    .on_click(on_click)
+    .on_key_down(on_key_down);
 
     if let Some(path) = icon_path {
         // QML AppButton fills the taskbar height. With the default 4px top

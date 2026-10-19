@@ -441,19 +441,42 @@ impl Render for WaffleRuntime {
 pub(crate) fn taskbar_style(theme: &ThemeTokens) -> taskbar::WaffleTaskbarStyle {
     let fallback = preview_palette();
     taskbar::WaffleTaskbarStyle {
-        background: theme.colors.background.unwrap_or(fallback.background),
-        foreground: theme.colors.foreground.unwrap_or(fallback.foreground),
+        // Family-resolved Waffle roles take precedence. The shared Material
+        // palette fills only roles that the Waffle resolver has not supplied.
+        material: theme.material.clone(),
+        background: theme.colors.background.unwrap_or_else(|| {
+            crate::components::material::surface_color(&theme.material, fallback.background)
+        }),
+        foreground: theme
+            .colors
+            .foreground
+            .or(theme.material.colors.on_surface)
+            .unwrap_or(fallback.foreground),
         muted_foreground: theme
             .colors
             .foreground_muted
+            .or(theme.material.colors.on_surface_variant)
             .unwrap_or(fallback.muted_foreground),
-        accent: theme.colors.accent.unwrap_or(fallback.accent),
-        active_surface: theme.colors.selection.unwrap_or(fallback.active_surface),
+        accent: theme
+            .colors
+            .accent
+            .or(theme.material.colors.primary)
+            .unwrap_or(fallback.accent),
+        active_surface: theme
+            .colors
+            .selection
+            .or(theme.material.colors.surface_container_high)
+            .unwrap_or(fallback.active_surface),
         hover_surface: theme
             .colors
             .surface_elevated
+            .or(theme.material.colors.surface_container)
             .unwrap_or(fallback.hover_surface),
-        border: theme.colors.border.unwrap_or(fallback.border),
+        border: theme
+            .colors
+            .border
+            .or(theme.material.colors.outline_variant)
+            .unwrap_or(fallback.border),
         // WaffleBarContent.qml: Looks.scaledBar(48, panelScreen). The runtime
         // lacks per-output geometry here, so use the unscaled QML base value.
         bar_height: 48.0,
@@ -483,6 +506,7 @@ pub(crate) fn start_menu_style(
 fn preview_palette() -> taskbar::WaffleTaskbarStyle {
     let color = |hex| crate::theme::parse_hex_color(hex).expect("valid preview palette color");
     taskbar::WaffleTaskbarStyle {
+        material: crate::theme::MaterialThemeContext::default(),
         background: color("#202124"),
         foreground: color("#f1f3f4"),
         muted_foreground: color("#aeb3b8"),
