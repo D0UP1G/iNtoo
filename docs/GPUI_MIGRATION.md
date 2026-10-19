@@ -1,9 +1,21 @@
-# GPUI migration plan
+# Legacy GPUI migration plan: standalone prototype history
 
-This document tracks the replacement of the Quickshell/QML runtime with a Rust
-application built on GPUI. The existing shell remains the working runtime until
-the replacement passes the compatibility gates below. This is an incremental
-rewrite: install, update, and rollback must continue to work throughout it.
+This document records the former standalone-GPUI migration direction. It is
+historical context, not the active implementation plan. The current direction
+and gates are defined by the
+[GPUI-shell migration PRD](GPUI_SHELL_MIGRATION_PRD.md),
+[architecture ADR](GPUI_SHELL_ARCHITECTURE.md),
+[migration stories](GPUI_SHELL_MIGRATION_STORIES.md), and
+[migration acceptance criteria](GPUI_SHELL_MIGRATION_ACCEPTANCE.md).
+
+> **Still applicable:** The compatibility contract and iNToo QML behavior and
+> surface inventory remain migration requirements. Quickshell/QML remains the
+> production runtime and rollback path until the current acceptance gates pass.
+> Use [`GPUI_SURFACE_MAP.md`](GPUI_SURFACE_MAP.md) for the surface inventory and
+> [`GPUI_ACCEPTANCE.md`](GPUI_ACCEPTANCE.md) for source visual/behavior
+> expectations; use the linked GPUI-shell acceptance document for current
+> migration gates. Standalone-GPUI architecture and prototype findings below
+> are retained as historical evidence, not target architecture.
 
 ## Compatibility contract
 
@@ -25,7 +37,7 @@ The replacement must preserve these user-visible and integration contracts:
 No QML payload or Quickshell dependency should be removed until the matching
 replacement is in use and has a tested rollback path.
 
-## Architecture destination
+## Architecture destination — superseded standalone-GPUI proposal
 
 Keep distribution setup and lifecycle scripts during the early stages. Build the
 new runtime from separated Rust components so UI work does not own operating
@@ -43,7 +55,11 @@ system behavior:
 
 These are proposed boundaries, not a requirement to create every crate at once.
 
-## Stages and gates
+## Stages and gates — superseded standalone-GPUI sequence
+
+This sequence is historical. The compatibility contract above and its
+no-cutover-before-parity rollback requirement remain in force; follow the
+current GPUI-shell migration acceptance criteria for active stage gates.
 
 ### 0. Contract inventory
 

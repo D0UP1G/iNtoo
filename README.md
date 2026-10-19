@@ -154,6 +154,14 @@ intoo audio volumeUp         # Увеличение громкости
  |
 | [Architecture](ARCHITECTURE.md) | Подробное описание архитектуры QML-модулей, сервисов и конвейера тем[cite: 3, 4] |
 
+### Миграция на GPUI-shell
+
+Миграция визуальной оболочки планируется на базе GPUI-shell. Использование его исходного кода пока заблокировано до подтверждения лицензии; Quickshell/QML остаётся production-оболочкой и путём отката.
+
+- [PRD миграции](docs/GPUI_SHELL_MIGRATION_PRD.md)
+- [Архитектурное решение и статус лицензии](docs/GPUI_SHELL_ARCHITECTURE.md)
+- [Критерии приёмки](docs/GPUI_SHELL_MIGRATION_ACCEPTANCE.md)
+
 ---
 
 ## Происхождение и благодарности
