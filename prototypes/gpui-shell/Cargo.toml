@@ -1,0 +1,19 @@
+[package]
+name = "intoo-gpui-shell-prototype"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[features]
+default = ["wayland"]
+wayland = []
+
+[dependencies]
+async-channel = "2"
+libspa = "=0.10.1"
+gpui = { git = "https://github.com/zed-industries/zed", default-features = false, features = ["wayland"] }
+gpui_platform = { git = "https://github.com/zed-industries/zed", default-features = false, features = ["wayland", "font-kit"] }
+pipewire = "=0.10.1"
+serde_json = "1"
+futures-lite = "2"
+zbus = { version = "5.19.0", default-features = false, features = ["async-io"] }
