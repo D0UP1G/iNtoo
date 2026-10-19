@@ -163,20 +163,61 @@ pub fn render_sized(
             }
         },
     );
-    let search = material::surface(&style.material, style.surface, style.radius)
+    // QML paints a footer/body layer behind a separately outlined input.
+    // Material roles cover that layer model; legacy Looks/glass transparency
+    // and the derived inputBg tint are not represented by these tokens yet.
+    let searching = !current_query.is_empty();
+    let search_background = if searching {
+        style
+            .material
+            .colors
+            .surface_container
+            .unwrap_or(style.surface)
+    } else {
+        style
+            .material
+            .colors
+            .surface_container_low
+            .unwrap_or(style.background)
+    };
+    let search_input_background = style
+        .material
+        .colors
+        .surface_container_low
+        .unwrap_or(style.background);
+    let search_outline = style
+        .material
+        .colors
+        .outline_variant
+        .unwrap_or(style.border);
+    let search = div()
         .id("waffle.start-menu.search")
         .w_full()
-        .min_h(px(54.))
-        .px(px(16.))
+        .h(px(64.))
+        .px(px(32.))
+        .py(px(16.))
         .flex()
         .items_center()
-        .gap(px(12.))
-        .bg(style.surface)
+        .bg(search_background)
         .text_color(style.foreground)
-        .border_1()
-        .border_color(style.border)
-        .child(div().text_lg().text_color(style.accent).child("⌕"))
-        .child(search_input);
+        .child(
+            material::outlined_pill_surface(
+                div().w_full().h(px(32.)).flex().items_center().gap(px(12.)),
+                search_input_background,
+                search_outline,
+                16.0,
+            )
+            .child(div().text_lg().text_color(style.accent).child("⌕"))
+            .child(
+                div()
+                    .w_full()
+                    .h(px(32.))
+                    .flex()
+                    .flex_col()
+                    .justify_center()
+                    .child(search_input),
+            ),
+        );
 
     let content: gpui::AnyElement = if !current_query.is_empty() {
         search_page(&input, &current_query, results_current).into_any_element()

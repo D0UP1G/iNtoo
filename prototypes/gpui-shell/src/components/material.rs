@@ -140,6 +140,18 @@ pub fn surface(theme: &MaterialThemeContext, fallback: Hsla, radius: f32) -> Div
     div().rounded(px(radius)).bg(surface_color(theme, fallback))
 }
 
+/// Apply an outlined pill surface to an iNToo-owned element.
+///
+/// The caller supplies family colors and geometry; this helper only provides
+/// the shared one-pixel outline and fill treatment.
+pub fn outlined_pill_surface(element: Div, fill: Hsla, outline: Hsla, radius: f32) -> Div {
+    element
+        .rounded(px(radius))
+        .border_1()
+        .border_color(outline)
+        .bg(fill)
+}
+
 /// Apply the shared Material action-button appearance to an existing control.
 ///
 /// The caller owns its identity, accessibility metadata, focusability, and
