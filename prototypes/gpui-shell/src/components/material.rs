@@ -3,9 +3,127 @@
 //! These primitives provide token-backed defaults only. Callers remain free to
 //! add layout, interaction, and family-specific styling after applying them.
 
-use gpui::{BoxShadow, Div, Hsla, InteractiveElement, StatefulInteractiveElement, Styled, div, px};
+use gpui::{
+    BoxShadow, Div, Hsla, InteractiveElement, ParentElement, Role, StatefulInteractiveElement,
+    Styled, div, hsla, px,
+};
 
-use crate::theme::MaterialThemeContext;
+use crate::theme::{MaterialThemeContext, ThemeTokens};
+
+/// Content state for a non-interactive Material status panel.
+///
+/// Copy is supplied by the owning feature so the shared component stays free
+/// of service and application state. An error message should be an actual
+/// error supplied by that feature, never an inferred cause.
+pub enum StatusPanelState<'a> {
+    Loading {
+        title: &'a str,
+        description: &'a str,
+    },
+    Empty {
+        title: &'a str,
+        description: &'a str,
+    },
+    Unavailable {
+        title: &'a str,
+        description: &'a str,
+    },
+    Error {
+        title: &'a str,
+        description: &'a str,
+    },
+}
+
+/// Render status content using the resolved Material roles and iNToo theme
+/// scale. This is presentational only: it adds no retry action or lifecycle.
+pub fn status_panel(theme: &ThemeTokens, state: StatusPanelState<'_>) -> Div {
+    let (label, title, description) = match state {
+        StatusPanelState::Loading { title, description } => ("LOADING", title, description),
+        StatusPanelState::Empty { title, description } => ("EMPTY", title, description),
+        StatusPanelState::Unavailable { title, description } => ("UNAVAILABLE", title, description),
+        StatusPanelState::Error { title, description } => ("ERROR", title, description),
+    };
+
+    let surface = theme
+        .material
+        .colors
+        .surface_container
+        .or(theme.material.colors.surface)
+        .or(theme.colors.surface)
+        .unwrap_or_else(|| hsla(0.67, 0.025, 0.15, 1.));
+    let foreground = theme
+        .material
+        .colors
+        .on_surface
+        .or(theme.colors.foreground)
+        .unwrap_or_else(|| hsla(0.67, 0.04, 0.94, 1.));
+    let muted = theme
+        .material
+        .colors
+        .on_surface_variant
+        .or(theme.colors.foreground_muted)
+        .unwrap_or_else(|| hsla(0.67, 0.025, 0.72, 1.));
+    let outline = theme
+        .material
+        .colors
+        .outline_variant
+        .or(theme.material.colors.outline)
+        .or(theme.colors.border)
+        .unwrap_or_else(|| foreground.opacity(0.14));
+    let scale = theme.material.typography.size_scale.max(1.0);
+    let padding = theme.material.spacing.lg;
+    let radius = theme.material.shape.large;
+
+    div()
+        .size_full()
+        .flex()
+        .items_center()
+        .justify_center()
+        .p(px(padding))
+        .child(
+            div()
+                .w_full()
+                .max_w(px(440.))
+                .flex()
+                .flex_col()
+                .items_center()
+                .gap(px(theme.material.spacing.md))
+                .rounded(px(radius))
+                .border_1()
+                .border_color(outline)
+                .bg(surface)
+                .p(px(padding))
+                .id("material.status-panel")
+                .role(Role::Status)
+                .aria_label(format!("{label}: {title}. {description}"))
+                .child(
+                    div()
+                        .text_size(px(11. * scale))
+                        .text_color(foreground)
+                        .child(label),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        .font_family(theme.material.typography.title.clone())
+                        .text_size(px(20. * scale))
+                        .text_color(foreground)
+                        .text_center()
+                        .whitespace_normal()
+                        .child(title.to_owned()),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        .font_family(theme.material.typography.main.clone())
+                        .text_size(px(14. * scale))
+                        .text_color(muted)
+                        .text_center()
+                        .whitespace_normal()
+                        .child(description.to_owned()),
+                ),
+        )
+}
 
 /// The shared surface role used for cards and shell surfaces.
 pub fn surface_color(theme: &MaterialThemeContext, fallback: Hsla) -> Hsla {

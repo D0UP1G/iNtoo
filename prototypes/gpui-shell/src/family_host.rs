@@ -448,7 +448,7 @@ enum HostedFamily {
     IiVertical(Entity<VerticalBar>, IiPanelLauncher),
     Waffle(Entity<WaffleRuntime>),
     IrisRuntime(Entity<IrisRuntime>),
-    IrisUnavailable,
+    IrisUnavailable(ThemeTokens),
 }
 
 /// GPUI view that composes the selected family root without owning global
@@ -580,6 +580,7 @@ impl FamilyHost {
             } => {
                 let initialized = Rc::new(Cell::new(false));
                 let initialized_in_entity = initialized.clone();
+                let fallback_theme = theme.clone();
                 let view = cx.new(move |iris_cx| {
                     match IrisRuntime::new(
                         theme,
@@ -603,7 +604,7 @@ impl FamilyHost {
                     eprintln!(
                         "GPUI Iris runtime: constructor returned None after preflight; content suppressed"
                     );
-                    HostedFamily::IrisUnavailable
+                    HostedFamily::IrisUnavailable(fallback_theme)
                 }
             }
         };
@@ -633,7 +634,14 @@ impl Render for FamilyHost {
             HostedFamily::IrisRuntime(view) => {
                 div().size_full().child(view.clone()).into_any_element()
             }
-            HostedFamily::IrisUnavailable => div().size_full().into_any_element(),
+            HostedFamily::IrisUnavailable(theme) => crate::components::material::status_panel(
+                theme,
+                crate::components::material::StatusPanelState::Unavailable {
+                    title: "Iris is unavailable",
+                    description: "The Iris theme and layout could not be initialized.",
+                },
+            )
+            .into_any_element(),
         }
     }
 }
