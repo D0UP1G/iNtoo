@@ -70,8 +70,10 @@ pub fn input(
         .as_ref()
         .map(|source| {
             let source = Arc::clone(source);
-            Arc::new(move |id| {
-                let _ = source.launch_app(id);
+            Arc::new(move |id: String| {
+                if let Err(error) = source.launch_app(id.clone()) {
+                    eprintln!("GPUI app launcher: could not launch '{id}': {error}");
+                }
             }) as ItemAction
         })
         .unwrap_or_else(|| Arc::new(|_| {}));

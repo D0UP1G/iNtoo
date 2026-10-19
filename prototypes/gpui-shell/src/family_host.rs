@@ -505,7 +505,7 @@ impl FamilyHost {
                     overview_launcher_focus.clone(),
                 );
                 HostedFamily::IiHorizontal(
-                    cx.new(|cx| TopBar::new(output_name, config, theme, cx)),
+                    cx.new(|cx| TopBar::new(output_name, config, theme, display_id, cx)),
                     launcher,
                 )
             }

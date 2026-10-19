@@ -67,6 +67,7 @@ mod families {
     }
 }
 mod family_host;
+mod mvp_settings;
 mod niri;
 mod notification_service;
 mod resource_provider;

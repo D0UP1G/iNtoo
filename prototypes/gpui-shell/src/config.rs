@@ -38,6 +38,8 @@ pub struct ShellConfig {
     pub dashboard: DashboardConfig,
     /// QML `battery.low` warning threshold, expressed as a percentage.
     pub battery_low: Option<f64>,
+    /// Settings owned by the standalone GPUI MVP and namespaced in `gpuiMvp`.
+    pub gpui_mvp: crate::mvp_settings::MvpSettings,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -461,12 +463,15 @@ impl ConfigLoad {
 
     fn from_value(root: Value, source: ConfigSource) -> Self {
         let mut diagnostics = Vec::new();
+        let (gpui_mvp, gpui_mvp_diagnostics) = crate::mvp_settings::MvpSettings::from_json(&root);
+        diagnostics.extend(gpui_mvp_diagnostics);
         let defaults = serde_json::from_str::<Value>(DEFAULT_CONFIG).unwrap_or(Value::Null);
         let bar = section(&root, "bar").or_else(|| section(&defaults, "bar"));
         let appearance = section(&root, "appearance").or_else(|| section(&defaults, "appearance"));
         let background = section(&root, "background").or_else(|| section(&defaults, "background"));
         let battery = section(&root, "battery").or_else(|| section(&defaults, "battery"));
         let mut cfg = ShellConfig::default();
+        cfg.gpui_mvp = gpui_mvp;
         cfg.battery_low = battery
             .and_then(|value| number_at(value, "low", "battery.low", &mut diagnostics))
             .or_else(|| {

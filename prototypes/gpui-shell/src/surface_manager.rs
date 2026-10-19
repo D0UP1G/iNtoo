@@ -109,6 +109,17 @@ struct NiriOutputSnapshotState {
 static NIRI_OUTPUT_SNAPSHOT: OnceLock<RwLock<NiriOutputSnapshotState>> = OnceLock::new();
 static NIRI_OUTPUT_REFRESH_IN_FLIGHT: AtomicBool = AtomicBool::new(false);
 static NIRI_OUTPUT_REFRESH_SENDER: OnceLock<async_channel::Sender<()>> = OnceLock::new();
+static GPUI_APP_LAUNCHER: OnceLock<Sender<StartMenuEvent>> = OnceLock::new();
+
+pub fn toggle_app_launcher(display: DisplayId) {
+    if let Some(sender) = GPUI_APP_LAUNCHER.get() {
+        if sender.try_send(StartMenuEvent::Toggle { display }).is_err() {
+            eprintln!("GPUI app launcher: could not send toggle event");
+        }
+    } else {
+        eprintln!("GPUI app launcher is not initialized");
+    }
+}
 
 fn report_config_load(revision: Option<u64>, loaded: &ConfigLoad) {
     let revision_label = revision
@@ -354,6 +365,7 @@ pub fn start(cx: &mut App) {
     let action_center_overlays: ActionCenterOverlayMap = Rc::default();
     let clipboard_overlays: ClipboardOverlayMap = Rc::default();
     let (waffle_events, waffle_receiver) = async_channel::unbounded::<StartMenuEvent>();
+    let _ = GPUI_APP_LAUNCHER.set(waffle_events.clone());
     let (notification_events, notification_receiver) =
         async_channel::unbounded::<NotificationCenterEvent>();
     let (task_view_events, task_view_receiver) = async_channel::unbounded::<TaskViewEvent>();
@@ -394,7 +406,11 @@ pub fn start(cx: &mut App) {
     let generated = state_root.join("user/generated");
     let palette = read_json(&generated.join("colors.json"));
     let metadata = read_json(&generated.join("theme-meta.json"));
-    let theme = theme_resolver::resolve_for_config(&loaded, palette.as_ref(), metadata.as_ref());
+    let mut theme =
+        theme_resolver::resolve_for_config(&loaded, palette.as_ref(), metadata.as_ref());
+    if loaded.config.gpui_mvp.configured {
+        crate::components::top_bar::apply_mvp_theme(&mut theme, &loaded.config.gpui_mvp);
+    }
     let critical_config: Rc<RefCell<IiCriticalSnapshot>> =
         Rc::new(RefCell::new(IiCriticalSnapshot {
             revision: 0,
@@ -405,8 +421,9 @@ pub fn start(cx: &mut App) {
     let overlay_receiver = waffle_receiver.clone();
     let overlay_handles = overlays.clone();
     let overlay_controller = waffle_controller.clone();
-    let overlay_config = config.clone();
-    let overlay_theme = theme.clone();
+    // Resolve launcher presentation from the live config/theme snapshot when
+    // it opens. Capturing these startup clones leaves later windows stale.
+    let overlay_state = critical_config.clone();
     let overlay_source = waffle_source.clone();
     let overlay_sender = waffle_events.clone();
     cx.spawn(async move |cx| {
@@ -434,15 +451,20 @@ pub fn start(cx: &mut App) {
                 };
                 close_waffle_overlay(cx, &overlay_handles, display);
                 if open {
-                    open_waffle_overlay(
+                    let snapshot = overlay_state.borrow().clone();
+                    if !open_waffle_overlay(
                         cx,
                         &overlay_handles,
                         display,
-                        &overlay_config,
-                        &overlay_theme,
+                        &snapshot.loaded.config,
+                        &snapshot.theme,
                         &overlay_source,
                         &overlay_sender,
-                    );
+                    ) {
+                        // A failed or disabled open must not leave the
+                        // per-display controller claiming that a menu exists.
+                        overlay_controller.borrow_mut().close(display);
+                    }
                 }
             });
         }
@@ -676,6 +698,10 @@ pub fn start(cx: &mut App) {
     let revision_ii_panel_surfaces = ii_panel_surfaces.clone();
     let revision_ii_panel_states = ii_panel_states.clone();
     let revision_ii_overviews = ii_overview_overlays.clone();
+    let revision_start_menu_overlays = overlays.clone();
+    let revision_start_menu_controller = waffle_controller.clone();
+    let revision_start_menu_source = waffle_source.clone();
+    let revision_start_menu_events = waffle_events.clone();
     cx.spawn(async move |cx| {
         while let Ok(update) = config_revision_receiver.recv().await {
             cx.update(|cx| {
@@ -700,11 +726,17 @@ pub fn start(cx: &mut App) {
                     Some(selected_environment.descriptor().id.as_str().to_owned());
                 let palette = read_json(&revision_generated.join("colors.json"));
                 let metadata = read_json(&revision_generated.join("theme-meta.json"));
-                let theme = theme_resolver::resolve_for_config(
+                let mut theme = theme_resolver::resolve_for_config(
                     &runtime_loaded,
                     palette.as_ref(),
                     metadata.as_ref(),
                 );
+                if runtime_loaded.config.gpui_mvp.configured {
+                    crate::components::top_bar::apply_mvp_theme(
+                        &mut theme,
+                        &runtime_loaded.config.gpui_mvp,
+                    );
+                }
                 let ii_family_update = previous.loaded.config.panel_family.as_deref() == Some("ii")
                     && runtime_loaded.config.panel_family.as_deref() == Some("ii");
                 let exited_ii_family = previous.loaded.config.panel_family.as_deref() == Some("ii")
@@ -724,6 +756,23 @@ pub fn start(cx: &mut App) {
                     loaded: runtime_loaded,
                     theme: theme.clone(),
                 };
+                if waffle_family_update
+                    || waffle_start_menu_config_changed(
+                        &previous.loaded.config,
+                        &revision_state.borrow().loaded.config,
+                    )
+                {
+                    let snapshot = revision_state.borrow().clone();
+                    refresh_open_waffle_overlays(
+                        cx,
+                        &revision_start_menu_overlays,
+                        &revision_start_menu_controller,
+                        &snapshot.loaded.config,
+                        &snapshot.theme,
+                        &revision_start_menu_source,
+                        &revision_start_menu_events,
+                    );
+                }
                 if exited_ii_family {
                     eprintln!(
                         "GPUI config revision {}: closed ii surfaces after panelFamily changed; restart to activate the target family",
@@ -2230,6 +2279,7 @@ fn ii_critical_config_changed(previous: &ConfigLoad, next: &ConfigLoad) -> bool 
         || previous.sidebar != next.sidebar
         || previous.dashboard != next.dashboard
         || previous.appearance != next.appearance
+        || previous.gpui_mvp != next.gpui_mvp
 }
 
 fn waffle_background_config_changed(previous: &ShellConfig, next: &ShellConfig) -> bool {
@@ -2238,6 +2288,18 @@ fn waffle_background_config_changed(previous: &ShellConfig, next: &ShellConfig) 
         || previous.background != next.background
         || previous.waffle.background != next.waffle.background
         || previous.appearance != next.appearance
+}
+
+fn waffle_start_menu_config_changed(previous: &ShellConfig, next: &ShellConfig) -> bool {
+    previous.panel_family != next.panel_family
+        || previous.enabled_panels != next.enabled_panels
+        || previous.appearance != next.appearance
+        || previous.gpui_mvp != next.gpui_mvp
+        || previous.background != next.background
+        || previous.waffle.background != next.waffle.background
+        || previous.bar.bottom != next.bar.bottom
+        || previous.bar.height != next.bar.height
+        || previous.waffle.bar.bottom != next.waffle.bar.bottom
 }
 
 /// Reconcile only the ii critical composition. Bar and dock use their own
@@ -3050,6 +3112,52 @@ fn close_waffle_overlay(cx: &mut App, overlays: &OverlayMap, display: DisplayId)
     }
 }
 
+/// Rebuild already-open Waffle launchers from the latest theme/config snapshot
+/// without toggling their per-output controller state. The data source owns
+/// query and navigation state, so the new view receives its current snapshot.
+fn refresh_open_waffle_overlays(
+    cx: &mut App,
+    overlays: &OverlayMap,
+    controller: &Rc<RefCell<StartMenuController>>,
+    config: &ShellConfig,
+    theme: &ThemeTokens,
+    source: &Option<std::sync::Arc<XdgDesktopEntrySource>>,
+    events: &Sender<StartMenuEvent>,
+) {
+    let displays = overlays.borrow().keys().copied().collect::<Vec<_>>();
+    for display in displays {
+        if !matches!(
+            controller.borrow().state(display),
+            StartMenuState::Open { .. }
+        ) {
+            close_waffle_overlay(cx, overlays, display);
+            continue;
+        }
+
+        close_waffle_overlay(cx, overlays, display);
+        if !app_launcher_enabled(config) {
+            controller.borrow_mut().close(display);
+            continue;
+        }
+        if !open_waffle_overlay(cx, overlays, display, config, theme, source, events) {
+            controller.borrow_mut().close(display);
+        }
+    }
+}
+
+/// The II MVP TopBar always exposes Apps. Waffle exposes Start only when its
+/// panel is enabled, matching the Waffle taskbar's visibility gate.
+fn app_launcher_enabled(config: &ShellConfig) -> bool {
+    match config.panel_family.as_deref() {
+        Some("ii") => true,
+        Some("waffle") => config
+            .enabled_panels
+            .iter()
+            .any(|panel| panel == "wStartMenu"),
+        _ => false,
+    }
+}
+
 fn open_waffle_overlay(
     cx: &mut App,
     overlays: &OverlayMap,
@@ -3058,23 +3166,19 @@ fn open_waffle_overlay(
     theme: &ThemeTokens,
     source: &Option<std::sync::Arc<XdgDesktopEntrySource>>,
     events: &Sender<StartMenuEvent>,
-) {
+) -> bool {
     if overlays.borrow().contains_key(&display_id) {
-        return;
+        return true;
     }
-    if !config
-        .enabled_panels
-        .iter()
-        .any(|panel| panel == "wStartMenu")
-    {
-        return;
+    if !app_launcher_enabled(config) {
+        return false;
     }
     let Some(display) = cx
         .displays()
         .into_iter()
         .find(|display| display.id() == display_id)
     else {
-        return;
+        return false;
     };
     let size = display.bounds().size;
     let base = crate::families::waffle::runtime::taskbar_style(theme);
@@ -3127,12 +3231,20 @@ fn open_waffle_overlay(
             display: display_id,
         });
     });
-    let bottom = config.waffle.bar.bottom.unwrap_or(false);
+    let bottom = if config.panel_family.as_deref() == Some("waffle") {
+        config.waffle.bar.bottom.unwrap_or(false)
+    } else {
+        config.bar.bottom.unwrap_or(false)
+    };
     let anchor = crate::families::waffle::taskbar::start_menu_overlay::StartMenuOverlayAnchor {
         display_size: size,
         bar_bottom: bottom,
         left_align_apps: false,
-        bar_height: px(48.0),
+        bar_height: px(if config.panel_family.as_deref() == Some("waffle") {
+            48.0
+        } else {
+            config.bar.height.unwrap_or(48.0).clamp(24.0, 128.0) as f32
+        }),
     };
     let options = WindowOptions {
         titlebar: None,
@@ -3171,8 +3283,12 @@ fn open_waffle_overlay(
     }) {
         Ok(handle) => {
             overlays.borrow_mut().insert(display_id, handle);
+            true
         }
-        Err(error) => eprintln!("Could not open Waffle Start Menu on {display_id:?}: {error:#}"),
+        Err(error) => {
+            eprintln!("Could not open Waffle Start Menu on {display_id:?}: {error:#}");
+            false
+        }
     }
 }
 
@@ -4608,5 +4724,32 @@ fn resize_for_display(
         eprintln!("Could not resize GPUI layer surface for {display_id:?}: {error:#}");
         close_for_display(cx, surfaces, display_id);
         open_for_display(cx, surfaces, display_id, config, theme, panel_events);
+    }
+}
+
+#[cfg(test)]
+mod launcher_policy_tests {
+    use super::app_launcher_enabled;
+    use crate::config::ShellConfig;
+
+    #[test]
+    fn ii_apps_launcher_does_not_require_waffle_panel_flag() {
+        let ii = ShellConfig {
+            panel_family: Some("ii".into()),
+            enabled_panels: Vec::new(),
+            ..ShellConfig::default()
+        };
+        assert!(app_launcher_enabled(&ii));
+    }
+
+    #[test]
+    fn waffle_start_menu_still_requires_enabled_panel() {
+        let mut waffle = ShellConfig {
+            panel_family: Some("waffle".into()),
+            ..ShellConfig::default()
+        };
+        assert!(!app_launcher_enabled(&waffle));
+        waffle.enabled_panels.push("wStartMenu".into());
+        assert!(app_launcher_enabled(&waffle));
     }
 }
