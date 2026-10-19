@@ -4,9 +4,10 @@
 //! history is loaded or that iNtoo notification policy has been applied.
 
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
+    collections::{BTreeMap, HashMap},
+    sync::{Arc, Mutex, mpsc},
     thread,
+    time::{Duration, Instant},
 };
 
 use async_channel::{Receiver, Sender};
@@ -36,7 +37,9 @@ pub enum NotificationServiceStatus {
 pub enum NotificationSnapshotState {
     Loading,
     Unavailable,
-    Ready,
+    /// The D-Bus name is owned and the in-memory session list is authoritative.
+    /// This does not include persisted history or unread/read policy.
+    ReadySessionOnly,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -66,7 +69,7 @@ pub enum NotificationUrgency {
 #[derive(Clone, Debug)]
 pub struct NotificationSnapshot {
     pub service: NotificationServiceStatus,
-    /// Remains Loading until persistence and policy projection are implemented.
+    /// Session-only readiness is distinct from restored history readiness.
     pub state: NotificationSnapshotState,
     /// Protocol-live items only; not a replacement for persisted history.
     pub live: Vec<LiveNotification>,
@@ -123,6 +126,22 @@ enum ServiceCommand {
         id: u32,
         reply: Sender<CloseResult>,
     },
+    Expire {
+        id: u32,
+        generation: u64,
+    },
+}
+
+enum ExpiryCommand {
+    Schedule {
+        id: u32,
+        generation: u64,
+        deadline: Instant,
+    },
+    Cancel {
+        id: u32,
+    },
+    Shutdown,
 }
 
 enum CloseResult {
@@ -141,6 +160,8 @@ struct ServiceState {
     service: Option<NotificationServiceStatus>,
     next_id: u32,
     live: HashMap<u32, LiveNotification>,
+    expirations: HashMap<u32, (Instant, u64)>,
+    next_expiration_generation: u64,
 }
 
 impl NotificationServiceHandle {
@@ -154,6 +175,8 @@ impl NotificationServiceHandle {
             service: Some(NotificationServiceStatus::Disabled),
             next_id: 1,
             live: HashMap::new(),
+            expirations: HashMap::new(),
+            next_expiration_generation: 1,
         }));
         let handle = Self {
             state: state.clone(),
@@ -207,9 +230,8 @@ impl NotificationServiceHandle {
             NotificationServiceStatus::Disabled
             | NotificationServiceStatus::Stopped
             | NotificationServiceStatus::Unavailable(_) => NotificationSnapshotState::Unavailable,
-            NotificationServiceStatus::Starting | NotificationServiceStatus::OwnerReady => {
-                NotificationSnapshotState::Loading
-            }
+            NotificationServiceStatus::Starting => NotificationSnapshotState::Loading,
+            NotificationServiceStatus::OwnerReady => NotificationSnapshotState::ReadySessionOnly,
         };
         let mut live = state.live.values().cloned().collect::<Vec<_>>();
         live.sort_by_key(|item| item.id);
@@ -287,6 +309,11 @@ async fn run_service(
     if !matches!(ownership, RequestNameReply::PrimaryOwner) {
         return Err(zbus::Error::NameTaken);
     }
+    let (expiry_commands, expiry_receiver) = mpsc::channel();
+    let expiry_worker = thread::Builder::new()
+        .name("intoo-gpui-notification-expiry".into())
+        .spawn(move || run_expiry_scheduler(expiry_receiver, commands_sender.clone()))
+        .map_err(zbus::Error::from)?;
     set_status(&state, &events, NotificationServiceStatus::OwnerReady);
     loop {
         let input = race(
@@ -306,6 +333,8 @@ async fn run_service(
         match input {
             WorkerInput::Shutdown => {
                 connection.release_name(SERVICE_NAME).await?;
+                let _ = expiry_commands.send(ExpiryCommand::Shutdown);
+                let _ = expiry_worker.join();
                 set_status(&state, &events, NotificationServiceStatus::Stopped);
                 break;
             }
@@ -321,7 +350,7 @@ async fn run_service(
                 sender,
                 reply,
             }) => {
-                let result = {
+                let (result, expiry_update) = {
                     let mut state = state.lock().expect("notification state poisoned");
                     let replacing = replaces_id != 0
                         && state
@@ -353,6 +382,18 @@ async fn run_service(
                         urgency,
                         expire_timeout_ms,
                     };
+                    let expiry_timeout_ms =
+                        effective_expiration_timeout_ms(expire_timeout_ms, urgency);
+                    let expiry = if let Some(timeout_ms) = expiry_timeout_ms {
+                        let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+                        let generation = state.next_expiration_generation.max(1);
+                        state.next_expiration_generation = generation.wrapping_add(1).max(1);
+                        state.expirations.insert(id, (deadline, generation));
+                        Some((id, deadline, generation))
+                    } else {
+                        state.expirations.remove(&id);
+                        None
+                    };
                     state.live.insert(id, notification.clone());
                     let event = if replacing {
                         NotificationEvent::Replaced {
@@ -364,8 +405,22 @@ async fn run_service(
                     };
                     drop(state);
                     let _ = events.send(event).await;
-                    Ok(id)
+                    (Ok(id), expiry)
                 };
+                if let Some((id, deadline, generation)) = expiry_update {
+                    let _ = expiry_commands.send(ExpiryCommand::Schedule {
+                        id,
+                        deadline,
+                        generation,
+                    });
+                } else {
+                    // Also removes a prior deadline when a replacement requests zero
+                    // or delegates expiry to the server-default policy (-1).
+                    // For a brand-new item this is a harmless no-op.
+                    if let Ok(id) = result.as_ref() {
+                        let _ = expiry_commands.send(ExpiryCommand::Cancel { id: *id });
+                    }
+                }
                 let _ = reply.send(result).await;
             }
             WorkerInput::Command(ServiceCommand::Dismiss { id, reason }) => {
@@ -379,11 +434,12 @@ async fn run_service(
                 }
                 let emitter = SignalEmitter::new(&connection, OBJECT_PATH)?;
                 NotificationInterface::notification_closed(&emitter, id, reason).await?;
-                state
-                    .lock()
-                    .expect("notification state poisoned")
-                    .live
-                    .remove(&id);
+                {
+                    let mut state = state.lock().expect("notification state poisoned");
+                    state.live.remove(&id);
+                    state.expirations.remove(&id);
+                }
+                let _ = expiry_commands.send(ExpiryCommand::Cancel { id });
                 let _ = events.send(NotificationEvent::Closed { id, reason }).await;
             }
             WorkerInput::Command(ServiceCommand::InvokeAction { id, action_id }) => {
@@ -405,11 +461,12 @@ async fn run_service(
                     })
                     .await;
                 NotificationInterface::notification_closed(&emitter, id, 2).await?;
-                state
-                    .lock()
-                    .expect("notification state poisoned")
-                    .live
-                    .remove(&id);
+                {
+                    let mut state = state.lock().expect("notification state poisoned");
+                    state.live.remove(&id);
+                    state.expirations.remove(&id);
+                }
+                let _ = expiry_commands.send(ExpiryCommand::Cancel { id });
                 let _ = events
                     .send(NotificationEvent::Closed { id, reason: 2 })
                     .await;
@@ -433,15 +490,43 @@ async fn run_service(
                     let _ = reply.send(CloseResult::Failed(error.to_string())).await;
                     continue;
                 }
-                state
-                    .lock()
-                    .expect("notification state poisoned")
-                    .live
-                    .remove(&id);
+                {
+                    let mut state = state.lock().expect("notification state poisoned");
+                    state.live.remove(&id);
+                    state.expirations.remove(&id);
+                }
+                let _ = expiry_commands.send(ExpiryCommand::Cancel { id });
                 let _ = events
                     .send(NotificationEvent::Closed { id, reason: 3 })
                     .await;
                 let _ = reply.send(CloseResult::Closed).await;
+            }
+            WorkerInput::Command(ServiceCommand::Expire { id, generation }) => {
+                let expired =
+                    {
+                        let mut state = state.lock().expect("notification state poisoned");
+                        let matches_current = state.expirations.get(&id).is_some_and(
+                            |(deadline, current_generation)| {
+                                *current_generation == generation && *deadline <= Instant::now()
+                            },
+                        );
+                        if matches_current {
+                            state.expirations.remove(&id);
+                            state.live.remove(&id).is_some()
+                        } else {
+                            false
+                        }
+                    };
+                if !expired {
+                    continue;
+                }
+                // Invalidate the ID in the live store before publishing the
+                // protocol signal, as required by NotificationClosed semantics.
+                let emitter = SignalEmitter::new(&connection, OBJECT_PATH)?;
+                NotificationInterface::notification_closed(&emitter, id, 1).await?;
+                let _ = events
+                    .send(NotificationEvent::Closed { id, reason: 1 })
+                    .await;
             }
         }
     }
@@ -563,4 +648,83 @@ fn allocate_notification_id(state: &mut ServiceState) -> Option<u32> {
         }
     }
     None
+}
+
+fn effective_expiration_timeout_ms(
+    requested_timeout_ms: i32,
+    urgency: NotificationUrgency,
+) -> Option<u64> {
+    match requested_timeout_ms {
+        timeout if timeout > 0 => Some(timeout as u64),
+        0 => None,
+        // Match the current Waffle/QML fallback values in
+        // Notifications.qml::_timeoutForNotification. The interface has no
+        // runtime config input yet, so these are defaults, not saved settings.
+        _ => match urgency {
+            NotificationUrgency::Low => Some(5_000),
+            NotificationUrgency::Normal => Some(7_000),
+            NotificationUrgency::Critical => Some(30_000),
+        },
+    }
+}
+
+fn run_expiry_scheduler(
+    commands: mpsc::Receiver<ExpiryCommand>,
+    service_commands: Sender<ServiceCommand>,
+) {
+    let mut deadlines = BTreeMap::<(Instant, u32), u64>::new();
+    let mut by_id = HashMap::<u32, (Instant, u64)>::new();
+
+    loop {
+        let next_deadline = deadlines
+            .first_key_value()
+            .map(|((deadline, _), _)| *deadline);
+        let command = match next_deadline {
+            Some(deadline) => {
+                commands.recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            }
+            None => commands
+                .recv()
+                .map_err(|_| mpsc::RecvTimeoutError::Disconnected),
+        };
+
+        match command {
+            Ok(ExpiryCommand::Schedule {
+                id,
+                generation,
+                deadline,
+            }) => {
+                if let Some((old_deadline, _)) = by_id.remove(&id) {
+                    deadlines.remove(&(old_deadline, id));
+                }
+                deadlines.insert((deadline, id), generation);
+                by_id.insert(id, (deadline, generation));
+            }
+            Ok(ExpiryCommand::Cancel { id }) => {
+                if let Some((deadline, _)) = by_id.remove(&id) {
+                    deadlines.remove(&(deadline, id));
+                }
+            }
+            Ok(ExpiryCommand::Shutdown) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                let now = Instant::now();
+                let due = deadlines
+                    .range(..=(now, u32::MAX))
+                    .map(|(key, generation)| (*key, *generation))
+                    .collect::<Vec<_>>();
+                for ((deadline, id), generation) in due {
+                    deadlines.remove(&(deadline, id));
+                    if by_id.get(&id) == Some(&(deadline, generation)) {
+                        by_id.remove(&id);
+                        if service_commands
+                            .send_blocking(ServiceCommand::Expire { id, generation })
+                            .is_err()
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

@@ -1,18 +1,24 @@
 //! Output-sized Waffle Notification Center overlay host.
 //!
-//! Notification and calendar adapters are not connected yet, so this host
-//! supplies explicit unavailable states and no synthetic records.
+//! The host accepts live-session notification snapshots; calendar data stays
+//! unavailable until its adapter is connected.
 
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use gpui::{
-    App, Context, FocusHandle, Focusable, IntoElement, Pixels, Render, Size, Window, div,
+    App, Context, FocusHandle, Focusable, IntoElement, Pixels, Render, Role, Size, Window, div,
     prelude::*, px,
 };
 
 use super::{
     notification_center::{self, Action, DataState, NotificationCenterInput},
     runtime::{start_menu_style, taskbar_style},
+};
+use crate::notification_service::{
+    NotificationServiceHandle, NotificationSnapshot, NotificationSnapshotState,
 };
 use crate::theme::ThemeTokens;
 
@@ -45,6 +51,11 @@ impl WaffleNotificationOverlay {
             focus_handle: cx.focus_handle(),
             needs_initial_focus: true,
         }
+    }
+
+    pub fn set_input(&mut self, input: NotificationCenterInput, cx: &mut Context<Self>) {
+        self.input = input;
+        cx.notify();
     }
 }
 
@@ -81,6 +92,8 @@ impl Render for WaffleNotificationOverlay {
             .id("waffle.notification-center.overlay")
             .relative()
             .size_full()
+            .role(Role::Dialog)
+            .aria_label("Notification center")
             .focusable()
             .tab_stop(true)
             .child(
@@ -123,7 +136,7 @@ pub fn unavailable_input(
         available_height,
         groups: Vec::new(),
         notification_count: 0,
-        unread_count: 0,
+        unread_count: None,
         silent: false,
         search_query: String::new(),
         notification_state: DataState::Unavailable,
@@ -149,5 +162,147 @@ pub fn unavailable_input(
         on_toggle_calendar: Arc::clone(&noop),
         on_adjust_focus: Arc::new(|_| {}),
         on_focus_action: noop,
+    }
+}
+
+/// Builds a presentation snapshot from notifications received in this process.
+/// This projection deliberately has no persisted history, unread/read state,
+/// Do Not Disturb setting, or fabricated timestamps.
+pub fn session_input(
+    theme: &ThemeTokens,
+    available_height: Pixels,
+    snapshot: &NotificationSnapshot,
+    service: &NotificationServiceHandle,
+    expanded_groups: &HashSet<String>,
+    on_toggle_group: notification_center::ItemAction,
+    on_close: Action,
+) -> NotificationCenterInput {
+    let mut input = unavailable_input(theme, available_height, on_close);
+    input.notification_state = match snapshot.state {
+        NotificationSnapshotState::Loading => DataState::Loading,
+        NotificationSnapshotState::Unavailable => DataState::Unavailable,
+        NotificationSnapshotState::ReadySessionOnly => DataState::ReadySessionOnly,
+    };
+    let live_items = if snapshot.state == NotificationSnapshotState::ReadySessionOnly {
+        snapshot.live.as_slice()
+    } else {
+        &[]
+    };
+    input.notification_count = live_items.len();
+    input.unread_count = None;
+    input.silent = false;
+
+    let mut grouped = HashMap::<String, Vec<notification_center::NotificationItem>>::new();
+    let mut latest_id = HashMap::<String, u32>::new();
+    let mut ids_by_app = HashMap::<String, Vec<u32>>::new();
+    let mut app_names_by_key = HashMap::<String, String>::new();
+    let mut app_icons_by_key = HashMap::<String, String>::new();
+    for live in live_items {
+        let app_name = live.app_name.clone();
+        let group_key = notification_group_key(&live.app_name, &live.sender);
+        app_names_by_key
+            .entry(group_key.clone())
+            .or_insert_with(|| app_name.clone());
+        if !live.app_icon.is_empty() {
+            app_icons_by_key.insert(group_key.clone(), live.app_icon.clone());
+        }
+        grouped
+            .entry(group_key.clone())
+            .or_default()
+            .push(notification_center::NotificationItem {
+                id: live.id.to_string(),
+                title: live.summary.clone(),
+                body: live.body.clone(),
+                timestamp: String::new(),
+                unread: None,
+                critical: live.urgency
+                    == crate::notification_service::NotificationUrgency::Critical,
+                actions: live
+                    .actions
+                    .iter()
+                    .map(|(id, label)| notification_center::NotificationAction {
+                        id: id.clone(),
+                        label: label.clone(),
+                    })
+                    .collect(),
+            });
+        latest_id
+            .entry(group_key.clone())
+            .and_modify(|current| *current = (*current).max(live.id))
+            .or_insert(live.id);
+        ids_by_app.entry(group_key).or_default().push(live.id);
+    }
+
+    let mut app_names = grouped.keys().cloned().collect::<Vec<_>>();
+    app_names.sort_by_key(|app_name| {
+        std::cmp::Reverse(latest_id.get(app_name).copied().unwrap_or_default())
+    });
+    input.groups = app_names
+        .into_iter()
+        .map(|group_key| {
+            let mut notifications = grouped.remove(&group_key).unwrap_or_default();
+            notifications.reverse();
+            let app_name = app_names_by_key.remove(&group_key).unwrap_or_default();
+            let app_icon = app_icons_by_key.remove(&group_key).unwrap_or_default();
+            notification_center::NotificationGroup {
+                app_id: group_key.clone(),
+                app_name: if app_name.is_empty() {
+                    "Unknown application".into()
+                } else {
+                    app_name.clone()
+                },
+                app_icon,
+                notifications,
+                expanded: expanded_groups.contains(&group_key),
+            }
+        })
+        .collect();
+
+    input.on_toggle_group = on_toggle_group;
+    let live_ids = live_items.iter().map(|item| item.id).collect::<Vec<_>>();
+    let valid_live_ids = Arc::new(live_ids.iter().copied().collect::<HashSet<_>>());
+    let clear_service = service.clone();
+    input.on_clear_all = Arc::new(move || {
+        for id in &live_ids {
+            clear_service.dismiss(*id, 2);
+        }
+    });
+    let grouped_ids = Arc::new(ids_by_app);
+    let dismiss_group_service = service.clone();
+    input.on_dismiss_group = Arc::new(move |app_id| {
+        if let Some(ids) = grouped_ids.get(&app_id) {
+            for id in ids {
+                dismiss_group_service.dismiss(*id, 2);
+            }
+        }
+    });
+    let dismiss_service = service.clone();
+    let dismiss_ids = valid_live_ids.clone();
+    input.on_dismiss_notification = Arc::new(move |id| {
+        if let Ok(id) = id.parse::<u32>() {
+            if dismiss_ids.contains(&id) {
+                dismiss_service.dismiss(id, 2);
+            }
+        }
+    });
+    let action_service = service.clone();
+    let action_ids = valid_live_ids;
+    input.on_notification_action = Arc::new(move |id, action_id| {
+        if let Ok(id) = id.parse::<u32>() {
+            if action_ids.contains(&id) {
+                let _ = action_service.invoke_action(id, &action_id);
+            }
+        }
+    });
+
+    input
+}
+
+fn notification_group_key(app_name: &str, sender: &str) -> String {
+    if app_name.is_empty() {
+        // Unlike QML's shared empty-name bucket, sender scope avoids mass-dismiss across unrelated apps.
+        format!("sender:{sender}")
+    } else {
+        format!("app:{app_name}")
     }
 }

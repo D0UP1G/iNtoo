@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     hash::{Hash, Hasher},
     rc::Rc,
     sync::{
@@ -368,6 +368,10 @@ pub fn start(cx: &mut App) {
     let _ = GPUI_APP_LAUNCHER.set(waffle_events.clone());
     let (notification_events, notification_receiver) =
         async_channel::unbounded::<NotificationCenterEvent>();
+    let (notification_group_events, notification_group_receiver) =
+        async_channel::unbounded::<(DisplayId, String)>();
+    let notification_group_expanded: Rc<RefCell<HashMap<DisplayId, HashSet<String>>>> =
+        Rc::default();
     let (task_view_events, task_view_receiver) = async_channel::unbounded::<TaskViewEvent>();
     let (action_center_events, action_center_receiver) =
         async_channel::unbounded::<ActionCenterEvent>();
@@ -411,6 +415,17 @@ pub fn start(cx: &mut App) {
     if loaded.config.gpui_mvp.configured {
         crate::components::top_bar::apply_mvp_theme(&mut theme, &loaded.config.gpui_mvp);
     }
+    // Notification name ownership is a separate explicit opt-in from opening
+    // the UI, and starts only after the selected environment/config is valid.
+    let (notification_service, notification_service_receiver) =
+        crate::notification_service::NotificationServiceHandle::start_if_opted_in();
+    let notification_service_snapshot = Rc::new(RefCell::new(notification_service.snapshot()));
+    let notification_service_shutdown = notification_service.clone();
+    cx.on_app_quit(move |_| {
+        let service = notification_service_shutdown.clone();
+        async move { service.shutdown() }
+    })
+    .detach();
     let critical_config: Rc<RefCell<IiCriticalSnapshot>> =
         Rc::new(RefCell::new(IiCriticalSnapshot {
             revision: 0,
@@ -637,6 +652,159 @@ pub fn start(cx: &mut App) {
     let notification_receiver = notification_receiver.clone();
     let notification_sender = notification_events.clone();
     let notification_taskbars = surfaces.clone();
+    let notification_pump_taskbars = surfaces.clone();
+    let notification_pump_service = notification_service.clone();
+    let notification_pump_snapshot = notification_service_snapshot.clone();
+    let notification_service_overlays = notification_overlays.clone();
+    let notification_service_state = notification_controller.clone();
+    let notification_service_group_expanded = notification_group_expanded.clone();
+    let notification_service_group_events = notification_group_events.clone();
+    let notification_service_theme = theme.clone();
+    let notification_service_events = notification_events.clone();
+    cx.spawn(async move |cx| {
+        while notification_service_receiver.recv().await.is_ok() {
+            let snapshot = notification_pump_service.snapshot();
+            *notification_pump_snapshot.borrow_mut() = snapshot.clone();
+            cx.update(|cx| {
+                let handles = notification_service_overlays
+                    .borrow()
+                    .iter()
+                    .map(|(display, handle)| (*display, *handle))
+                    .collect::<Vec<_>>();
+                let mut dead_displays = Vec::new();
+                for (display_id, handle) in handles {
+                    let Some(display) = cx
+                        .displays()
+                        .into_iter()
+                        .find(|display| display.id() == display_id)
+                    else {
+                        continue;
+                    };
+                    let size = display.bounds().size;
+                    let bar_height = px(48.);
+                    let available_height = (size.height - bar_height - px(24.)).max(px(1.));
+                    let close_events = notification_service_events.clone();
+                    let on_close: crate::families::waffle::notification_center::Action =
+                        std::sync::Arc::new(move || {
+                            let _ = close_events.try_send(NotificationCenterEvent::Close {
+                                display: display_id,
+                            });
+                        });
+                    let expanded_groups = notification_service_group_expanded
+                        .borrow()
+                        .get(&display_id)
+                        .cloned()
+                        .unwrap_or_default();
+                    let toggle_events = notification_service_group_events.clone();
+                    let on_toggle_group: crate::families::waffle::notification_center::ItemAction =
+                        std::sync::Arc::new(move |app_id| {
+                            let _ = toggle_events.try_send((display_id, app_id));
+                        });
+                    let input = crate::families::waffle::notification_overlay::session_input(
+                        &notification_service_theme,
+                        available_height,
+                        &snapshot,
+                        &notification_pump_service,
+                        &expanded_groups,
+                        on_toggle_group,
+                        on_close,
+                    );
+                    if handle
+                        .update(cx, |view, _, cx| view.set_input(input, cx))
+                        .is_err()
+                    {
+                        dead_displays.push(display_id);
+                    }
+                }
+                for display_id in dead_displays {
+                    notification_service_overlays
+                        .borrow_mut()
+                        .remove(&display_id);
+                    notification_service_state.borrow_mut().close(display_id);
+                }
+                let taskbars = notification_pump_taskbars
+                    .borrow()
+                    .values()
+                    .copied()
+                    .collect::<Vec<_>>();
+                for taskbar in taskbars {
+                    let _ = taskbar.update(cx, |host, _, cx| host.refresh(cx));
+                }
+            });
+        }
+    })
+    .detach();
+    let notification_group_expansion_sender = notification_group_events.clone();
+    let notification_group_expanded_state = notification_group_expanded.clone();
+    let notification_group_overlays = notification_overlays.clone();
+    let notification_group_service = notification_service.clone();
+    let notification_group_snapshot = notification_service_snapshot.clone();
+    let notification_group_theme = theme.clone();
+    let notification_close_events = notification_events.clone();
+    cx.spawn(async move |cx| {
+        while let Ok((display_id, group_id)) = notification_group_receiver.recv().await {
+            let expanded_groups = {
+                let mut state = notification_group_expanded_state.borrow_mut();
+                let groups = state.entry(display_id).or_default();
+                if !groups.insert(group_id.clone()) {
+                    groups.remove(&group_id);
+                }
+                groups.clone()
+            };
+            let snapshot = notification_group_service.snapshot();
+            *notification_group_snapshot.borrow_mut() = snapshot.clone();
+            cx.update(|cx| {
+                let Some(handle) = notification_group_overlays
+                    .borrow()
+                    .get(&display_id)
+                    .copied()
+                else {
+                    return;
+                };
+                let Some(display) = cx
+                    .displays()
+                    .into_iter()
+                    .find(|display| display.id() == display_id)
+                else {
+                    return;
+                };
+                let available_height =
+                    (display.bounds().size.height - px(48.) - px(24.)).max(px(1.));
+                let close_events = notification_close_events.clone();
+                let on_close: crate::families::waffle::notification_center::Action =
+                    std::sync::Arc::new(move || {
+                        let _ = close_events.try_send(NotificationCenterEvent::Close {
+                            display: display_id,
+                        });
+                    });
+                let toggle_events = notification_group_expansion_sender.clone();
+                let on_toggle_group: crate::families::waffle::notification_center::ItemAction =
+                    std::sync::Arc::new(move |app_id| {
+                        let _ = toggle_events.try_send((display_id, app_id));
+                    });
+                let input = crate::families::waffle::notification_overlay::session_input(
+                    &notification_group_theme,
+                    available_height,
+                    &snapshot,
+                    &notification_group_service,
+                    &expanded_groups,
+                    on_toggle_group,
+                    on_close,
+                );
+                if handle
+                    .update(cx, |view, _, cx| view.set_input(input, cx))
+                    .is_err()
+                {
+                    notification_group_overlays.borrow_mut().remove(&display_id);
+                }
+            });
+        }
+    })
+    .detach();
+    let notification_open_service = notification_service.clone();
+    let notification_open_snapshot = notification_service_snapshot.clone();
+    let notification_open_group_expanded = notification_group_expanded.clone();
+    let notification_open_group_events = notification_group_events.clone();
     cx.spawn(async move |cx| {
         while let Ok(event) = notification_receiver.recv().await {
             cx.update(|cx| {
@@ -656,12 +824,17 @@ pub fn start(cx: &mut App) {
                 };
                 close_notification_overlay(cx, &notification_handles, display);
                 if open {
+                    let expanded_groups = notification_open_group_expanded.borrow();
                     open_notification_overlay(
                         cx,
                         &notification_handles,
                         display,
                         &notification_config,
                         &notification_theme,
+                        &notification_open_service,
+                        &notification_open_snapshot.borrow(),
+                        &expanded_groups,
+                        &notification_open_group_events,
                         &notification_sender,
                     );
                 }
@@ -1238,6 +1411,8 @@ pub fn start(cx: &mut App) {
     let observed_waffle_source = waffle_source.clone();
     let observed_notification_overlays = notification_overlays.clone();
     let observed_notification_controller = notification_controller.clone();
+    let observed_notification_service = notification_service.clone();
+    let observed_notification_snapshot = notification_service_snapshot.clone();
     let observed_notification_events = notification_events.clone();
     let observed_task_view_overlays = task_view_overlays.clone();
     let observed_task_view_controller = task_view_controller.clone();
@@ -1636,6 +1811,10 @@ pub fn start(cx: &mut App) {
                                     id,
                                     &observed_config,
                                     &observed_theme,
+                                    &observed_notification_service,
+                                    &observed_notification_snapshot.borrow(),
+                                    &notification_group_expanded.borrow(),
+                                    &notification_group_events,
                                     &observed_notification_events,
                                 );
                             }
@@ -3828,6 +4007,10 @@ fn open_notification_overlay(
     display_id: DisplayId,
     config: &ShellConfig,
     theme: &ThemeTokens,
+    service: &crate::notification_service::NotificationServiceHandle,
+    snapshot: &crate::notification_service::NotificationSnapshot,
+    expanded_groups_by_display: &HashMap<DisplayId, HashSet<String>>,
+    group_events: &Sender<(DisplayId, String)>,
     events: &Sender<NotificationCenterEvent>,
 ) {
     if overlays.borrow().contains_key(&display_id)
@@ -3856,9 +4039,22 @@ fn open_notification_overlay(
                 display: display_id,
             });
         });
-    let input = crate::families::waffle::notification_overlay::unavailable_input(
+    let expanded_groups = expanded_groups_by_display
+        .get(&display_id)
+        .cloned()
+        .unwrap_or_default();
+    let toggle_events = group_events.clone();
+    let on_toggle_group: crate::families::waffle::notification_center::ItemAction =
+        std::sync::Arc::new(move |app_id| {
+            let _ = toggle_events.try_send((display_id, app_id));
+        });
+    let input = crate::families::waffle::notification_overlay::session_input(
         theme,
         available_height,
+        snapshot,
+        service,
+        &expanded_groups,
+        on_toggle_group,
         std::sync::Arc::clone(&on_close),
     );
     let anchor = crate::families::waffle::notification_overlay::NotificationOverlayAnchor {

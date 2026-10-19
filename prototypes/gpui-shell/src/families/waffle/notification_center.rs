@@ -35,7 +35,8 @@ pub struct NotificationItem {
     pub title: String,
     pub body: String,
     pub timestamp: String,
-    pub unread: bool,
+    /// `None` when the source has no read/unread policy.
+    pub unread: Option<bool>,
     pub critical: bool,
     pub actions: Vec<NotificationAction>,
 }
@@ -99,7 +100,8 @@ pub struct NotificationCenterInput {
     pub available_height: Pixels,
     pub groups: Vec<NotificationGroup>,
     pub notification_count: usize,
-    pub unread_count: usize,
+    /// `None` when the source has no read/unread policy.
+    pub unread_count: Option<usize>,
     pub silent: bool,
     pub search_query: String,
     pub notification_state: DataState,
@@ -135,6 +137,8 @@ pub enum DataState {
     Ready,
     Loading,
     Unavailable,
+    /// Live notifications received during this GPUI process only.
+    ReadySessionOnly,
 }
 
 /// Render the Waffle right-side center body. An exclusive-keyboard overlay,
@@ -150,7 +154,8 @@ pub fn render(input: NotificationCenterInput) -> impl IntoElement {
     } else {
         None
     };
-    let dnd = input.silent.then(|| dnd_banner(&input));
+    let dnd =
+        (input.silent && input.notification_state == DataState::Ready).then(|| dnd_banner(&input));
     let groups = input
         .groups
         .iter()
@@ -161,15 +166,22 @@ pub fn render(input: NotificationCenterInput) -> impl IntoElement {
     } else if input.notification_state == DataState::Unavailable {
         status_message("Notifications", "Notification service unavailable", &s)
     } else if groups.is_empty() {
-        empty_state(&s)
+        if input.notification_state == DataState::ReadySessionOnly {
+            session_empty_state(&s)
+        } else {
+            empty_state(&s)
+        }
     } else {
-        div()
+        let mut list = div()
             .id("waffle.notification-center.list")
             .flex()
             .flex_col()
-            .gap(px(4. * s.scale))
-            .children(groups)
-            .into_any_element()
+            .gap(px(4. * s.scale));
+        if input.notification_state == DataState::ReadySessionOnly {
+            list = list.child(session_disclosure(&s));
+        }
+        list = list.children(groups);
+        list.into_any_element()
     };
     let notification_pane = div()
         .w(panel_width)
@@ -228,31 +240,39 @@ fn notification_header(input: &NotificationCenterInput) -> impl IntoElement {
         .py(px(4. * s.scale))
         .child(label(title, 18. * s.scale, s.foreground, true))
         .children(
-            (input.unread_count > 0)
-                .then(|| pill(format!("{} unread", input.unread_count), s).into_any_element()),
+            input
+                .unread_count
+                .filter(|count| *count > 0)
+                .map(|count| pill(format!("{count} unread"), s).into_any_element()),
         )
         .child(div().flex_1())
-        .children(
-            (input.notification_state != DataState::Unavailable).then(|| {
-                button(
-                    "waffle.notification-center.dnd",
-                    if silent { "◉" } else { "◌" },
-                    if silent {
-                        "Do Not Disturb is on"
-                    } else {
-                        "Enable Do Not Disturb"
-                    },
-                    s,
-                    move || toggle_silent(),
-                )
-                .into_any_element()
-            }),
-        )
+        .children((input.notification_state == DataState::Ready).then(|| {
+            button(
+                "waffle.notification-center.dnd",
+                if silent { "◉" } else { "◌" },
+                if silent {
+                    "Do Not Disturb is on"
+                } else {
+                    "Enable Do Not Disturb"
+                },
+                s,
+                move || toggle_silent(),
+            )
+            .into_any_element()
+        }))
         .child(if input.notification_count > 0 {
             button(
                 "waffle.notification-center.clear-all",
-                "Clear all",
-                "Clear all notifications",
+                if input.notification_state == DataState::ReadySessionOnly {
+                    "Dismiss active"
+                } else {
+                    "Clear all"
+                },
+                if input.notification_state == DataState::ReadySessionOnly {
+                    "Dismiss all currently active notifications"
+                } else {
+                    "Clear all notifications"
+                },
                 s,
                 move || clear(),
             )
@@ -430,7 +450,7 @@ fn notification_card(
             notification.title.clone(),
             14. * s.scale,
             s.foreground,
-            notification.unread,
+            notification.unread == Some(true),
         ));
     if !notification.body.is_empty() {
         body = body.child(label(
@@ -440,12 +460,14 @@ fn notification_card(
             false,
         ));
     }
-    body = body.child(label(
-        notification.timestamp.clone(),
-        11. * s.scale,
-        s.muted,
-        false,
-    ));
+    if !notification.timestamp.is_empty() {
+        body = body.child(label(
+            notification.timestamp.clone(),
+            11. * s.scale,
+            s.muted,
+            false,
+        ));
+    }
     let mut row = div()
         .id(format!(
             "waffle.notification-center.item.{}",
@@ -458,12 +480,12 @@ fn notification_card(
         .rounded(px(s.radius * s.scale))
         .px(px(8. * s.scale))
         .py(px(6. * s.scale))
-        .bg(if notification.unread {
+        .bg(if notification.unread == Some(true) {
             s.accent.opacity(0.08)
         } else {
             s.surface
         })
-        .child(if notification.unread {
+        .child(if notification.unread == Some(true) {
             label("●", 8. * s.scale, s.accent, true).into_any_element()
         } else {
             div().w(px(8. * s.scale)).into_any_element()
@@ -508,6 +530,49 @@ fn empty_state(s: &NotificationCenterStyle) -> gpui::AnyElement {
         .child(label(
             "You're all caught up!",
             13. * s.scale,
+            s.muted,
+            false,
+        ))
+        .into_any_element()
+}
+
+fn session_empty_state(s: &NotificationCenterStyle) -> gpui::AnyElement {
+    div()
+        .w_full()
+        .flex()
+        .flex_col()
+        .items_center()
+        .justify_center()
+        .gap(px(8. * s.scale))
+        .py(px(28. * s.scale))
+        .child(label("◉", 38. * s.scale, s.muted, false))
+        .child(label(
+            "No active notifications",
+            16. * s.scale,
+            s.muted,
+            false,
+        ))
+        .child(label(
+            "Only currently active notifications received during this GPUI session appear here. Closed or expired items aren't retained.",
+            13. * s.scale,
+            s.muted,
+            false,
+        ))
+        .into_any_element()
+}
+
+fn session_disclosure(s: &NotificationCenterStyle) -> gpui::AnyElement {
+    div()
+        .w_full()
+        .rounded(px(s.radius * s.scale))
+        .border_1()
+        .border_color(s.border)
+        .bg(s.input)
+        .px(px(10. * s.scale))
+        .py(px(6. * s.scale))
+        .child(label(
+            "Only currently active notifications received during this GPUI session appear here. Closed or expired items aren't retained.",
+            11. * s.scale,
             s.muted,
             false,
         ))
