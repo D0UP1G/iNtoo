@@ -11,8 +11,8 @@ use crate::resource_provider::{LinuxResourceProvider, ResourceSnapshot, format_p
 use crate::{components::material, config::ShellConfig, niri, theme::ThemeTokens};
 use gpui::{
     Context, FontWeight, Hsla, InteractiveElement, KeyDownEvent, MouseButton, NavigationDirection,
-    PathBuilder, Role, ScrollDelta, StatefulInteractiveElement, Window, canvas, div, point,
-    prelude::*, px, rgba, white,
+    PathBuilder, Role, ScrollDelta, ShapedLine, StatefulInteractiveElement, TextAlign, TextRun,
+    Window, canvas, div, point, prelude::*, px, rgba, white,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -112,6 +112,15 @@ pub struct VerticalBarStyle {
     pub muted: Hsla,
     pub accent: Hsla,
     pub separator: Hsla,
+    /// QML battery indicator's normal ink: Material on_background, then
+    /// on_surface, then the established vertical-bar foreground.
+    pub battery_ink: Hsla,
+    /// Material semantic error role used only for a low, non-charging battery.
+    pub battery_error: Hsla,
+    /// Background-colored glyphs act as the QML text-mask foreground over the fill.
+    pub battery_overlay: Hsla,
+    /// Contrasting text/icon color over the semantic error fill.
+    pub battery_error_overlay: Hsla,
     pub radius_px: f32,
     pub width_px: f32,
     /// QML `BarGroup.vertical` base width. This currently uses the unscaled
@@ -138,6 +147,10 @@ impl Default for VerticalBarStyle {
             muted: rgba(0xb1bac4ff).into(),
             accent: rgba(0x7ee787ff).into(),
             separator: rgba(0x6e768180).into(),
+            battery_ink: white().into(),
+            battery_error: rgba(0xf85149ff).into(),
+            battery_overlay: rgba(0x161b22ff).into(),
+            battery_error_overlay: white().into(),
             radius_px: 12.0,
             width_px: 64.0,
             group_width_px: 46.0,
@@ -212,6 +225,30 @@ impl VerticalBar {
             .material
             .colors
             .on_surface
+            .unwrap_or(initial_props.style.foreground);
+        initial_props.style.battery_ink = theme
+            .material
+            .colors
+            .on_background
+            .or(theme.material.colors.on_surface)
+            .unwrap_or(initial_props.style.foreground);
+        initial_props.style.battery_error = theme
+            .material
+            .colors
+            .error
+            .unwrap_or(initial_props.style.battery_error);
+        initial_props.style.battery_overlay = theme
+            .material
+            .colors
+            .background
+            .or(theme.material.colors.inverse_surface)
+            .unwrap_or(initial_props.style.surface);
+        initial_props.style.battery_error_overlay = theme
+            .material
+            .colors
+            .on_error
+            .or(theme.material.colors.background)
+            .or(theme.material.colors.inverse_surface)
             .unwrap_or(initial_props.style.foreground);
         initial_props.style.muted = theme
             .material
@@ -1146,7 +1183,6 @@ fn render_vertical_battery(battery: &BatteryState, style: VerticalBarStyle) -> i
     let charging = battery.charge == BatteryChargeState::Charging;
     let low_warning =
         !charging && percent.is_some_and(|value| f64::from(value) <= battery.low_threshold);
-    let full = battery.charge == BatteryChargeState::Full;
     let state_label = match battery.charge {
         BatteryChargeState::Charging => "charging",
         BatteryChargeState::Discharging => "discharging",
@@ -1155,92 +1191,286 @@ fn render_vertical_battery(battery: &BatteryState, style: VerticalBarStyle) -> i
         BatteryChargeState::Unknown => "charge state unknown",
     };
     let display_percent = percent
-        .map(|value| format!("{value}%"))
+        .map(|value| value.to_string())
         .unwrap_or_else(|| "—".into());
+    let accessible_percent = percent
+        .map(|value| format!("{value}%"))
+        .unwrap_or_else(|| "unknown".into());
     let icon = if charging {
         "bolt"
-    } else if full {
+    } else {
         "battery_android_full"
-    } else {
-        "battery_android_5"
     };
-    let fill_color = if low_warning {
-        rgba(0xf85149ff).into()
+    let ink = if low_warning {
+        style.battery_error
     } else {
-        style.foreground
+        style.battery_ink
     };
-    let fill_height = percent.map(|value| 36.0 * f32::from(value) / 100.0);
+    let fill_overlay = if low_warning {
+        style.battery_error_overlay
+    } else {
+        style.battery_overlay
+    };
+    let track = ink.opacity(0.5);
+    let track_overlay =
+        battery_contrast_overlay_on_track(style.battery_overlay, track, style.surface);
+    let fill_overlay = battery_contrast_overlay_on_fill(fill_overlay, ink, style.surface);
+    let fill_height = percent.map(|value| 40.0 * f32::from(value) / 100.0);
+
+    let mut indicator = div()
+        .relative()
+        .id("vertical-battery-level")
+        .w(px(21.))
+        .h(px(40.))
+        .role(Role::ProgressIndicator)
+        .aria_orientation(gpui::Orientation::Vertical)
+        .aria_label(format!("Battery level: {accessible_percent}"))
+        .aria_min_numeric_value(0.0)
+        .aria_max_numeric_value(100.0)
+        .when_some(percent, |this, percent| {
+            this.aria_numeric_value(f64::from(percent))
+        })
+        .rounded_full()
+        .overflow_hidden()
+        .bg(track)
+        .child(if let Some(fill_height) = fill_height {
+            div()
+                .absolute()
+                .left_0()
+                .right_0()
+                .bottom_0()
+                .h(px(fill_height))
+                .rounded_full()
+                .bg(ink)
+        } else {
+            div()
+        })
+        .child(
+            div()
+                .absolute()
+                .inset_0()
+                .flex()
+                .flex_col()
+                .items_center()
+                .justify_center()
+                .child(battery_glyph_canvas(icon, &display_percent, track_overlay)),
+        );
+    if let Some(fill_height) = fill_height {
+        indicator = indicator.child(
+            div()
+                .absolute()
+                .left_0()
+                .right_0()
+                .bottom_0()
+                .h(px(fill_height))
+                .rounded_full()
+                .overflow_hidden()
+                .child(
+                    div()
+                        .absolute()
+                        .left_0()
+                        .right_0()
+                        .bottom_0()
+                        .h(px(40.))
+                        .child(battery_glyph_canvas(icon, &display_percent, fill_overlay)),
+                ),
+        );
+    }
 
     div()
-        .w(px(36.))
+        .w(px(21.))
         .id("vertical-battery-group")
         .flex()
         .flex_col()
         .items_center()
-        .gap(px(3.))
         .role(Role::Group)
-        .aria_label(format!("Battery {display_percent}, {state_label}"))
-        .child(
-            div()
-                .relative()
-                .id("vertical-battery-level")
-                .w(px(21.))
-                .h(px(40.))
-                .role(Role::ProgressIndicator)
-                .aria_label(format!("Battery level: {display_percent}"))
-                .when_some(percent, |this, percent| {
-                    this.aria_min_numeric_value(0.0)
-                        .aria_max_numeric_value(100.0)
-                        .aria_numeric_value(f64::from(percent))
-                })
-                .rounded(px(4.))
-                .border_1()
-                .border_color(style.muted)
-                .child(if let Some(fill_height) = fill_height {
-                    div()
-                        .absolute()
-                        .left(px(2.))
-                        .right(px(2.))
-                        .bottom(px(2.))
-                        .h(px(fill_height))
-                        .rounded(px(2.))
-                        .bg(fill_color)
-                } else {
-                    div()
-                })
-                .child(
-                    div()
-                        .absolute()
-                        .inset_0()
-                        .flex()
-                        .flex_col()
-                        .items_center()
-                        .justify_center()
-                        .gap(px(1.))
-                        .text_color(if low_warning {
-                            rgba(0xf85149ff).into()
-                        } else {
-                            style.foreground
-                        })
-                        .child(
-                            div()
-                                .font_family("Material Symbols Rounded")
-                                .text_size(px(13.))
-                                .child(icon),
-                        )
-                        .child(div().text_size(px(9.)).child(display_percent)),
+        .aria_label(format!("Battery {accessible_percent}, {state_label}"))
+        .child(indicator)
+}
+
+fn battery_glyph_canvas(icon: &str, display_percent: &str, color: Hsla) -> impl IntoElement {
+    let icon = icon.to_owned();
+    let display_percent = display_percent.to_owned();
+    let percent_font_size = if display_percent.len() > 2 { 11. } else { 13. };
+    canvas(
+        move |_, window, _| {
+            let mut icon_font = gpui::font("Material Symbols Rounded");
+            icon_font.weight = FontWeight::MEDIUM;
+            let icon_run = TextRun {
+                len: icon.len(),
+                font: icon_font,
+                color,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            let mut percent_font = gpui::font(".SystemUIFont");
+            percent_font.weight = if display_percent.len() > 2 {
+                FontWeight::MEDIUM
+            } else {
+                FontWeight::SEMIBOLD
+            };
+            let percent_run = TextRun {
+                len: display_percent.len(),
+                font: percent_font,
+                color,
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            };
+            (
+                window
+                    .text_system()
+                    .shape_line(icon.into(), px(16.), &[icon_run], None),
+                window.text_system().shape_line(
+                    display_percent.into(),
+                    px(percent_font_size),
+                    &[percent_run],
+                    None,
                 ),
-        )
-        .child(
-            div()
-                .text_size(px(9.))
-                .text_color(if low_warning {
-                    rgba(0xf85149ff).into()
-                } else {
-                    style.muted
-                })
-                .child(state_label),
-        )
+            )
+        },
+        move |bounds, (icon_line, percent_line): (ShapedLine, ShapedLine), window, cx| {
+            let width = Some(bounds.size.width);
+            let _ = icon_line.paint(
+                point(bounds.origin.x, bounds.origin.y + px(3.)),
+                px(16.),
+                TextAlign::Center,
+                width,
+                window,
+                cx,
+            );
+            let _ = percent_line.paint(
+                point(bounds.origin.x, bounds.origin.y + px(19.)),
+                px(15.),
+                TextAlign::Center,
+                width,
+                window,
+                cx,
+            );
+        },
+    )
+    .w(px(21.))
+    .h(px(40.))
+}
+
+/// Keep the Material foreground/background pair when it has sufficient
+/// contrast against the fill composited over its surface token. If the surface
+/// token is translucent, the compositor's wallpaper backdrop is unknown, so
+/// the 4.5:1 check is relative to the token color rather than arbitrary pixels.
+fn battery_contrast_overlay_on_fill(preferred: Hsla, fill: Hsla, surface: Hsla) -> Hsla {
+    let composite = composite_rgb(hsla_to_rgb(fill), fill.a, hsla_to_rgb(surface), surface.a);
+    if foreground_contrast_ratio(preferred, composite) >= 4.5 {
+        return preferred;
+    }
+    strongest_contrast_rgb(composite)
+}
+
+fn battery_contrast_overlay_on_track(preferred: Hsla, track: Hsla, surface: Hsla) -> Hsla {
+    let composite = composite_rgb(hsla_to_rgb(track), track.a, hsla_to_rgb(surface), surface.a);
+    if foreground_contrast_ratio(preferred, composite) >= 4.5 {
+        return preferred;
+    }
+    strongest_contrast_rgb(composite)
+}
+
+fn foreground_contrast_ratio(foreground: Hsla, background: [f32; 3]) -> f32 {
+    let visible_foreground = composite_rgb(hsla_to_rgb(foreground), foreground.a, background, 1.0);
+    contrast_ratio_rgb(visible_foreground, background)
+}
+
+fn strongest_contrast_rgb(background: [f32; 3]) -> Hsla {
+    let black = Hsla {
+        h: 0.0,
+        s: 0.0,
+        l: 0.0,
+        a: 1.0,
+    };
+    let white = Hsla {
+        h: 0.0,
+        s: 0.0,
+        l: 1.0,
+        a: 1.0,
+    };
+    if contrast_ratio_rgb(hsla_to_rgb(black), background)
+        >= contrast_ratio_rgb(hsla_to_rgb(white), background)
+    {
+        black
+    } else {
+        white
+    }
+}
+
+fn contrast_ratio_rgb(foreground: [f32; 3], background: [f32; 3]) -> f32 {
+    let foreground = relative_luminance(foreground);
+    let background = relative_luminance(background);
+    (foreground.max(background) + 0.05) / (foreground.min(background) + 0.05)
+}
+
+fn composite_rgb(
+    foreground: [f32; 3],
+    foreground_alpha: f32,
+    background: [f32; 3],
+    background_alpha: f32,
+) -> [f32; 3] {
+    let foreground_alpha = foreground_alpha.clamp(0.0, 1.0);
+    let background_alpha = background_alpha.clamp(0.0, 1.0);
+    let alpha = foreground_alpha + background_alpha * (1.0 - foreground_alpha);
+    if alpha == 0.0 {
+        return [0.0; 3];
+    }
+    std::array::from_fn(|index| {
+        (foreground[index] * foreground_alpha
+            + background[index] * background_alpha * (1.0 - foreground_alpha))
+            / alpha
+    })
+}
+
+fn relative_luminance(rgb: [f32; 3]) -> f32 {
+    let linear = rgb.map(|channel| {
+        let channel = channel.clamp(0.0, 1.0);
+        if channel <= 0.04045 {
+            channel / 12.92
+        } else {
+            ((channel + 0.055) / 1.055).powf(2.4)
+        }
+    });
+    0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+}
+
+fn hsla_to_rgb(color: Hsla) -> [f32; 3] {
+    if color.s == 0.0 {
+        return [color.l; 3];
+    }
+    let q = if color.l < 0.5 {
+        color.l * (1.0 + color.s)
+    } else {
+        color.l + color.s - color.l * color.s
+    };
+    let p = 2.0 * color.l - q;
+    [
+        hue_to_rgb(p, q, color.h + 1.0 / 3.0),
+        hue_to_rgb(p, q, color.h),
+        hue_to_rgb(p, q, color.h - 1.0 / 3.0),
+    ]
+}
+
+fn hue_to_rgb(p: f32, q: f32, mut hue: f32) -> f32 {
+    if hue < 0.0 {
+        hue += 1.0;
+    }
+    if hue > 1.0 {
+        hue -= 1.0;
+    }
+    if hue < 1.0 / 6.0 {
+        p + (q - p) * 6.0 * hue
+    } else if hue < 0.5 {
+        q
+    } else if hue < 2.0 / 3.0 {
+        p + (q - p) * (2.0 / 3.0 - hue) * 6.0
+    } else {
+        p
+    }
 }
 
 fn separator(style: VerticalBarStyle) -> gpui::Div {
