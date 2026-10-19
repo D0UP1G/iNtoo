@@ -90,8 +90,10 @@ pub fn resolve(
             .get("sizeScale")
             .and_then(Value::as_f64)
             .filter(|value| value.is_finite() && *value > 0.0)
+            .map(|value| value as f32)
+            .filter(|value| value.is_finite() && *value > 0.0)
         {
-            typography.size_scale = scale as f32;
+            typography.size_scale = scale;
         }
         if let Some(axes) = source_typography
             .get("variableAxes")
@@ -125,7 +127,19 @@ pub fn resolve(
             .unwrap_or(1.0),
         ..ShapeTokens::default()
     };
-    let spacing = SpacingTokens::default();
+    // ii's shared Material base scales only the three QML-backed spacing
+    // values with typography.size_scale. Waffle has family-specific Looks,
+    // and Iris has independent density, so both keep scaffold defaults here.
+    let spacing = if family == Family::Ii {
+        SpacingTokens {
+            sm: scaled_spacing(8.0, typography.size_scale),
+            md: scaled_spacing(12.0, typography.size_scale),
+            lg: scaled_spacing(16.0, typography.size_scale),
+            ..SpacingTokens::default()
+        }
+    } else {
+        SpacingTokens::default()
+    };
     // QML applies the configured values only when transparency is enabled and
     // automatic mode is explicitly off. Missing configuration retains the
     // automatic default, whose wallpaper analysis remains unported.
@@ -198,6 +212,15 @@ fn manual_transparency(value: Option<f64>) -> f32 {
         .filter(|value| value.is_finite())
         .unwrap_or(0.0)
         .clamp(0.0, 1.0) as f32
+}
+
+fn scaled_spacing(default: f32, scale: f32) -> f32 {
+    let scaled = (f64::from(default) * f64::from(scale)).round();
+    if scaled.is_finite() && (0.0..=f64::from(f32::MAX)).contains(&scaled) {
+        scaled as f32
+    } else {
+        default
+    }
 }
 
 fn set_font_family(source: &Value, key: &str, target: &mut String) {
