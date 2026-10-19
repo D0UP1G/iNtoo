@@ -1533,6 +1533,150 @@ Feature: shared GPUI layer-surface host
     And removed outputs have no surviving critical surface or exclusive/input reservation
 ```
 
+## Waffle first-frame background and backdrop acceptance target
+
+The following scenarios define a target for the Waffle critical background and
+backdrop, based on its QML composition roots. They are acceptance criteria only;
+they do not establish that GPUI currently passes or has visual parity. Waffle
+background and backdrop surfaces are output-wide; the bar's `screenList` does
+not restrict them. GPUI does not control or detect external Awww wallpaper
+ownership. The supported GPUI wallpaper operation requires external Awww to be
+disabled; without an ownership integration, GPUI must not claim that concurrent
+Awww and GPUI wallpaper surfaces are deduplicated or have a single owner.
+Wallpaper priority fallback applies when a higher-priority path is unset during
+path resolution. Retrying a lower-priority candidate after the selected file
+fails decoding is explicitly deferred and is not a requirement for this slice.
+
+```gherkin
+Feature: Waffle first-frame static background and backdrop
+
+  Background:
+    Given configuration selects the Waffle family and is ready
+    And the connected outputs are "DP-1" and "HDMI-A-1"
+
+  Scenario: Present enabled background surfaces on every output
+    Given "wBackground" and "wBackdrop" are enabled in "enabledPanels"
+    And the Waffle backdrop feature gate is enabled
+    And the Waffle bar "screenList" contains only "DP-1"
+    When the first critical frame is presented
+    Then the Waffle main background and backdrop each target both connected outputs
+    And the bar screen list does not restrict either background surface
+
+  Scenario: Close disabled background and backdrop surfaces
+    Given a Waffle main background and backdrop are visible
+    When "wBackground" is removed from "enabledPanels"
+    Then every main background surface is closed
+    When "wBackdrop" is removed from "enabledPanels" or the backdrop feature gate is disabled
+    Then every backdrop surface is closed and releases its layer resources
+
+  Scenario: Apply wallpaper feature defaults when keys are absent
+    Given "waffles.background.backdrop.enable", "waffles.background.useMainWallpaper", and "waffles.background.backdrop.useMainWallpaper" are missing
+    When the Waffle critical surfaces are resolved
+    Then the backdrop feature is enabled by default
+    And both main-background and backdrop wallpaper selection default to the main wallpaper
+
+  Scenario: Resolve the main wallpaper with per-output priority and fallback
+    Given "background.multiMonitor.enable" is true
+    And multi-monitor wallpaper data has a valid path for "DP-1"
+    When the main background is resolved for "DP-1"
+    Then the per-output wallpaper is selected
+    And output "HDMI-A-1" without a valid per-output path follows the configured Waffle-to-global fallback
+    And the configured Waffle main wallpaper is selected when "waffles.background.useMainWallpaper" is false
+    And the global main wallpaper is the fallback when the Waffle main wallpaper is unset
+    And the configured global main wallpaper is selected when "waffles.background.useMainWallpaper" is true
+
+  Scenario: Ignore stale per-output main wallpaper when multi-monitor mode is disabled
+    Given "background.multiMonitor.enable" is false
+    And a stale per-output wallpaper path exists for "DP-1"
+    When the main background is resolved for "DP-1"
+    Then the stale per-output path is ignored
+    And the selected main wallpaper follows "waffles.background.useMainWallpaper" and its configured fallback
+
+  Scenario: Resolve a separate backdrop wallpaper before falling back to the main wallpaper
+    Given the backdrop does not use the main wallpaper
+    And "background.multiMonitor.enable" is true
+    And a valid per-output backdrop path exists for "DP-1"
+    When the backdrop is resolved for "DP-1"
+    Then the per-output backdrop path is selected ahead of the global backdrop path
+    When no valid per-output backdrop path exists
+    Then the configured global backdrop path is selected when available
+    And otherwise the resolved Waffle main wallpaper is used
+
+  Scenario: Ignore stale per-output backdrop when multi-monitor mode is disabled
+    Given the backdrop does not use the main wallpaper
+    And "background.multiMonitor.enable" is false
+    And a stale per-output backdrop path exists for "DP-1"
+    When the backdrop is resolved for "DP-1"
+    Then the stale per-output backdrop path is ignored
+    And the configured global backdrop path is selected when available
+    And otherwise the resolved Waffle main wallpaper is used
+
+  Scenario: Apply configured backdrop dim and vignette independently
+    Given a valid still wallpaper is rendered in the backdrop
+    And the backdrop has a configured dim value and vignette settings
+    When the backdrop renders
+    Then the configured dim is applied as a clamped dark overlay
+    And the vignette is rendered only when enabled, using its configured intensity and radius
+    And backdrop effects do not alter the main wallpaper surface
+
+  Scenario: Hide the main wallpaper only when backdrop gates allow it
+    Given the Waffle main background is enabled
+    When the backdrop feature is enabled and "hideWallpaper" is true
+    Then the main wallpaper is hidden while the backdrop remains visible
+    When the backdrop feature is disabled or "hideWallpaper" is false
+    Then this setting does not hide the main wallpaper
+
+  Scenario: Reconcile affected surfaces after a configuration or output change
+    Given the Waffle background and backdrop are visible on both outputs
+    When wallpaper paths, per-output wallpaper data, backdrop effects, or panel gates change in a ready config snapshot
+    Then affected surfaces update from that same current snapshot
+    And disabled surfaces close without stale pixels or input regions
+    When an output is removed, added, renamed, or resized
+    Then surfaces are removed, recreated, or resized to match the current output set
+
+  Scenario: Discard wallpaper decode completion from an obsolete snapshot or output
+    Given a wallpaper decode is pending for an output and configuration snapshot
+    When a newer snapshot changes the wallpaper or removes or renames that output
+    And the older decode completes afterward
+    Then the old result is discarded
+    And it cannot mark the current surface ready or recreate a surface on the obsolete output
+
+  Scenario: Select the next configured wallpaper priority when a path is absent
+    Given a higher-priority per-output wallpaper path is unset
+    And a lower-priority configured wallpaper path is available
+    When the background or backdrop resolves its source path
+    Then it selects the next configured path according to the wallpaper priority rules
+    And this path-selection fallback occurs before image decoding starts
+
+  Scenario: Report an accessible unavailable state when the selected file fails decoding
+    Given the selected wallpaper file exists but image decoding fails
+    When the background or backdrop receives the decode failure
+    Then it exposes a clear accessible "Wallpaper unavailable" state
+    And it does not retain a stale image or report the failed image as ready
+    And it does not retry a lower-priority wallpaper candidate after the decode failure
+    And secondary-candidate decode retry remains explicitly deferred
+
+  Scenario: Render a static GPUI wallpaper only with external Awww disabled
+    Given the operator has confirmed external Awww wallpaper ownership is disabled
+    And a valid static wallpaper is configured
+    When the GPUI background renders
+    Then GPUI renders the configured static wallpaper as its sole wallpaper owner
+    And it makes no claim about Awww ownership detection or coordination
+
+  Scenario Outline: Expose unsupported background modes without claiming parity
+    Given the Waffle background configuration requests <mode>
+    When the GPUI first frame is presented
+    Then the mode is identified as unsupported or not yet matched
+    And no static approximation is reported as equivalent QML behavior
+
+    Examples:
+      | mode                               |
+      | video wallpaper playback           |
+      | Awww-owned wallpaper lifecycle     |
+      | fullscreen-window wallpaper hiding |
+      | lock-screen background behavior    |
+```
+
 ## Family-wide visual parity
 
 ```gherkin

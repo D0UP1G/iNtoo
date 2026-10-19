@@ -7,8 +7,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use gpui::{
-    AnyElement, Hsla, IntoElement, LinearColorStop, ObjectFit, RenderImage, Role, SharedString,
-    Window, div, hsla, img, linear_gradient, prelude::*, px, rgba,
+    AnyElement, ElementId, Hsla, IntoElement, LinearColorStop, ObjectFit, RenderImage, Role,
+    SharedString, Window, div, hsla, img, linear_gradient, prelude::*, px, rgba,
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -17,6 +17,7 @@ pub enum BackdropStatus {
     Loading,
     Ready,
     Missing,
+    Unsupported,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -93,6 +94,20 @@ impl DesktopBackdrop {
     pub fn new(input: DesktopBackdropInput) -> Self {
         Self { input }
     }
+
+    /// Construct a backdrop with caller-owned element IDs and accessible name.
+    /// `new` retains the existing ii IDs and label for compatibility.
+    pub fn with_accessibility(
+        input: DesktopBackdropInput,
+        element_namespace: impl Into<SharedString>,
+        label: impl Into<SharedString>,
+    ) -> DesktopBackdropWithAccessibility {
+        DesktopBackdropWithAccessibility {
+            input,
+            element_namespace: element_namespace.into(),
+            label: label.into(),
+        }
+    }
 }
 
 impl Render for DesktopBackdrop {
@@ -101,10 +116,45 @@ impl Render for DesktopBackdrop {
     }
 }
 
+/// Accessibility-configured variant that leaves `DesktopBackdrop`'s public
+/// struct-literal API intact.
+pub struct DesktopBackdropWithAccessibility {
+    pub input: DesktopBackdropInput,
+    element_namespace: SharedString,
+    label: SharedString,
+}
+
+impl Render for DesktopBackdropWithAccessibility {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        render_desktop_backdrop_with_accessibility(
+            &self.input,
+            self.element_namespace.clone(),
+            self.label.clone(),
+        )
+    }
+}
+
 pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
+    let output_label = if input.output_name.is_empty() {
+        "Desktop wallpaper".to_owned()
+    } else {
+        format!("Desktop wallpaper for output {}", input.output_name)
+    };
+    render_desktop_backdrop_with_accessibility(input, "ii.desktop_backdrop", output_label)
+}
+
+/// Render a backdrop with caller-owned GPUI element IDs and accessible label.
+/// No wallpaper, blur, or video behavior is added by this naming adapter.
+pub fn render_desktop_backdrop_with_accessibility(
+    input: &DesktopBackdropInput,
+    element_namespace: impl Into<SharedString>,
+    accessible_label: impl Into<SharedString>,
+) -> AnyElement {
+    let element_namespace = element_namespace.into();
     let mut root = div()
         .id(SharedString::from(format!(
-            "ii.desktop_backdrop.{}",
+            "{}.{}",
+            element_namespace,
             if input.output_name.is_empty() {
                 "default"
             } else {
@@ -118,14 +168,10 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
         .overflow_hidden()
         .bg(input.background)
         .role(Role::Group)
-        .aria_label(if input.output_name.is_empty() {
-            "Desktop wallpaper".to_owned()
-        } else {
-            format!("Desktop wallpaper for output {}", input.output_name)
-        });
+        .aria_label(accessible_label);
 
     if input.wallpaper_kind == WallpaperKind::Still {
-        if input.status != BackdropStatus::Missing
+        if input.status == BackdropStatus::Ready
             && let Some(image) = &input.decoded_image
         {
             root = root.child(img(image.clone()).size_full().object_fit(ObjectFit::Cover));
@@ -136,20 +182,22 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
             )
         {
             let foreground = input.foreground;
+            let loading_namespace = element_namespace.clone();
+            let fallback_namespace = element_namespace.clone();
             root = root.child(
                 img(path.clone())
                     .size_full()
                     .object_fit(ObjectFit::Cover)
                     .with_loading(move || {
                         message_card(
-                            "ii.desktop_backdrop.image_loading",
+                            format!("{loading_namespace}.image_loading"),
                             "Loading wallpaper…",
                             foreground,
                         )
                     })
                     .with_fallback(move || {
                         message_card(
-                            "ii.desktop_backdrop.image_fallback",
+                            format!("{fallback_namespace}.image_fallback"),
                             "Wallpaper unavailable",
                             foreground,
                         )
@@ -162,6 +210,9 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
         WallpaperKind::Video => Some("Video wallpaper preview is unsupported in GPUI"),
         WallpaperKind::AnimatedImage => Some("Animated wallpaper playback is unsupported in GPUI"),
         WallpaperKind::Unsupported => Some("This wallpaper format is unsupported in GPUI"),
+        WallpaperKind::Still if input.status == BackdropStatus::Unsupported => {
+            Some("This wallpaper format is unsupported in GPUI")
+        }
         WallpaperKind::Still if input.status == BackdropStatus::Missing => {
             Some("Wallpaper unavailable")
         }
@@ -188,7 +239,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
             if dim_alpha > 0. {
                 root = root.child(
                     div()
-                        .id("ii.desktop_backdrop.dim")
+                        .id(format!("{element_namespace}.dim"))
                         .absolute()
                         .inset_0()
                         .bg(hsla(0., 0., 0., dim_alpha)),
@@ -202,7 +253,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
                     let radius = vignette.radius.clamp(0., 1.);
                     root = root.child(
                         div()
-                            .id("ii.desktop_backdrop.vignette")
+                            .id(format!("{element_namespace}.vignette"))
                             .absolute()
                             .inset_0()
                             .bg(linear_gradient(
@@ -225,7 +276,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
     if let Some(message) = status_message {
         root = root.child(
             div()
-                .id("ii.desktop_backdrop.wallpaper_state")
+                .id(format!("{element_namespace}.wallpaper_state"))
                 .absolute()
                 .top(px(24.))
                 .left(px(24.))
@@ -262,7 +313,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
         let detail = format!("Unsupported effects: {}", unsupported.join(", "));
         root = root.child(
             div()
-                .id("ii.desktop_backdrop.unsupported_effects")
+                .id(format!("{element_namespace}.unsupported_effects"))
                 .absolute()
                 .right(px(24.))
                 .top(px(24.))
@@ -278,7 +329,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
     } else if input.reduced_effects {
         root = root.child(
             div()
-                .id("ii.desktop_backdrop.reduced_effects")
+                .id(format!("{element_namespace}.reduced_effects"))
                 .absolute()
                 .right(px(24.))
                 .top(px(24.))
@@ -296,7 +347,7 @@ pub fn render_desktop_backdrop(input: &DesktopBackdropInput) -> AnyElement {
     root.into_any_element()
 }
 
-fn message_card(id: &'static str, message: &'static str, foreground: Hsla) -> AnyElement {
+fn message_card(id: impl Into<ElementId>, message: &'static str, foreground: Hsla) -> AnyElement {
     div()
         .id(id)
         .size_full()

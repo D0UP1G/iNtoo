@@ -20,10 +20,11 @@ use gpui::{
 
 use crate::audio_provider::{AudioProviderEvent, PipeWireAudioProvider, ProviderStatus};
 use crate::components::desktop_backdrop::{
-    BackdropStatus, DesktopBackdrop, DesktopBackdropInput, Vignette, WallpaperKind,
+    BackdropStatus, DesktopBackdrop, DesktopBackdropInput, DesktopBackdropWithAccessibility,
+    Vignette, WallpaperKind,
 };
 use crate::components::desktop_background::{
-    DesktopBackground, DesktopBackgroundProps, WallpaperStatus,
+    DesktopBackground, DesktopBackgroundProps, DesktopBackgroundWithAccessibility, WallpaperStatus,
 };
 use crate::config::{ConfigLoad, ShellConfig};
 use crate::families::ii::dock_surface::IiDockSurface;
@@ -50,9 +51,14 @@ type SurfaceMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<FamilyHost>>>>;
 type VerticalSurfaceMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<FamilyHost>>>>;
 type BackgroundMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<DesktopBackground>>>>;
 type BackdropMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<DesktopBackdrop>>>>;
+type WaffleBackgroundMap =
+    Rc<RefCell<HashMap<DisplayId, WindowHandle<DesktopBackgroundWithAccessibility>>>>;
+type WaffleBackdropMap =
+    Rc<RefCell<HashMap<DisplayId, WindowHandle<DesktopBackdropWithAccessibility>>>>;
 type IiPanelSurfaceMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<IiPanelSurface>>>>;
 type IiDockSurfaceMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<IiDockSurface>>>>;
 type IiOutputNameMap = Rc<RefCell<HashMap<DisplayId, String>>>;
+type WaffleOutputNameMap = Rc<RefCell<HashMap<DisplayId, Option<String>>>>;
 type IiOverviewOverlayMap = Rc<RefCell<HashMap<DisplayId, WindowHandle<IiOverviewOverlay>>>>;
 type IiPanelStateMap = Rc<RefCell<HashMap<DisplayId, IiPanelState>>>;
 type MediaStateCache = Rc<RefCell<crate::components::vertical_bar::MediaState>>;
@@ -260,6 +266,9 @@ pub fn start(cx: &mut App) {
     let vertical_surfaces: VerticalSurfaceMap = Rc::default();
     let backgrounds: BackgroundMap = Rc::default();
     let backdrops: BackdropMap = Rc::default();
+    let waffle_backgrounds: WaffleBackgroundMap = Rc::default();
+    let waffle_backdrops: WaffleBackdropMap = Rc::default();
+    let waffle_output_names: WaffleOutputNameMap = Rc::default();
     let ii_panel_surfaces: IiPanelSurfaceMap = Rc::default();
     let ii_dock_surfaces: IiDockSurfaceMap = Rc::default();
     let ii_output_names: IiOutputNameMap = Rc::default();
@@ -655,6 +664,9 @@ pub fn start(cx: &mut App) {
     let revision_vertical_surfaces = vertical_surfaces.clone();
     let revision_backgrounds = backgrounds.clone();
     let revision_backdrops = backdrops.clone();
+    let revision_waffle_backgrounds = waffle_backgrounds.clone();
+    let revision_waffle_backdrops = waffle_backdrops.clone();
+    let revision_waffle_output_names = waffle_output_names.clone();
     let revision_docks = ii_dock_surfaces.clone();
     let revision_output_names = ii_output_names.clone();
     let revision_panel_events = ii_panel_events.clone();
@@ -697,6 +709,14 @@ pub fn start(cx: &mut App) {
                     && runtime_loaded.config.panel_family.as_deref() == Some("ii");
                 let exited_ii_family = previous.loaded.config.panel_family.as_deref() == Some("ii")
                     && runtime_loaded.config.panel_family.as_deref() != Some("ii");
+                let waffle_family_update = previous.loaded.config.panel_family.as_deref()
+                    == Some("waffle")
+                    && runtime_loaded.config.panel_family.as_deref() == Some("waffle");
+                let exited_waffle_family = previous.loaded.config.panel_family.as_deref()
+                    == Some("waffle")
+                    && runtime_loaded.config.panel_family.as_deref() != Some("waffle");
+                let waffle_changed = waffle_family_update
+                    && waffle_background_config_changed(&previous.loaded.config, &runtime_loaded.config);
                 let changed = ii_family_update
                     && ii_critical_config_changed(&previous.loaded, &runtime_loaded);
                 *revision_state.borrow_mut() = IiCriticalSnapshot {
@@ -720,6 +740,13 @@ pub fn start(cx: &mut App) {
                         &revision_ii_panel_states,
                         &revision_ii_overviews,
                         &revision_output_names,
+                    );
+                } else if exited_waffle_family {
+                    close_waffle_background_surfaces(
+                        cx,
+                        &revision_waffle_backgrounds,
+                        &revision_waffle_backdrops,
+                        &revision_waffle_output_names,
                     );
                 } else if changed {
                     refresh_niri_output_snapshot();
@@ -763,6 +790,21 @@ pub fn start(cx: &mut App) {
                             &revision_panel_events,
                             &revision_media_actions,
                             &revision_media_cache,
+                            true,
+                        );
+                    }
+                } else if waffle_changed {
+                    refresh_niri_output_snapshot();
+                    let snapshot = revision_state.borrow().clone();
+                    for display in cx.displays() {
+                        reconcile_waffle_background_for_display(
+                            cx,
+                            &revision_waffle_backgrounds,
+                            &revision_waffle_backdrops,
+                            &revision_waffle_output_names,
+                            display.id(),
+                            &snapshot.loaded.config,
+                            &snapshot.theme,
                             true,
                         );
                     }
@@ -948,6 +990,16 @@ pub fn start(cx: &mut App) {
             continue;
         }
         if family == "waffle" {
+            reconcile_waffle_background_for_display(
+                cx,
+                &waffle_backgrounds,
+                &waffle_backdrops,
+                &waffle_output_names,
+                display.id(),
+                &config,
+                &theme,
+                false,
+            );
             if waffle_display_enabled(cx, display.id(), &config.waffle.bar.screen_list) {
                 open_waffle_for_display(
                     cx,
@@ -1038,6 +1090,9 @@ pub fn start(cx: &mut App) {
     let output_vertical = vertical_surfaces.clone();
     let output_backgrounds = backgrounds.clone();
     let output_backdrops = backdrops.clone();
+    let output_waffle_backgrounds = waffle_backgrounds.clone();
+    let output_waffle_backdrops = waffle_backdrops.clone();
+    let output_waffle_names = waffle_output_names.clone();
     let output_docks = ii_dock_surfaces.clone();
     let output_names = ii_output_names.clone();
     let output_panels = ii_panel_surfaces.clone();
@@ -1049,49 +1104,77 @@ pub fn start(cx: &mut App) {
         while niri_output_updates.recv().await.is_ok() {
             cx.update(|cx| {
                 let snapshot = output_state.borrow().clone();
-                if snapshot.loaded.config.panel_family.as_deref() != Some("ii") {
-                    return;
-                }
-                for display in cx.displays() {
-                    reconcile_ii_critical_for_display(
-                        cx,
-                        &output_horizontal,
-                        &output_vertical,
-                        &output_backgrounds,
-                        &output_backdrops,
-                        &output_docks,
-                        &output_names,
-                        display.id(),
-                        &snapshot,
-                        &output_panel_events,
-                        &output_media_actions,
-                        &output_media_cache,
-                        false,
-                    );
-                    reconcile_ii_panel_for_display(
-                        cx,
-                        &output_panels,
-                        &output_panel_states,
-                        &output_vertical,
-                        &output_horizontal,
-                        display.id(),
-                        &snapshot.loaded.config,
-                        &snapshot.theme,
-                        &output_panel_events,
-                        &output_media_actions,
-                        &output_media_cache,
-                        false,
-                    );
+                if snapshot.loaded.config.panel_family.as_deref() == Some("ii") {
+                    for display in cx.displays() {
+                        reconcile_ii_critical_for_display(
+                            cx,
+                            &output_horizontal,
+                            &output_vertical,
+                            &output_backgrounds,
+                            &output_backdrops,
+                            &output_docks,
+                            &output_names,
+                            display.id(),
+                            &snapshot,
+                            &output_panel_events,
+                            &output_media_actions,
+                            &output_media_cache,
+                            false,
+                        );
+                        reconcile_ii_panel_for_display(
+                            cx,
+                            &output_panels,
+                            &output_panel_states,
+                            &output_vertical,
+                            &output_horizontal,
+                            display.id(),
+                            &snapshot.loaded.config,
+                            &snapshot.theme,
+                            &output_panel_events,
+                            &output_media_actions,
+                            &output_media_cache,
+                            false,
+                        );
+                    }
+                } else if snapshot.loaded.config.panel_family.as_deref() == Some("waffle") {
+                    for display in cx.displays() {
+                        reconcile_waffle_background_for_display(
+                            cx,
+                            &output_waffle_backgrounds,
+                            &output_waffle_backdrops,
+                            &output_waffle_names,
+                            display.id(),
+                            &snapshot.loaded.config,
+                            &snapshot.theme,
+                            false,
+                        );
+                    }
                 }
             });
         }
     })
     .detach();
 
+    // GPUI display events do not expose Niri's connector-name changes when
+    // geometry stays the same. Refresh the bounded Niri snapshot periodically
+    // for Waffle so per-output wallpaper routing can notice output renames.
+    if family == "waffle" {
+        cx.spawn(async move |cx| {
+            loop {
+                cx.background_executor().timer(Duration::from_secs(3)).await;
+                cx.update(|_| refresh_niri_output_snapshot());
+            }
+        })
+        .detach();
+    }
+
     let observed_surfaces = surfaces.clone();
     let observed_vertical_surfaces = vertical_surfaces.clone();
     let observed_backgrounds = backgrounds.clone();
     let observed_backdrops = backdrops.clone();
+    let observed_waffle_backgrounds = waffle_backgrounds.clone();
+    let observed_waffle_backdrops = waffle_backdrops.clone();
+    let observed_waffle_names = waffle_output_names.clone();
     let observed_ii_panel_surfaces = ii_panel_surfaces.clone();
     let observed_ii_dock_surfaces = ii_dock_surfaces.clone();
     let observed_ii_output_names = ii_output_names.clone();
@@ -1125,6 +1208,9 @@ pub fn start(cx: &mut App) {
         let vertical_surfaces = vertical_surfaces.clone();
         let backgrounds = backgrounds.clone();
         let backdrops = backdrops.clone();
+        let waffle_backgrounds = waffle_backgrounds.clone();
+        let waffle_backdrops = waffle_backdrops.clone();
+        let waffle_output_names = waffle_output_names.clone();
         let overlays = overlays.clone();
         let notification_overlays = notification_overlays.clone();
         let task_view_overlays = task_view_overlays.clone();
@@ -1155,6 +1241,34 @@ pub fn start(cx: &mut App) {
             backdrops
                 .borrow_mut()
                 .retain(|_, handle| handle.window_id() != window_id);
+            waffle_backgrounds
+                .borrow_mut()
+                .retain(|_, handle| handle.window_id() != window_id);
+            waffle_backdrops
+                .borrow_mut()
+                .retain(|_, handle| handle.window_id() != window_id);
+            let removed_waffle_outputs = waffle_output_names
+                .borrow()
+                .keys()
+                .copied()
+                .filter(|display| {
+                    waffle_backgrounds
+                        .borrow()
+                        .get(display)
+                        .is_none_or(|handle| handle.window_id() != window_id)
+                        && waffle_backdrops
+                            .borrow()
+                            .get(display)
+                            .is_none_or(|handle| handle.window_id() != window_id)
+                })
+                .collect::<Vec<_>>();
+            for display in removed_waffle_outputs {
+                if !waffle_backgrounds.borrow().contains_key(&display)
+                    && !waffle_backdrops.borrow().contains_key(&display)
+                {
+                    waffle_output_names.borrow_mut().remove(&display);
+                }
+            }
             let removed_ii_outputs = ii_panel_surfaces
                 .borrow()
                 .iter()
@@ -1247,7 +1361,7 @@ pub fn start(cx: &mut App) {
                 == Some("ii");
         match event {
             DisplayEvent::Added(display_id) => {
-                if manage_ii {
+                if manage_ii || observed_family == "waffle" {
                     refresh_niri_output_snapshot();
                 }
                 if manage_ii {
@@ -1268,6 +1382,17 @@ pub fn start(cx: &mut App) {
                         false,
                     );
                 } else if observed_family == "waffle" {
+                    let snapshot = observed_ii_critical.borrow().clone();
+                    reconcile_waffle_background_for_display(
+                        cx,
+                        &observed_waffle_backgrounds,
+                        &observed_waffle_backdrops,
+                        &observed_waffle_names,
+                        display_id,
+                        &snapshot.loaded.config,
+                        &snapshot.theme,
+                        false,
+                    );
                     if waffle_display_enabled(
                         cx,
                         display_id,
@@ -1353,6 +1478,13 @@ pub fn start(cx: &mut App) {
                 close_vertical_for_display(cx, &observed_vertical_surfaces, display_id);
                 close_background_for_display(cx, &observed_backgrounds, display_id);
                 close_backdrop_for_display(cx, &observed_backdrops, display_id);
+                close_waffle_background_for_display(
+                    cx,
+                    &observed_waffle_backgrounds,
+                    &observed_waffle_backdrops,
+                    display_id,
+                );
+                observed_waffle_names.borrow_mut().remove(&display_id);
                 close_ii_dock_for_display(cx, &observed_ii_dock_surfaces, display_id);
                 observed_ii_output_names.borrow_mut().remove(&display_id);
                 close_ii_panel_for_display(
@@ -1374,6 +1506,20 @@ pub fn start(cx: &mut App) {
                 }
             }
             DisplayEvent::Changed { id, changes } => {
+                if observed_family == "waffle" && changes.contains(DisplayChanges::BOUNDS) {
+                    refresh_niri_output_snapshot();
+                    let snapshot = observed_ii_critical.borrow().clone();
+                    reconcile_waffle_background_for_display(
+                        cx,
+                        &observed_waffle_backgrounds,
+                        &observed_waffle_backdrops,
+                        &observed_waffle_names,
+                        id,
+                        &snapshot.loaded.config,
+                        &snapshot.theme,
+                        true,
+                    );
+                }
                 if manage_ii {
                     refresh_niri_output_snapshot();
                     let snapshot = observed_ii_critical.borrow().clone();
@@ -1593,6 +1739,421 @@ fn waffle_display_enabled(cx: &App, display_id: DisplayId, screen_list: &[String
         .any(|(id, name)| *id == display_id && screen_list.iter().any(|selected| selected == name))
 }
 
+/// Reconcile Waffle's wallpaper windows independently from the Material ii
+/// surfaces. Background panels are output-wide in QML and do not follow the bar
+/// `screenList` filter.
+fn reconcile_waffle_background_for_display(
+    cx: &mut App,
+    backgrounds: &WaffleBackgroundMap,
+    backdrops: &WaffleBackdropMap,
+    output_names: &WaffleOutputNameMap,
+    display_id: DisplayId,
+    config: &ShellConfig,
+    theme: &ThemeTokens,
+    replace: bool,
+) {
+    let output_name = cx
+        .displays()
+        .into_iter()
+        .find(|display| display.id() == display_id)
+        .and_then(|display| niri_output_name(display.bounds()));
+    let previous_name = output_names
+        .borrow_mut()
+        .insert(display_id, output_name.clone());
+    let output_name_changed = previous_name.is_some_and(|previous| previous != output_name);
+    let replace = replace || output_name_changed;
+
+    if config.panel_family.as_deref() != Some("waffle") {
+        close_waffle_background_for_display(cx, backgrounds, backdrops, display_id);
+        output_names.borrow_mut().remove(&display_id);
+        return;
+    }
+
+    let waffle = &config.waffle.background;
+    let backdrop_only = config
+        .enabled_panels
+        .iter()
+        .any(|panel| panel == "wBackdrop")
+        && waffle.backdrop.enabled.unwrap_or(true)
+        && waffle.backdrop.hide_wallpaper.unwrap_or(false);
+    let main_enabled = config
+        .enabled_panels
+        .iter()
+        .any(|panel| panel == "wBackground")
+        && !backdrop_only;
+    if !main_enabled || replace {
+        close_waffle_background_for_display_only(cx, backgrounds, display_id);
+    }
+    if main_enabled {
+        open_waffle_background_for_display(
+            cx,
+            backgrounds,
+            display_id,
+            config,
+            theme,
+            output_name.as_deref(),
+        );
+    }
+
+    let backdrop_enabled = config
+        .enabled_panels
+        .iter()
+        .any(|panel| panel == "wBackdrop")
+        && waffle.backdrop.enabled.unwrap_or(true);
+    if !backdrop_enabled || replace {
+        close_waffle_backdrop_for_display(cx, backdrops, display_id);
+    }
+    if backdrop_enabled {
+        open_waffle_backdrop_for_display(
+            cx,
+            backdrops,
+            display_id,
+            config,
+            theme,
+            output_name.as_deref(),
+        );
+    }
+}
+
+fn close_waffle_background_surfaces(
+    cx: &mut App,
+    backgrounds: &WaffleBackgroundMap,
+    backdrops: &WaffleBackdropMap,
+    output_names: &WaffleOutputNameMap,
+) {
+    let mut displays = backgrounds
+        .borrow()
+        .keys()
+        .chain(backdrops.borrow().keys())
+        .copied()
+        .collect::<Vec<_>>();
+    displays.sort_by_key(|display| format!("{display:?}"));
+    displays.dedup();
+    for display in displays {
+        close_waffle_background_for_display(cx, backgrounds, backdrops, display);
+    }
+    output_names.borrow_mut().clear();
+}
+
+fn close_waffle_background_for_display(
+    cx: &mut App,
+    backgrounds: &WaffleBackgroundMap,
+    backdrops: &WaffleBackdropMap,
+    display_id: DisplayId,
+) {
+    close_waffle_background_for_display_only(cx, backgrounds, display_id);
+    close_waffle_backdrop_for_display(cx, backdrops, display_id);
+}
+
+fn close_waffle_background_for_display_only(
+    cx: &mut App,
+    backgrounds: &WaffleBackgroundMap,
+    display_id: DisplayId,
+) {
+    let Some(handle) = backgrounds.borrow_mut().remove(&display_id) else {
+        return;
+    };
+    if let Err(error) = handle.update(cx, |_, window: &mut Window, _| window.remove_window()) {
+        eprintln!("Could not close GPUI Waffle background surface for {display_id:?}: {error:#}");
+    }
+}
+
+fn close_waffle_backdrop_for_display(
+    cx: &mut App,
+    backdrops: &WaffleBackdropMap,
+    display_id: DisplayId,
+) {
+    let Some(handle) = backdrops.borrow_mut().remove(&display_id) else {
+        return;
+    };
+    if let Err(error) = handle.update(cx, |_, window: &mut Window, _| window.remove_window()) {
+        eprintln!("Could not close GPUI Waffle backdrop surface for {display_id:?}: {error:#}");
+    }
+}
+
+fn open_waffle_background_for_display(
+    cx: &mut App,
+    backgrounds: &WaffleBackgroundMap,
+    display_id: DisplayId,
+    config: &ShellConfig,
+    theme: &ThemeTokens,
+    output_name: Option<&str>,
+) {
+    // The Rust host has no AwwwBackend ownership signal. The operator must
+    // disable external Awww ownership before enabling this GPUI surface; do
+    // not infer Awww state from config or claim single-owner coordination.
+    // Fullscreen and lock-screen visibility signals are also unavailable, and
+    // GPUI image failure callbacks cannot try another path after decode fails.
+    if backgrounds.borrow().contains_key(&display_id) {
+        return;
+    }
+    let Some(display) = cx
+        .displays()
+        .into_iter()
+        .find(|display| display.id() == display_id)
+    else {
+        return;
+    };
+    let configured_path = waffle_main_wallpaper_path(config, output_name);
+    if let Some(path) = configured_path.as_ref()
+        && classify_wallpaper(Some(path)) != WallpaperKind::Still
+    {
+        eprintln!(
+            "Waffle GPUI background: {:?} wallpaper is not supported by the static surface; leaving it unrendered",
+            classify_wallpaper(Some(path))
+        );
+    }
+    let still_path = configured_path
+        .as_ref()
+        .filter(|path| classify_wallpaper(Some(path)) == WallpaperKind::Still)
+        .cloned();
+    let status = match (configured_path.as_ref(), still_path.as_ref()) {
+        (None, _) => WallpaperStatus::Missing,
+        (Some(path), None) if classify_wallpaper(Some(path)) != WallpaperKind::Still => {
+            WallpaperStatus::Unsupported
+        }
+        (Some(_), None) => WallpaperStatus::Missing,
+        (Some(_), Some(path)) if path.is_file() => WallpaperStatus::Ready,
+        (Some(_), Some(_)) => WallpaperStatus::Missing,
+    };
+    let props = DesktopBackgroundProps {
+        output_name: output_name.unwrap_or_default().to_owned(),
+        wallpaper_path: still_path,
+        decoded_image: None,
+        status,
+        colors: crate::components::desktop_background::DesktopBackgroundColors {
+            background: theme.colors.background,
+            foreground: theme.colors.foreground,
+        },
+    };
+    let bounds = Bounds {
+        origin: point(Pixels::ZERO, Pixels::ZERO),
+        size: display.bounds().size,
+    };
+    let options = WindowOptions {
+        titlebar: None,
+        display_id: Some(display_id),
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        app_id: Some("intoo-gpui-waffle-background".to_owned()),
+        window_background: WindowBackgroundAppearance::Transparent,
+        kind: WindowKind::LayerShell(LayerShellOptions {
+            namespace: "intoo-gpui-waffle-background".to_owned(),
+            layer: Layer::Bottom,
+            anchor: Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT,
+            exclusive_zone: Some(px(0.)),
+            keyboard_interactivity: KeyboardInteractivity::None,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let element_id = format!("waffle.background.{display_id:?}");
+    let label = match output_name {
+        Some(name) => format!("Waffle desktop wallpaper for output {name}"),
+        None => "Waffle desktop wallpaper".to_owned(),
+    };
+    match cx.open_window(options, move |_, cx| {
+        cx.new(|_| DesktopBackground::with_accessibility(props, element_id, label))
+    }) {
+        Ok(handle) => {
+            let _ = handle.update(cx, |_, window: &mut Window, _| {
+                window.set_input_region(Some(&[]));
+            });
+            backgrounds.borrow_mut().insert(display_id, handle);
+        }
+        Err(error) => {
+            eprintln!(
+                "Could not create GPUI Waffle background surface for {display_id:?}: {error:#}"
+            );
+        }
+    }
+}
+
+fn open_waffle_backdrop_for_display(
+    cx: &mut App,
+    backdrops: &WaffleBackdropMap,
+    display_id: DisplayId,
+    config: &ShellConfig,
+    theme: &ThemeTokens,
+    output_name: Option<&str>,
+) {
+    if backdrops.borrow().contains_key(&display_id) {
+        return;
+    }
+    let Some(display) = cx
+        .displays()
+        .into_iter()
+        .find(|display| display.id() == display_id)
+    else {
+        return;
+    };
+    let waffle = &config.waffle.background;
+    let backdrop = &waffle.backdrop;
+    let wallpaper_path = waffle_backdrop_wallpaper_path(config, output_name);
+    let wallpaper_kind = classify_wallpaper(wallpaper_path.as_deref());
+    let status = match wallpaper_path.as_ref() {
+        Some(_) if wallpaper_kind != WallpaperKind::Still => BackdropStatus::Unsupported,
+        Some(path) if path.is_file() => BackdropStatus::Ready,
+        _ => BackdropStatus::Missing,
+    };
+    let input = DesktopBackdropInput {
+        output_name: output_name.unwrap_or_default().to_owned(),
+        wallpaper_path,
+        decoded_image: None,
+        status,
+        wallpaper_kind,
+        use_aurora_style: false,
+        aurora_overlay_opacity: 0.,
+        enable_animation: false,
+        dim_percent: backdrop.dim.unwrap_or(35.) as f32,
+        saturation: backdrop.saturation.unwrap_or(0.) as f32,
+        contrast: backdrop.contrast.unwrap_or(0.) as f32,
+        blur_radius: backdrop.blur_radius.unwrap_or(32.) as f32,
+        vignette: backdrop
+            .vignette_enabled
+            .unwrap_or(false)
+            .then_some(Vignette {
+                intensity: backdrop.vignette_intensity.unwrap_or(0.5) as f32,
+                radius: backdrop.vignette_radius.unwrap_or(0.7) as f32,
+            }),
+        reduced_effects: false,
+        background: theme
+            .colors
+            .background
+            .unwrap_or_else(|| gpui::rgba(0x101014ff).into()),
+        foreground: theme
+            .colors
+            .foreground
+            .unwrap_or_else(|| gpui::rgba(0xffffffff).into()),
+    };
+    let bounds = Bounds {
+        origin: point(Pixels::ZERO, Pixels::ZERO),
+        size: display.bounds().size,
+    };
+    let options = WindowOptions {
+        titlebar: None,
+        display_id: Some(display_id),
+        window_bounds: Some(WindowBounds::Windowed(bounds)),
+        app_id: Some("intoo-gpui-waffle-backdrop".to_owned()),
+        window_background: WindowBackgroundAppearance::Transparent,
+        kind: WindowKind::LayerShell(LayerShellOptions {
+            namespace: "intoo-gpui-waffle-backdrop".to_owned(),
+            layer: Layer::Background,
+            anchor: Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT,
+            exclusive_zone: Some(px(0.)),
+            keyboard_interactivity: KeyboardInteractivity::None,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let element_namespace = format!("waffle.backdrop.{display_id:?}");
+    let label = match output_name {
+        Some(name) => format!("Waffle desktop backdrop for output {name}"),
+        None => "Waffle desktop backdrop".to_owned(),
+    };
+    match cx.open_window(options, move |_, cx| {
+        cx.new(|_| DesktopBackdrop::with_accessibility(input, element_namespace, label))
+    }) {
+        Ok(handle) => {
+            let _ = handle.update(cx, |_, window: &mut Window, _| {
+                window.set_input_region(Some(&[]));
+            });
+            backdrops.borrow_mut().insert(display_id, handle);
+        }
+        Err(error) => {
+            eprintln!(
+                "Could not create GPUI Waffle backdrop surface for {display_id:?}: {error:#}"
+            );
+        }
+    }
+}
+
+fn waffle_main_wallpaper_path(
+    config: &ShellConfig,
+    output_name: Option<&str>,
+) -> Option<std::path::PathBuf> {
+    let per_output_main = config
+        .background
+        .multi_monitor_enabled
+        .unwrap_or(false)
+        .then(|| {
+            output_name.and_then(|name| {
+                config
+                    .background
+                    .wallpapers_by_monitor
+                    .iter()
+                    .find(|entry| entry.monitor.as_deref() == Some(name))
+                    .and_then(|entry| entry.path.as_deref())
+            })
+        })
+        .flatten()
+        .filter(|path| !path.is_empty())
+        .and_then(configured_wallpaper_path);
+    let waffle_main = (!config.waffle.background.use_main_wallpaper.unwrap_or(true))
+        .then(|| config.waffle.background.wallpaper_path.as_deref())
+        .flatten()
+        .filter(|path| !path.is_empty())
+        .and_then(configured_wallpaper_path);
+    let global_main = config
+        .background
+        .wallpaper_path
+        .as_deref()
+        .filter(|path| !path.is_empty())
+        .and_then(configured_wallpaper_path);
+    first_existing_path([per_output_main, waffle_main, global_main])
+}
+
+fn waffle_backdrop_wallpaper_path(
+    config: &ShellConfig,
+    output_name: Option<&str>,
+) -> Option<std::path::PathBuf> {
+    let backdrop = &config.waffle.background.backdrop;
+    if backdrop.use_main_wallpaper.unwrap_or(true) {
+        return waffle_main_wallpaper_path(config, output_name);
+    }
+    let per_output = config
+        .background
+        .multi_monitor_enabled
+        .unwrap_or(false)
+        .then(|| {
+            output_name.and_then(|name| {
+                config
+                    .background
+                    .wallpapers_by_monitor
+                    .iter()
+                    .find(|entry| entry.monitor.as_deref() == Some(name))
+                    .and_then(|entry| entry.backdrop_path.as_deref())
+            })
+        })
+        .flatten()
+        .filter(|path| !path.is_empty())
+        .and_then(configured_wallpaper_path);
+    let global_backdrop = backdrop
+        .wallpaper_path
+        .as_deref()
+        .filter(|path| !path.is_empty())
+        .and_then(configured_wallpaper_path);
+    let waffle_main = waffle_main_wallpaper_path(config, output_name);
+    first_existing_path([per_output, global_backdrop, waffle_main])
+}
+
+fn first_existing_path<const N: usize>(
+    candidates: [Option<std::path::PathBuf>; N],
+) -> Option<std::path::PathBuf> {
+    let mut first_configured = None;
+    for path in candidates.into_iter().flatten() {
+        first_configured.get_or_insert_with(|| path.clone());
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    first_configured
+}
+
+fn configured_wallpaper_path(configured: &str) -> Option<std::path::PathBuf> {
+    let path = configured.strip_prefix("file://").unwrap_or(configured);
+    (!path.is_empty()).then(|| std::path::PathBuf::from(path))
+}
+
 fn close_ii_critical_surfaces(
     cx: &mut App,
     horizontal_bars: &SurfaceMap,
@@ -1668,6 +2229,14 @@ fn ii_critical_config_changed(previous: &ConfigLoad, next: &ConfigLoad) -> bool 
         || previous.background != next.background
         || previous.sidebar != next.sidebar
         || previous.dashboard != next.dashboard
+        || previous.appearance != next.appearance
+}
+
+fn waffle_background_config_changed(previous: &ShellConfig, next: &ShellConfig) -> bool {
+    previous.panel_family != next.panel_family
+        || previous.enabled_panels != next.enabled_panels
+        || previous.background != next.background
+        || previous.waffle.background != next.waffle.background
         || previous.appearance != next.appearance
 }
 

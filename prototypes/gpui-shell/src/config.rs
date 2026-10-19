@@ -247,7 +247,32 @@ pub struct DashboardLayout {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WaffleConfig {
     pub bar: WaffleBarConfig,
+    pub background: WaffleBackgroundConfig,
     pub task_view: WaffleTaskViewConfig,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WaffleBackgroundConfig {
+    pub use_main_wallpaper: Option<bool>,
+    pub wallpaper_path: Option<String>,
+    pub hide_when_fullscreen: Option<bool>,
+    pub backdrop: WaffleBackdropConfig,
+}
+
+/// Waffle owns its backdrop namespace independently of the shared/ii backdrop.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct WaffleBackdropConfig {
+    pub enabled: Option<bool>,
+    pub hide_wallpaper: Option<bool>,
+    pub use_main_wallpaper: Option<bool>,
+    pub wallpaper_path: Option<String>,
+    pub blur_radius: Option<f64>,
+    pub dim: Option<f64>,
+    pub saturation: Option<f64>,
+    pub contrast: Option<f64>,
+    pub vignette_enabled: Option<bool>,
+    pub vignette_intensity: Option<f64>,
+    pub vignette_radius: Option<f64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -1231,6 +1256,152 @@ impl ConfigLoad {
                 &mut diagnostics,
             )
         });
+        let waffle_background = root
+            .get("waffles")
+            .and_then(|value| value.get("background"));
+        let default_waffle_background = defaults
+            .get("waffles")
+            .and_then(|value| value.get("background"));
+        cfg.waffle.background.use_main_wallpaper = waffle_background
+            .and_then(|value| {
+                bool_at(
+                    value,
+                    "useMainWallpaper",
+                    "waffles.background.useMainWallpaper",
+                    &mut diagnostics,
+                )
+            })
+            .or_else(|| {
+                default_waffle_background.and_then(|value| {
+                    bool_at(
+                        value,
+                        "useMainWallpaper",
+                        "defaults.waffles.background.useMainWallpaper",
+                        &mut diagnostics,
+                    )
+                })
+            });
+        cfg.waffle.background.wallpaper_path = waffle_background
+            .and_then(|value| {
+                string_at(
+                    value,
+                    "wallpaperPath",
+                    "waffles.background.wallpaperPath",
+                    &mut diagnostics,
+                )
+            })
+            .or_else(|| {
+                default_waffle_background.and_then(|value| {
+                    string_at(
+                        value,
+                        "wallpaperPath",
+                        "defaults.waffles.background.wallpaperPath",
+                        &mut diagnostics,
+                    )
+                })
+            });
+        cfg.waffle.background.hide_when_fullscreen = waffle_background
+            .and_then(|value| {
+                bool_at(
+                    value,
+                    "hideWhenFullscreen",
+                    "waffles.background.hideWhenFullscreen",
+                    &mut diagnostics,
+                )
+            })
+            .or_else(|| {
+                default_waffle_background.and_then(|value| {
+                    bool_at(
+                        value,
+                        "hideWhenFullscreen",
+                        "defaults.waffles.background.hideWhenFullscreen",
+                        &mut diagnostics,
+                    )
+                })
+            });
+        let waffle_backdrop = waffle_background.and_then(|value| value.get("backdrop"));
+        let default_waffle_backdrop =
+            default_waffle_background.and_then(|value| value.get("backdrop"));
+        macro_rules! waffle_backdrop_bool {
+            ($field:ident, $key:literal) => {
+                cfg.waffle.background.backdrop.$field = waffle_backdrop
+                    .and_then(|value| {
+                        bool_at(
+                            value,
+                            $key,
+                            concat!("waffles.background.backdrop.", $key),
+                            &mut diagnostics,
+                        )
+                    })
+                    .or_else(|| {
+                        default_waffle_backdrop.and_then(|value| {
+                            bool_at(
+                                value,
+                                $key,
+                                concat!("defaults.waffles.background.backdrop.", $key),
+                                &mut diagnostics,
+                            )
+                        })
+                    });
+            };
+        }
+        macro_rules! waffle_backdrop_number {
+            ($field:ident, $key:literal) => {
+                cfg.waffle.background.backdrop.$field = waffle_backdrop
+                    .and_then(|value| {
+                        number_at(
+                            value,
+                            $key,
+                            concat!("waffles.background.backdrop.", $key),
+                            &mut diagnostics,
+                        )
+                    })
+                    .or_else(|| {
+                        default_waffle_backdrop.and_then(|value| {
+                            number_at(
+                                value,
+                                $key,
+                                concat!("defaults.waffles.background.backdrop.", $key),
+                                &mut diagnostics,
+                            )
+                        })
+                    });
+            };
+        }
+        macro_rules! waffle_backdrop_string {
+            ($field:ident, $key:literal) => {
+                cfg.waffle.background.backdrop.$field = waffle_backdrop
+                    .and_then(|value| {
+                        string_at(
+                            value,
+                            $key,
+                            concat!("waffles.background.backdrop.", $key),
+                            &mut diagnostics,
+                        )
+                    })
+                    .or_else(|| {
+                        default_waffle_backdrop.and_then(|value| {
+                            string_at(
+                                value,
+                                $key,
+                                concat!("defaults.waffles.background.backdrop.", $key),
+                                &mut diagnostics,
+                            )
+                        })
+                    });
+            };
+        }
+        waffle_backdrop_bool!(enabled, "enable");
+        waffle_backdrop_bool!(hide_wallpaper, "hideWallpaper");
+        waffle_backdrop_bool!(use_main_wallpaper, "useMainWallpaper");
+        waffle_backdrop_bool!(vignette_enabled, "vignetteEnabled");
+        waffle_backdrop_number!(blur_radius, "blurRadius");
+        waffle_backdrop_number!(dim, "dim");
+        waffle_backdrop_number!(saturation, "saturation");
+        waffle_backdrop_number!(contrast, "contrast");
+        waffle_backdrop_number!(vignette_intensity, "vignetteIntensity");
+        waffle_backdrop_number!(vignette_radius, "vignetteRadius");
+        waffle_backdrop_string!(wallpaper_path, "wallpaperPath");
         let waffle_task_view = root.get("waffles").and_then(|value| value.get("taskView"));
         let default_waffle_task_view = defaults
             .get("waffles")
@@ -1771,4 +1942,111 @@ fn bool_map(v: Option<&Value>, path: &str, d: &mut Vec<String>) -> BTreeMap<Stri
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ConfigLoad, ConfigSource};
+
+    #[test]
+    fn waffle_background_uses_bundled_defaults() {
+        let loaded = ConfigLoad::from_defaults();
+        let background = &loaded.config.waffle.background;
+
+        assert_eq!(loaded.source, ConfigSource::BundledDefaults);
+        assert_eq!(background.use_main_wallpaper, Some(true));
+        assert_eq!(background.wallpaper_path.as_deref(), Some(""));
+        assert_eq!(background.hide_when_fullscreen, Some(true));
+        assert_eq!(background.backdrop.enabled, Some(true));
+        assert_eq!(background.backdrop.hide_wallpaper, Some(false));
+        assert_eq!(background.backdrop.use_main_wallpaper, Some(true));
+        assert_eq!(background.backdrop.wallpaper_path.as_deref(), Some(""));
+        assert_eq!(background.backdrop.dim, Some(35.));
+        assert_eq!(background.backdrop.vignette_enabled, Some(false));
+        assert_eq!(background.backdrop.vignette_intensity, Some(0.5));
+        assert_eq!(background.backdrop.vignette_radius, Some(0.7));
+    }
+
+    #[test]
+    fn waffle_background_overrides_are_independent_from_shared_backdrop() {
+        let loaded = ConfigLoad::from_bytes(
+            br#"{
+                "background": {
+                    "wallpaperPath": "/global.jpg",
+                    "backdrop": {
+                        "enable": false,
+                        "dim": 9
+                    }
+                },
+                "waffles": {
+                    "background": {
+                        "useMainWallpaper": false,
+                        "wallpaperPath": "/waffle.jpg",
+                        "hideWhenFullscreen": false,
+                        "backdrop": {
+                            "enable": false,
+                            "hideWallpaper": true,
+                            "useMainWallpaper": false,
+                            "wallpaperPath": "/waffle-backdrop.jpg",
+                            "blurRadius": 17,
+                            "dim": 21,
+                            "saturation": 12,
+                            "contrast": -4,
+                            "vignetteEnabled": true,
+                            "vignetteIntensity": 0.6,
+                            "vignetteRadius": 0.8
+                        }
+                    }
+                }
+            }"#,
+        );
+        let waffle = &loaded.config.waffle.background;
+
+        assert_eq!(waffle.use_main_wallpaper, Some(false));
+        assert_eq!(waffle.wallpaper_path.as_deref(), Some("/waffle.jpg"));
+        assert_eq!(waffle.hide_when_fullscreen, Some(false));
+        assert_eq!(waffle.backdrop.enabled, Some(false));
+        assert_eq!(waffle.backdrop.hide_wallpaper, Some(true));
+        assert_eq!(waffle.backdrop.use_main_wallpaper, Some(false));
+        assert_eq!(
+            waffle.backdrop.wallpaper_path.as_deref(),
+            Some("/waffle-backdrop.jpg")
+        );
+        assert_eq!(waffle.backdrop.blur_radius, Some(17.));
+        assert_eq!(waffle.backdrop.dim, Some(21.));
+        assert_eq!(waffle.backdrop.saturation, Some(12.));
+        assert_eq!(waffle.backdrop.contrast, Some(-4.));
+        assert_eq!(waffle.backdrop.vignette_enabled, Some(true));
+        assert_eq!(waffle.backdrop.vignette_intensity, Some(0.6));
+        assert_eq!(waffle.backdrop.vignette_radius, Some(0.8));
+
+        assert_eq!(
+            loaded.config.background.wallpaper_path.as_deref(),
+            Some("/global.jpg")
+        );
+        assert_eq!(loaded.config.background.backdrop.enabled, Some(false));
+        assert_eq!(loaded.config.background.backdrop.dim, Some(9.));
+        assert_eq!(waffle.backdrop.dim, Some(21.));
+    }
+
+    #[test]
+    fn sparse_waffle_background_falls_back_to_bundled_defaults() {
+        let loaded = ConfigLoad::from_bytes(
+            br#"{"waffles":{"background":{"backdrop":{"wallpaperPath":"/custom.jpg","dim":12}}}}"#,
+        );
+        let background = &loaded.config.waffle.background;
+
+        assert_eq!(background.use_main_wallpaper, Some(true));
+        assert_eq!(background.hide_when_fullscreen, Some(true));
+        assert_eq!(background.backdrop.enabled, Some(true));
+        assert_eq!(background.backdrop.hide_wallpaper, Some(false));
+        assert_eq!(background.backdrop.use_main_wallpaper, Some(true));
+        assert_eq!(
+            background.backdrop.wallpaper_path.as_deref(),
+            Some("/custom.jpg")
+        );
+        assert_eq!(background.backdrop.blur_radius, Some(32.));
+        assert_eq!(background.backdrop.dim, Some(12.));
+        assert_eq!(background.backdrop.vignette_enabled, Some(false));
+    }
 }
