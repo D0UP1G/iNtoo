@@ -126,6 +126,20 @@ pub fn resolve(
         ..ShapeTokens::default()
     };
     let spacing = SpacingTokens::default();
+    // QML applies the configured values only when transparency is enabled and
+    // automatic mode is explicitly off. Missing configuration retains the
+    // automatic default, whose wallpaper analysis remains unported.
+    let opacity = if appearance.transparency_enabled == Some(true)
+        && appearance.transparency_automatic == Some(false)
+    {
+        OpacityTokens {
+            background_transparency: manual_transparency(appearance.background_transparency),
+            content_transparency: manual_transparency(appearance.content_transparency),
+            ..OpacityTokens::default()
+        }
+    } else {
+        OpacityTokens::default()
+    };
 
     // The QML generator writes a complete Material palette. A sparse object
     // usually means the file is being replaced or is malformed, so mixing its
@@ -175,8 +189,15 @@ pub fn resolve(
         // family-specific geometry resolver is ported; no colors are implied.
         shape,
         spacing,
-        opacity: OpacityTokens::default(),
+        opacity,
     })
+}
+
+fn manual_transparency(value: Option<f64>) -> f32 {
+    value
+        .filter(|value| value.is_finite())
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0) as f32
 }
 
 fn set_font_family(source: &Value, key: &str, target: &mut String) {
