@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression checks for companion transport, per-message tools and safe keybind migration."""
+"""Regression checks for companion transport, per-action approval and safe keybind migration."""
 
 import importlib.util
 import json
@@ -20,6 +20,92 @@ INSTALLER = ROOT / "sdata/lib/install-opencode.sh"
 spec = importlib.util.spec_from_file_location("companion", BRIDGE)
 companion = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(companion)
+
+SERVE_STUB = r'''import json, os, sys, time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+if "--version" in sys.argv:
+    print("1.18.35")
+    raise SystemExit(0)
+
+if "serve" not in sys.argv:
+    raise SystemExit(1)
+
+capture = os.environ.get("CAPTURE")
+
+def read_capture():
+    with open(capture) as f:
+        return json.load(f)
+
+def write_capture(data):
+    with open(capture + ".tmp", "w") as f:
+        json.dump(data, f)
+    os.replace(capture + ".tmp", capture)
+
+write_capture({
+    "argv": sys.argv,
+    "config": json.loads(os.environ.get("OPENCODE_CONFIG_CONTENT", "{}")),
+    "cwd": os.getcwd(),
+    "pwd": os.environ.get("PWD", ""),
+    "database": os.environ.get("OPENCODE_DB", ""),
+    "pid": os.getpid(),
+    "messages": [],
+    "permissions": [],
+})
+
+scenario = json.loads(os.environ.get("SCENARIO", "[]"))
+
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+    def _json(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length)) if length else {}
+        if self.path == "/session":
+            self._json(200, {"id": "ses_test"})
+        elif self.path.startswith("/session/") and (self.path.endswith("/message")
+                                                    or self.path.endswith("/prompt_async")):
+            data = read_capture()
+            data["messages"].append(body)
+            write_capture(data)
+            self._json(200, {"info": {"id": "msg_test"}, "parts": []})
+        elif "/permissions/" in self.path:
+            data = read_capture()
+            data["permissions"].append(body)
+            write_capture(data)
+            self._json(200, True)
+        else:
+            self._json(404, {})
+
+    def do_GET(self):
+        if self.path == "/event":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            for event in scenario:
+                payload = json.dumps(event)
+                self.wfile.write(("event: " + event["type"] + "\n").encode())
+                self.wfile.write(("data: " + payload + "\n\n").encode())
+                self.wfile.flush()
+            time.sleep(3600)
+        else:
+            self._json(404, {})
+
+
+server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+print("opencode server listening on http://127.0.0.1:%d" % server.server_address[1], flush=True)
+server.serve_forever()
+'''
 
 
 class CompanionTests(unittest.TestCase):
@@ -46,11 +132,20 @@ if "--version" in sys.argv:
 ''' + body)
         path.chmod(0o755)
 
+    def serve_stub(self, scenario):
+        self.env["SCENARIO"] = json.dumps(scenario)
+        path = self.bin / "opencode"
+        path.write_text("#!" + sys.executable + "\n" + SERVE_STUB)
+        path.chmod(0o755)
+
     def request(self, **values):
         result = subprocess.run([sys.executable, str(BRIDGE)], env=self.env,
                                 input=json.dumps({"message": "Hello", **values}) + "\n",
-                                text=True, capture_output=True, timeout=10)
+                                text=True, capture_output=True, timeout=15)
         return result, [json.loads(line) for line in result.stdout.splitlines()]
+
+    def capture(self):
+        return json.loads((self.home / "capture.json").read_text())
 
     def test_history_is_bounded_and_filters_obvious_credentials(self):
         (self.home / ".bash_history").write_text("\n".join("echo " + str(i) for i in range(50))
@@ -68,47 +163,49 @@ if "--version" in sys.argv:
             history = companion.recent_commands(self.home, self.home / "config")
         self.assertEqual([item["commands"] for item in history], [["pwd"], ["ls -la"]])
 
-    def capture_stub(self):
-        self.stub('''import json, os, sys
-from pathlib import Path
-Path(os.environ["CAPTURE"]).write_text(json.dumps({"input": sys.stdin.read(), "argv": sys.argv,
-    "config": json.loads(os.environ["OPENCODE_CONFIG_CONTENT"]), "cwd": os.getcwd(), "pwd": os.environ["PWD"],
-    "database": os.environ["OPENCODE_DB"]}))
-print(json.dumps({"type": "text", "part": {"text": "Hello"}}), flush=True)
-print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
-''')
-
     def test_stream_and_no_history_without_opt_in(self):
         (self.home / ".bash_history").write_text("echo PRIVATE_HISTORY_MARKER\n")
-        self.capture_stub()
+        self.serve_stub([
+            {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": "Hello"},
+                            "delta": "Hello"}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": "Hello world"},
+                            "delta": " world"}},
+            {"type": "session.idle", "properties": {"sessionID": "ses_test"}},
+        ])
         result, events = self.request(message="Literal $(touch /tmp/should-not-exist)", model="test/model")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual([e["text"] for e in events if e["type"] == "text"], ["Hello", " world"])
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertNotIn("PRIVATE_HISTORY_MARKER", capture["input"])
-        self.assertIn("$(touch /tmp/should-not-exist)", capture["input"])
+        capture = self.capture()
+        prompt = capture["messages"][0]["parts"][0]["text"]
+        self.assertNotIn("PRIVATE_HISTORY_MARKER", prompt)
+        self.assertIn("$(touch /tmp/should-not-exist)", prompt)
         self.assertNotIn("Literal", " ".join(capture["argv"]))
         self.assertEqual(capture["cwd"], capture["pwd"])
         self.assertEqual(capture["database"], str(self.home / "state/inir/assistant/opencode.db"))
         self.assertEqual(capture["config"]["permission"], {"*": "deny"})
-        agent = capture["argv"][capture["argv"].index("--agent") + 1]
+        agent = capture["messages"][0]["agent"]
         self.assertEqual(capture["config"]["agent"][agent]["permission"], {"*": "deny"})
 
-    def test_actions_do_not_carry_into_next_message(self):
-        self.capture_stub()
-        self.request(allowActions=True, model="test/model")
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertEqual(capture["config"]["permission"]["bash"], "allow")
-        self.request(model="test/model")
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertEqual(capture["config"]["permission"], {"*": "deny"})
+    def test_ask_mode_sets_per_action_permissions(self):
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
+        result, _events = self.request(model="test/model", actions="ask")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.capture()["config"]["permission"], {"*": "ask"})
+
+    def test_default_mode_stays_denied(self):
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
+        result, _events = self.request(model="test/model")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.capture()["config"]["permission"], {"*": "deny"})
 
     def test_history_is_attached_when_requested(self):
         (self.home / ".bash_history").write_text("echo HISTORY_MARKER\n")
-        self.capture_stub()
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
         self.request(includeHistory=True, model="test/model")
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertIn("HISTORY_MARKER", capture["input"])
+        self.assertIn("HISTORY_MARKER", self.capture()["messages"][0]["parts"][0]["text"])
 
     def test_ollama_default_requires_the_runtime(self):
         with patch.dict(os.environ, self.env, clear=True):
@@ -117,48 +214,45 @@ print(json.dumps({"type": "text", "part": {"text": " world"}}), flush=True)
         self.assertIn("Ollama is not installed", str(raised.exception))
 
     def test_explicit_provider_configures_endpoint_and_model(self):
-        self.capture_stub()
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
         result, _events = self.request(provider="deepseek", apiBase="https://api.deepseek.com/v1",
                                        apiFormat="openai", model="deepseek-chat")
         self.assertEqual(result.returncode, 0, result.stderr)
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
-                         "deepseek/deepseek-chat")
+        capture = self.capture()
+        self.assertEqual(capture["messages"][0]["model"],
+                         {"providerID": "deepseek", "modelID": "deepseek-chat"})
         provider = capture["config"]["provider"]["deepseek"]
         self.assertEqual(provider["options"]["baseURL"], "https://api.deepseek.com/v1")
         self.assertEqual(provider["npm"], "@ai-sdk/openai-compatible")
         self.assertIn("deepseek-chat", provider["models"])
 
     def test_provider_without_base_keeps_opencode_endpoint(self):
-        self.capture_stub()
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
         result, _events = self.request(provider="openai", model="gpt-4.1-mini")
         self.assertEqual(result.returncode, 0, result.stderr)
-        capture = json.loads((self.home / "capture.json").read_text())
+        capture = self.capture()
         self.assertNotIn("provider", capture["config"])
-        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
-                         "openai/gpt-4.1-mini")
+        self.assertEqual(capture["messages"][0]["model"],
+                         {"providerID": "openai", "modelID": "gpt-4.1-mini"})
 
     def test_provider_mismatch_does_not_fall_back_to_ollama(self):
-        self.capture_stub()
         result, events = self.request(provider="openai", model="ollama/qwen3.5:0.8b")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("selected provider openai", events[-1]["text"])
         self.assertFalse((self.home / "capture.json").exists())
 
     def test_cloud_provider_requires_a_model(self):
-        self.capture_stub()
         result, events = self.request(provider="openai", model="")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Choose a model for openai", events[-1]["text"])
         self.assertFalse((self.home / "capture.json").exists())
 
     def test_nested_model_id_is_preserved(self):
-        self.capture_stub()
+        self.serve_stub([{"type": "session.idle", "properties": {"sessionID": "ses_test"}}])
         result, _events = self.request(provider="openrouter", model="openrouter/vendor/model:free")
         self.assertEqual(result.returncode, 0, result.stderr)
-        capture = json.loads((self.home / "capture.json").read_text())
-        self.assertEqual(capture["argv"][capture["argv"].index("--model") + 1],
-                         "openrouter/vendor/model:free")
+        self.assertEqual(self.capture()["messages"][0]["model"],
+                         {"providerID": "openrouter", "modelID": "vendor/model:free"})
 
     def test_catalog_lists_opencode_and_installed_ollama_models(self):
         self.stub('''import json, os, sys
@@ -183,7 +277,11 @@ print("openai/gpt-4.1-mini\\nopenrouter/vendor/model:free\\nopenai/gpt-4.1-mini\
         self.assertEqual(capture["config"]["permission"], {"*": "deny"})
 
     def test_catalog_registers_custom_endpoint(self):
-        self.capture_stub()
+        self.stub('''import json, os, sys
+from pathlib import Path
+Path(os.environ["CAPTURE"]).write_text(json.dumps({"argv": sys.argv,
+    "config": json.loads(os.environ["OPENCODE_CONFIG_CONTENT"]), "cwd": os.getcwd()}))
+''')
         with patch.dict(os.environ, self.env, clear=True), \
                 patch.object(companion, "ollama_json", side_effect=OSError("Stopped")), \
                 patch.object(companion, "emit"):
@@ -204,7 +302,6 @@ print("openai/gpt-4.1-mini\\nopenrouter/vendor/model:free\\nopenai/gpt-4.1-mini\
         self.assertIn("OpenCode unavailable", events[0]["error"])
 
     def test_model_and_empty_message_errors(self):
-        self.capture_stub()
         for values in ({"model": "invalid model"}, {"message": " "}):
             result, events = self.request(**values)
             self.assertNotEqual(result.returncode, 0)
@@ -234,41 +331,131 @@ Path(os.environ["CAPTURE"]).write_text(json.dumps({"database": os.environ.get("O
         self.assertEqual(actual["database"], str(self.home / "state/inir/assistant/opencode.db"))
         self.assertEqual(actual["args"], ["auth", "login"])
 
-    def test_nonzero_and_empty_output_report_errors(self):
-        for body in (
-            "import sys; print('provider unavailable', file=sys.stderr); sys.exit(1)",
-            "import sys; print('\\033[91mError\\033[0m: database unavailable', file=sys.stderr); sys.exit(1)",
-            "pass",
-        ):
-            self.stub(body)
-            result, events = self.request()
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(events[-1]["type"], "error")
-            self.assertNotIn("\x1b", events[-1]["text"])
+    def test_server_startup_failure_reports_error(self):
+        self.stub("import sys; sys.exit(1)\n")
+        result, events = self.request()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(events[-1]["type"], "error")
+        self.assertNotIn("\x1b", events[-1]["text"])
 
-    def test_cancellation_terminates_opencode(self):
-        self.stub('''import os, time
-from pathlib import Path
-Path(os.environ["CAPTURE"]).write_text(str(os.getpid()))
-time.sleep(30)
-''')
+    def test_permission_flow_approves_once(self):
+        self.serve_stub([
+            {"type": "permission.asked", "properties": {"id": "perm1", "permission": "bash",
+             "patterns": ["touch /tmp/x"], "metadata": {"command": "touch /tmp/x"}}},
+            {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": "Done"}}},
+            {"type": "session.idle", "properties": {"sessionID": "ses_test"}},
+        ])
         child = subprocess.Popen([sys.executable, str(BRIDGE)], env=self.env, text=True,
-                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+        events = []
+        try:
+            child.stdin.write('{"message":"Do it","model":"test/model","actions":"ask"}\n')
+            child.stdin.flush()
+            responded = False
+            deadline = time.monotonic() + 15
+            while time.monotonic() < deadline:
+                line = child.stdout.readline()
+                if not line:
+                    break
+                events.append(json.loads(line))
+                if events[-1].get("type") == "permission" and not responded:
+                    responded = True
+                    child.stdin.write('{"response":"once"}\n')
+                    child.stdin.flush()
+            child.stdin.close()
+            child.wait(timeout=15)
+        finally:
+            if child.poll() is None:
+                child.kill()
+                child.communicate()
+            else:
+                child.stdout.close()
+                child.stderr.close()
+        self.assertEqual(child.returncode, 0)
+        permission = next(e for e in events if e["type"] == "permission")
+        self.assertEqual(permission["tool"], "bash")
+        self.assertEqual(permission["pattern"], "touch /tmp/x")
+        self.assertEqual(self.capture()["permissions"], [{"response": "once"}])
+
+    def test_permission_flow_rejects_on_stdin_eof(self):
+        self.serve_stub([
+            {"type": "permission.updated", "properties": {"id": "perm1", "type": "edit",
+             "title": "Edit README.md", "pattern": "README.md", "metadata": {}}},
+            {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": "Blocked"}}},
+            {"type": "session.idle", "properties": {"sessionID": "ses_test"}},
+        ])
+        # stdin closes after the request, so the pending permission defaults to reject.
+        result, events = self.request(model="test/model", actions="ask")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(e["type"] == "permission" for e in events))
+        self.assertEqual(self.capture()["permissions"], [{"response": "reject"}])
+
+    def test_text_streams_from_part_deltas(self):
+        self.serve_stub([
+            {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": ""}}},
+            {"type": "message.part.delta",
+             "properties": {"messageID": "m1", "partID": "p1", "field": "text", "delta": "Hel"}},
+            {"type": "message.part.delta",
+             "properties": {"messageID": "m1", "partID": "p1", "field": "text", "delta": "lo"}},
+            {"type": "session.idle", "properties": {"sessionID": "ses_test"}},
+        ])
+        result, events = self.request(model="test/model")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([e["text"] for e in events if e["type"] == "text"], ["Hel", "lo"])
+
+    def test_reasoning_and_user_echo_are_not_shown(self):
+        self.serve_stub([
+            {"type": "message.updated", "properties": {"info": {"id": "u1", "role": "user"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "up", "messageID": "u1", "type": "text", "text": "Hello"}}},
+            {"type": "message.updated", "properties": {"info": {"id": "m1", "role": "assistant"}}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "r1", "messageID": "m1", "type": "reasoning", "text": ""}}},
+            {"type": "message.part.delta",
+             "properties": {"messageID": "m1", "partID": "r1", "field": "text", "delta": "thinking"}},
+            {"type": "message.part.updated",
+             "properties": {"part": {"id": "p1", "messageID": "m1", "type": "text", "text": ""}}},
+            {"type": "message.part.delta",
+             "properties": {"messageID": "m1", "partID": "p1", "field": "text", "delta": "Answer"}},
+            {"type": "session.idle", "properties": {"sessionID": "ses_test"}},
+        ])
+        result, events = self.request(model="test/model")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual([e["text"] for e in events if e["type"] == "text"], ["Answer"])
+
+    def test_cancellation_terminates_the_server(self):
+        self.serve_stub([])
+        child = subprocess.Popen([sys.executable, str(BRIDGE)], env=self.env, text=True,
+                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
         try:
             child.stdin.write('{"message":"Hello","model":"test/model"}\n')
             child.stdin.flush()
             capture = self.home / "capture.json"
+            server_pid = None
             deadline = time.monotonic() + 5
-            while not capture.exists() and time.monotonic() < deadline:
+            while time.monotonic() < deadline:
+                if capture.exists():
+                    try:
+                        server_pid = int(json.loads(capture.read_text())["pid"])
+                        break
+                    except (json.JSONDecodeError, KeyError):
+                        pass
                 time.sleep(0.05)
-            self.assertTrue(capture.exists())
-            pid = int(capture.read_text())
+            self.assertIsNotNone(server_pid)
             child.send_signal(signal.SIGTERM)
-            stdout, stderr = child.communicate(timeout=5)
+            stdout, stderr = child.communicate(timeout=10)
             self.assertEqual(child.returncode, 0, stderr)
             self.assertIn('"done"', stdout)
             with self.assertRaises(ProcessLookupError):
-                os.kill(pid, 0)
+                os.kill(server_pid, 0)
         finally:
             if child.poll() is None:
                 child.kill()

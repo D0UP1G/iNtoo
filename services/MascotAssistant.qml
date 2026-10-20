@@ -20,6 +20,8 @@ Singleton {
     property string catalogError: ""
     property string catalogRequest: ""
     property bool receivedCatalog: false
+    property var pendingPermissions: []
+    readonly property bool systemAccess: Config.options?.mascot?.assistant?.systemAccess ?? false
     readonly property string configuredProvider: (Config.options?.mascot?.assistant?.provider ?? "").trim().toLowerCase()
     readonly property string configuredModel: (Config.options?.mascot?.assistant?.model ?? "").trim()
     readonly property string providerId: configuredProvider || (configuredModel.includes("/")
@@ -110,8 +112,17 @@ Singleton {
         catalogWorker.running = true;
     }
 
-    onOpenedChanged: if (opened)
-        root.refreshModels()
+    onOpenedChanged: {
+        if (opened) {
+            root.refreshModels();
+            return;
+        }
+        // Closing the window must not leave a tool waiting for approval.
+        if (worker.running && root.pendingPermissions.length > 0) {
+            worker.write(JSON.stringify({ response: "reject" }) + "\n");
+            root.pendingPermissions = [];
+        }
+    }
 
     function append(role: string, text: string): void {
         root.messages = root.messages.concat([
@@ -122,14 +133,14 @@ Singleton {
         ]).slice(-40);
     }
 
-    function send(message: string, includeHistory: bool, allowActions: bool): bool {
+    function send(message: string, includeHistory: bool): bool {
         if (root.busy || !root.modelReady || !message.trim())
             return false;
         root.requestData = JSON.stringify(Object.assign(root.connection(), {
             message: message.trim(),
             conversation: root.messages.slice(-20),
             includeHistory: includeHistory,
-            allowActions: allowActions
+            actions: root.systemAccess ? "ask" : "off"
         })) + "\n";
         root.append("user", message.trim());
         root.busy = true;
@@ -144,6 +155,13 @@ Singleton {
     function cancel(): void {
         if (worker.running)
             worker.signal(15);
+    }
+
+    function answerPermission(id: string, response: string): void {
+        if (!worker.running)
+            return;
+        worker.write(JSON.stringify({ response: response }) + "\n");
+        root.pendingPermissions = root.pendingPermissions.filter(entry => entry.id !== id);
     }
 
     function clear(): void {
@@ -188,7 +206,6 @@ Singleton {
         command: ["python3", Directories.scriptsPath + "/ai/mascot-assistant.py"]
         onStarted: {
             worker.write(root.requestData);
-            worker.stdinEnabled = false;
             root.requestData = "";
         }
         stdout: SplitParser {
@@ -213,6 +230,13 @@ Singleton {
                         root.receivedReply = false;
                     } else if (event.type === "status") {
                         root.status = event.text;
+                    } else if (event.type === "permission") {
+                        root.pendingPermissions = root.pendingPermissions.concat([{
+                            id: event.id,
+                            title: event.title,
+                            tool: event.tool,
+                            pattern: event.pattern
+                        }]);
                     }
                 } catch (error) {
                     console.warn("[MascotAssistant] Invalid bridge event:", error);
@@ -224,6 +248,7 @@ Singleton {
                 root.append("error", Translation.tr("The assistant could not start. Check Python, OpenCode, and Ollama."));
             root.busy = false;
             root.status = "";
+            root.pendingPermissions = [];
         }
     }
 }

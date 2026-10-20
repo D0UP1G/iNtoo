@@ -22,7 +22,7 @@ ContentPage {
         SettingsGroup {
             StyledText {
                 Layout.fillWidth: true
-                text: Translation.tr("Open the companion with Super+S. It uses original in-project graphics. The upstream iNiR mascot artwork is not included in iNtoo. Chat through OpenCode, attach saved command history, or allow actions for one message.")
+                text: Translation.tr("Open the companion with Super+S. It uses original in-project graphics. The upstream iNiR mascot artwork is not included in iNtoo. Chat through OpenCode, attach saved command history, or turn on system access to approve each action before it runs.")
                 font.pixelSize: Appearance.font.pixelSize.smaller
                 color: Appearance.colors.colOnSecondaryContainer
                 wrapMode: Text.Wrap
@@ -96,6 +96,18 @@ ContentPage {
                     : Translation.tr("Credentials come from OpenCode's own store. Run `intoo assistant auth` once per provider.")
                 color: Appearance.colors.colSubtext
                 wrapMode: Text.WordWrap
+            }
+
+            ContentSubsection {
+                title: Translation.tr("System access")
+                tooltip: Translation.tr("Whether the companion can act on the system, and how it asks for approval.")
+
+                ConfigSwitch {
+                    text: Translation.tr("Approve each action")
+                    description: Translation.tr("Let OpenCode run commands and edit files, showing every action for your approval before it runs.")
+                    checked: Config.options?.mascot?.assistant?.systemAccess ?? false
+                    onCheckedChanged: Config.setNestedValue("mascot.assistant.systemAccess", checked)
+                }
             }
         }
     }

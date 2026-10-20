@@ -744,6 +744,7 @@ Singleton {
                     property string provider: "" // "" infers the provider from the model prefix
                     property string apiBase: "" // "" keeps the provider's own endpoint
                     property string apiFormat: "openai" // openai | anthropic | google, used with apiBase
+                    property bool systemAccess: false // Approve each system action before it runs (all tools available)
                 }
                 property bool enable: false // Show the iNtoo mascot illustration across shell surfaces (empty states, About, etc.)
                 property JsonObject surfaces: JsonObject {

@@ -1284,7 +1284,8 @@
         },
         "verbose": true,
         "media": {
-            "maxWidth": 220
+            "maxWidth": 220,
+            "popupMode": "dock"
         },
         "vertical": false,
         "weather": {
@@ -1515,7 +1516,8 @@
             "model": "ollama/qwen3.5:0.8b",
             "provider": "",
             "apiBase": "",
-            "apiFormat": "openai"
+            "apiFormat": "openai",
+            "systemAccess": false
         },
         "enable": false,
         "surfaces": {
@@ -1992,7 +1994,8 @@
                 "sliders",
                 "toggles",
                 "notifications",
-                "widgets"
+                "widgets",
+                "media"
             ],
             "headerStyle": "profile",
             "headerBanner": "wallpaper",

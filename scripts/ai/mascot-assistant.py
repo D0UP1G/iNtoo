@@ -2,10 +2,12 @@
 """Stream OpenCode replies to the desktop companion as newline-delimited JSON."""
 
 import json
+import http.client
 import os
 from pathlib import Path
 import queue
 import re
+import select
 import shutil
 import signal
 import subprocess
@@ -13,6 +15,7 @@ import sys
 import threading
 import time
 import uuid
+import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
@@ -76,11 +79,8 @@ def recent_commands(home, config_home, limit=20):
     return blocks
 
 
-def runtime_config(actions, agent="inir-mascot"):
-    permissions = {"*": "deny"}
-    if actions:
-        permissions.update({key: "allow" for key in
-                            ("bash", "read", "edit", "glob", "grep", "external_directory")})
+def runtime_config(mode, agent="inir-mascot"):
+    permissions = {"*": "ask"} if mode == "ask" else {"*": "deny"}
     prompt = (
         "You are iNtoo's friendly desktop companion on Linux. Reply in the user's language. "
         "Keep answers brief and concrete. Help with everyday questions and terminal commands. "
@@ -91,13 +91,14 @@ def runtime_config(actions, agent="inir-mascot"):
         "Never run destructive operations, access credentials, or escalate privileges without "
         "an explicit request for that exact operation in the current message. Do not use sudo "
         "or interactive programs: explain when the user must run a command themselves. "
-        + ("System tools are allowed for this message only. Perform the requested operation."
-           if actions else "Tools are disabled. Explain or suggest commands without executing them.")
+        + ("System tools are available, but every action must be approved by the user before it "
+           "runs. Propose a concrete command or file change and wait for approval."
+           if mode == "ask" else "Tools are disabled. Explain or suggest commands without executing them.")
     )
     return {"share": "disabled", "autoupdate": False,
             "permission": permissions,
             "agent": {agent: {"mode": "primary", "description": "iNtoo desktop companion",
-                                      "prompt": prompt, "permission": permissions}}}
+                              "prompt": prompt, "permission": permissions}}}
 
 
 def ollama_base_url():
@@ -262,6 +263,77 @@ def opencode_environment(config):
     return env, workspace
 
 
+def http_json(base, path, body=None, timeout=30):
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    request = urllib.request.Request(
+        base + path, data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST" if data is not None else "GET")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read().decode("utf-8")
+            return response.status, (json.loads(raw) if raw.strip() else None)
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode("utf-8", "replace")
+    except (OSError, http.client.HTTPException) as error:
+        return None, str(error)
+
+
+def read_events(base, events_queue, stop_event):
+    """Stream the server's /event SSE feed into events_queue; None signals EOF."""
+    request = urllib.request.Request(base + "/event", headers={"Accept": "text/event-stream"})
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            buffer = ""
+            while not stop_event.is_set():
+                chunk = response.read1(4096)
+                if not chunk:
+                    break
+                buffer += chunk.decode("utf-8", "replace")
+                while "\n\n" in buffer:
+                    raw, buffer = buffer.split("\n\n", 1)
+                    data = None
+                    for line in raw.splitlines():
+                        if line.startswith("data:"):
+                            data = line[len("data:"):].strip()
+                    if data:
+                        try:
+                            events_queue.put(json.loads(data))
+                        except json.JSONDecodeError:
+                            pass
+    except Exception:
+        pass
+    finally:
+        events_queue.put(None)
+
+
+def start_server(binary, env, workspace):
+    process = subprocess.Popen([binary, "serve", "--port", "0"], env=env, cwd=workspace,
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                               start_new_session=True)
+    port = None
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        line = process.stdout.readline()
+        if not line:
+            break
+        match = re.search(r"listening on http://[0-9.]+:(\d+)", line)
+        if match:
+            port = match.group(1)
+            break
+    try:
+        process.stdout.close()
+    except OSError:
+        pass
+    if port is None:
+        try:
+            process.kill()
+        except OSError:
+            pass
+        raise RuntimeError("Could not start the OpenCode server.")
+    return process, "http://127.0.0.1:" + port
+
+
 def discover_models(request):
     """List OpenCode models and installed Ollama models without pulling any."""
     models = {DEFAULT_MODEL}
@@ -275,7 +347,7 @@ def discover_models(request):
     except (OSError, ValueError):
         pass  # Ollama may be stopped; the default model still works on first use.
     try:
-        config = runtime_config(False)
+        config = runtime_config("off")
         if request.get("provider") and request.get("apiBase"):
             provider_id, model_id = resolve_model(request)
             configure_provider(config, provider_id, model_id, request["apiBase"],
@@ -304,6 +376,7 @@ def run(request):
     model = f"{provider_id}/{model_id}"
     home = Path.home()
     binary = opencode_binary()
+    mode = "ask" if str(request.get("actions", "off")).strip().lower() == "ask" else "off"
     context = {"conversation": request.get("conversation", [])[-20:]}
     if request.get("includeHistory") is True:
         context["saved_command_history"] = recent_commands(
@@ -315,57 +388,67 @@ def run(request):
     api_format = str(request.get("apiFormat", "")).strip().lower() or "openai"
     local_ollama_url = ensure_ollama_model(model_id) if provider_id == "ollama" else ""
     agent = "inir-mascot-" + uuid.uuid4().hex
-    config = runtime_config(request.get("allowActions") is True, agent)
+    config = runtime_config(mode, agent)
     if local_ollama_url:
         configure_provider(config, "ollama", model_id, local_ollama_url + "/v1", "openai",
                            "Ollama (local)")
     elif configured_provider and api_base:
         configure_provider(config, provider_id, model_id, api_base, api_format)
     env, workspace = opencode_environment(config)
-    command = [binary, "run", "--pure", "--format", "json", "--agent", agent]
-    command += ["--model", model]
-    command += ["--dir", str(workspace)]
-    child = subprocess.Popen(command, cwd=workspace, env=env, stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                             start_new_session=True)
-
     cancelled = False
+    server = None
 
     def stop(*_args):
         nonlocal cancelled
         if _args:
             cancelled = True
-        if child.poll() is None:
-            os.killpg(child.pid, signal.SIGTERM)
+        if server is None:
+            return
+        try:
+            os.killpg(server.pid, signal.SIGTERM)
+        except (ProcessLookupError, OSError):
+            pass
+        try:
+            server.wait(timeout=3)
+        except subprocess.TimeoutExpired:
             try:
-                child.wait(timeout=3)
-            except subprocess.TimeoutExpired:
-                os.killpg(child.pid, signal.SIGKILL)
-                child.wait()
+                os.killpg(server.pid, signal.SIGKILL)
+            except OSError:
+                pass
+            server.wait()
 
     old_handler = signal.signal(signal.SIGTERM, stop)
-    output = queue.Queue()
-    errors = []
-
-    def read_stdout():
-        for line in child.stdout:
-            output.put(line)
-        output.put(None)
-
-    def read_stderr():
-        for line in child.stderr:
-            errors.append(line)
-            del errors[:-12]
-
-    threading.Thread(target=read_stdout, daemon=True).start()
-    stderr_thread = threading.Thread(target=read_stderr, daemon=True)
-    stderr_thread.start()
-    answered = False
-    failed = False
-    deadline = time.monotonic() + 300
+    events_queue = queue.Queue()
+    stop_event = threading.Event()
     try:
-        child.stdin.write(prompt)
-        child.stdin.close()
+        server, base = start_server(binary, env, workspace)
+        status, created = http_json(base, "/session", {"title": message[:80]})
+        if status != 200 or not isinstance(created, dict) or not created.get("id"):
+            if cancelled:
+                emit("status", text="Cancelled")
+                emit("done")
+                return
+            raise RuntimeError("Could not create the assistant session.")
+        session_id = created["id"]
+        threading.Thread(target=read_events, args=(base, events_queue, stop_event),
+                         daemon=True).start()
+        status, _reply = http_json(base, f"/session/{session_id}/prompt_async", {
+            "parts": [{"type": "text", "text": prompt}],
+            "model": {"providerID": provider_id, "modelID": model_id},
+            "agent": agent,
+        })
+        if status is None or not (200 <= status < 300):
+            if cancelled:
+                emit("status", text="Cancelled")
+                emit("done")
+                return
+            raise RuntimeError("OpenCode could not start the reply.")
+        assistant_messages = set()
+        part_types = {}
+        part_text = {}
+        answered = False
+        failed = False
+        deadline = time.monotonic() + 600
         while True:
             if cancelled:
                 emit("status", text="Cancelled")
@@ -374,39 +457,99 @@ def run(request):
             if time.monotonic() > deadline:
                 raise RuntimeError("OpenCode timed out. Try a shorter request.")
             try:
-                line = output.get(timeout=0.5)
+                event = events_queue.get(timeout=0.5)
             except queue.Empty:
                 continue
-            if line is None:
+            if event is None:
                 break
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if event.get("type") == "text":
-                content = event.get("part", {}).get("text", "")
-                if content:
-                    answered = True
-                    emit("text", text=content)
-            elif event.get("type") == "tool_use":
-                part = event.get("part", {})
-                emit("status", text=str(part.get("tool", "Working")))
-            elif event.get("type") == "error":
+            kind = event.get("type")
+            props = event.get("properties") or {}
+            if kind == "message.updated":
+                info = props.get("info") or {}
+                if info.get("role") == "assistant" and info.get("id"):
+                    assistant_messages.add(info["id"])
+            elif kind == "message.part.updated":
+                part = props.get("part") or {}
+                part_id = part.get("id")
+                part_type = part.get("type")
+                if part_id:
+                    part_types[part_id] = part_type
+                if part.get("messageID") not in assistant_messages:
+                    continue
+                if part_type == "text":
+                    full = part.get("text") or ""
+                    emitted = part_text.get(part_id, 0)
+                    if len(full) > emitted:
+                        answered = True
+                        emit("text", text=full[emitted:])
+                        part_text[part_id] = len(full)
+                elif part_type == "tool":
+                    tool_name = str(part.get("tool") or "")
+                    state = part.get("state") or {}
+                    if tool_name and state.get("status") in ("pending", "running"):
+                        emit("status", text=(state.get("title") or tool_name))
+            elif kind == "message.part.delta":
+                part_id = props.get("partID")
+                if props.get("messageID") not in assistant_messages:
+                    continue
+                if props.get("field") == "text" and part_types.get(part_id) == "text":
+                    delta = props.get("delta") or ""
+                    if delta:
+                        answered = True
+                        emit("text", text=delta)
+                        part_text[part_id] = part_text.get(part_id, 0) + len(delta)
+            elif kind in ("permission.asked", "permission.updated"):
+                permission_id = str(props.get("id", ""))
+                tool = str(props.get("permission") or props.get("type") or "")
+                patterns = props.get("patterns", props.get("pattern"))
+                if isinstance(patterns, list):
+                    pattern_text = " ".join(str(item) for item in patterns)
+                else:
+                    pattern_text = str(patterns or "")
+                metadata = props.get("metadata") if isinstance(props.get("metadata"), dict) else {}
+                command = str(metadata.get("command") or "") if metadata else ""
+                emit("permission", id=permission_id, tool=tool,
+                     title=(command or pattern_text or tool), pattern=pattern_text)
+                response = None
+                while response is None:
+                    if cancelled:
+                        response = "reject"
+                        break
+                    ready, _, _ = select.select([sys.stdin], [], [], 0.5)
+                    if not ready:
+                        continue
+                    line = sys.stdin.readline()
+                    if not line:
+                        response = "reject"
+                        break
+                    try:
+                        reply = json.loads(line)
+                        if reply.get("response") in ("once", "always", "reject"):
+                            response = reply["response"]
+                    except json.JSONDecodeError:
+                        continue
+                if cancelled:
+                    break
+                http_json(base, f"/session/{session_id}/permissions/{permission_id}",
+                          {"response": response})
+            elif kind == "session.error":
                 failed = True
-                error = event.get("error", {})
+                error = props.get("error") or {}
                 detail = error.get("data", {}).get("message") if isinstance(error, dict) else str(error)
                 emit("error", text=plain_text(detail) or "OpenCode could not complete the request.")
-        code = child.wait(timeout=max(1, deadline - time.monotonic()))
-        stderr_thread.join(timeout=1)
+            elif kind == "session.idle":
+                emit("done")
+                return
         if cancelled:
             emit("status", text="Cancelled")
             emit("done")
             return
-        if not failed and (code or not answered):
-            raise RuntimeError("OpenCode returned no reply. Check the selected model and Ollama/OpenCode availability. "
-                               + plain_text("".join(errors))[-1600:])
+        if not answered and not failed:
+            raise RuntimeError("OpenCode returned no reply. Check the selected model and "
+                               "Ollama/OpenCode availability.")
         emit("done")
     finally:
+        stop_event.set()
         stop()
         signal.signal(signal.SIGTERM, old_handler)
 

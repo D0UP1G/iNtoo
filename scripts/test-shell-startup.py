@@ -773,7 +773,7 @@ ShellRoot {
                 check(MascotAssistant.selectedModel === "openrouter/vendor/model:free", "nested model id");
                 MascotAssistant.selectProvider("google");
                 check(!MascotAssistant.modelReady, "no model from another provider");
-                check(!MascotAssistant.send("blocked", false, false), "missing model blocks send");
+                check(!MascotAssistant.send("blocked", false), "missing model blocks send");
                 MascotAssistant.selectModel("manual-model");
                 check(MascotAssistant.selectedModel === "google/manual-model", "manual model entry");
                 MascotAssistant.selectProvider("ollama");
@@ -782,7 +782,7 @@ ShellRoot {
                 check(MascotAssistant.modelOptions[0].value === "github-copilot/copilot-model", "provider filter");
                 MascotAssistant.opened = true;
                 assistant.editingModel = true;
-                check(MascotAssistant.send("selection probe", false, false), "selected model sends");
+                check(MascotAssistant.send("selection probe", false), "selected model sends");
                 const request = JSON.parse(MascotAssistant.requestData);
                 check(request.provider === "github-copilot", "request provider");
                 check(request.model === "github-copilot/copilot-model", "request model");

@@ -35,9 +35,23 @@ PanelWindow {
     }
 
     function submit(): void {
-        if (MascotAssistant.send(input.text, history.includeHistory, actions.allowActions)) {
+        if (MascotAssistant.send(input.text, history.includeHistory)) {
             input.clear();
-            actions.allowActions = false;
+        }
+    }
+
+    function permissionLabel(tool: string): string {
+        switch (tool) {
+        case "bash": return Translation.tr("Run a command");
+        case "edit": return Translation.tr("Edit a file");
+        case "read": return Translation.tr("Read a file");
+        case "external_directory": return Translation.tr("Access outside the workspace");
+        case "webfetch": return Translation.tr("Fetch a URL");
+        case "websearch": return Translation.tr("Search the web");
+        case "task": return Translation.tr("Launch a subagent");
+        case "skill": return Translation.tr("Load a skill");
+        case "doom_loop": return Translation.tr("Repeat an action");
+        default: return tool.length > 0 ? tool : Translation.tr("System action");
         }
     }
 
@@ -389,25 +403,24 @@ PanelWindow {
                         onClicked: includeHistory = !includeHistory
                     }
                     RippleButton {
-                        id: actions
-                        property bool allowActions: false
+                        id: systemAccess
                         enabled: !MascotAssistant.busy
-                        Accessible.name: Translation.tr("Allow system actions")
+                        Accessible.name: Translation.tr("System access")
                         contentItem: RowLayout {
                             spacing: 5
                             MaterialSymbol {
-                                text: actions.allowActions ? "check_box" : "check_box_outline_blank"
+                                text: MascotAssistant.systemAccess ? "check_box" : "check_box_outline_blank"
                                 iconSize: 18
                                 color: Appearance.colors.colPrimary
                             }
                             StyledText {
-                                text: Translation.tr("Allow actions")
+                                text: Translation.tr("System access")
                                 font.pixelSize: Appearance.font.pixelSize.smaller
                             }
                         }
                         ToolTip.visible: hovered
-                        ToolTip.text: Translation.tr("Allow OpenCode to run commands and edit files for the next message.")
-                        onClicked: allowActions = !allowActions
+                        ToolTip.text: Translation.tr("Let OpenCode run commands and edit files, approving each action before it runs.")
+                        onClicked: Config.setNestedValue("mascot.assistant.systemAccess", !MascotAssistant.systemAccess)
                     }
                 }
                 RippleButton {
@@ -437,6 +450,85 @@ PanelWindow {
                         buttonText: MascotAssistant.busy ? Translation.tr("Stop") : Translation.tr("Send")
                         enabled: MascotAssistant.busy || (MascotAssistant.modelReady && input.text.trim().length > 0)
                         onClicked: MascotAssistant.busy ? MascotAssistant.cancel() : root.submit()
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            id: approvalOverlay
+            anchors.fill: parent
+            visible: MascotAssistant.pendingPermissions.length > 0
+            color: Qt.rgba(0, 0, 0, 0.45)
+            z: 100
+            MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.AllButtons
+                onWheel: wheel => wheel.accepted = true
+            }
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 32, 420)
+                height: Math.min(parent.height - 32, approvalContent.implicitHeight + 28)
+                radius: Appearance.rounding.normal
+                color: Appearance.colors.colLayer1
+                border.width: 1
+                border.color: Appearance.colors.colPrimary
+                clip: true
+                ColumnLayout {
+                    id: approvalContent
+                    width: parent.width - 28
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 14
+                    spacing: 8
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: Translation.tr("Approve this action?")
+                        font.bold: true
+                        font.pixelSize: Appearance.font.pixelSize.larger
+                    }
+                    StyledText {
+                        Layout.fillWidth: true
+                        text: root.permissionLabel(MascotAssistant.pendingPermissions[0]?.tool ?? "")
+                        wrapMode: Text.WordWrap
+                        color: Appearance.colors.colPrimary
+                    }
+                    Rectangle {
+                        Layout.fillWidth: true
+                        visible: (MascotAssistant.pendingPermissions[0]?.title ?? "").length > 0
+                        implicitHeight: approvalCommand.implicitHeight + 16
+                        radius: Appearance.rounding.small
+                        color: Appearance.colors.colLayer2
+                        StyledText {
+                            id: approvalCommand
+                            anchors {
+                                left: parent.left
+                                right: parent.right
+                                top: parent.top
+                                margins: 8
+                            }
+                            text: MascotAssistant.pendingPermissions[0]?.title ?? ""
+                            wrapMode: Text.WordWrap
+                            font.family: Appearance.font.family.monospace
+                            color: Appearance.colors.colOnLayer1
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        Item { Layout.fillWidth: true }
+                        RippleButton {
+                            buttonText: Translation.tr("Deny")
+                            onClicked: MascotAssistant.answerPermission(MascotAssistant.pendingPermissions[0].id, "reject")
+                        }
+                        RippleButton {
+                            buttonText: Translation.tr("Allow once")
+                            onClicked: MascotAssistant.answerPermission(MascotAssistant.pendingPermissions[0].id, "once")
+                        }
+                        RippleButton {
+                            buttonText: Translation.tr("Always allow")
+                            onClicked: MascotAssistant.answerPermission(MascotAssistant.pendingPermissions[0].id, "always")
+                        }
                     }
                 }
             }

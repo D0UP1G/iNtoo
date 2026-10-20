@@ -41,12 +41,14 @@ commands; `history -a` in Bash or `fc -AI` in Zsh saves them. Commands that look
 like they contain credentials are omitted, but inspect your history before
 sharing it with a remote model. Leave the option off to chat without history.
 
-**Allow actions** enables OpenCode's shell and file tools for one message. It resets
-after sending. The companion can run commands and edit files as your user; give
-a concrete request such as “create a folder named Notes in my home directory.”
-Chat mode disables tools, including tools inherited from the global OpenCode
-configuration. An isolated workspace avoids loading project instructions. The
-assistant reports when an operation needs an interactive command or root access.
+**System access** switches the companion from chat-only to per-action approval.
+When enabled, OpenCode's shell, file and web tools are all available, but every
+action is shown for your approval before it runs — Approve once, Always allow, or
+Deny. The toggle stays on across messages until you turn it off, and it survives a
+shell restart. Chat mode (off) disables tools, including tools inherited from the
+global OpenCode configuration. An isolated workspace avoids loading project
+instructions. The assistant reports when an operation needs an interactive command
+or root access.
 
 The assistant uses its own OpenCode database at
 `$XDG_STATE_HOME/inir/assistant/opencode.db` (or
