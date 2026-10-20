@@ -19,6 +19,132 @@ and lifecycle behavior. Use paired QML and GPUI captures at matching output
 resolution, scale, theme, and data state. Captures alone do not prove input,
 focus, lifecycle, or failure parity.
 
+## Waffle Task View geometry and search slice
+
+The GPUI Task View scopes workspaces and windows to the output hosting the
+overlay. If the output cannot be identified, it shows an unavailable state and
+must not display unfiltered windows from other outputs. The preview workspace
+width is `min(0.38 × output logical width, 600 px)` and its height follows the
+output aspect ratio; a missing or invalid size uses a visibly labelled
+1920×1080 fallback. Niri `tile_size` and `pos_in_scrolling_layout` determine
+window order and proportional widths only when the full geometry is valid.
+Missing or invalid geometry uses equal-width items in source order and does not
+invent window coordinates. These are metadata tiles, not live screenshots.
+
+Search matches title and app ID case-insensitively. A non-empty query searches
+windows on all workspaces of the current output; an empty query shows windows
+from every workspace on the current output, matching QML's cached-window
+rendering. The count reports all matches across the current output. Left and
+Right select/center workspaces. While the search input owns focus, Tab and
+Shift+Tab cycle window selection in visual order: the selected workspace with
+an empty query, or current-output matches while searching. The first Tab with
+no selection chooses the first item; Shift+Tab chooses the last. Enter focuses
+the selected window (or switches to the selected workspace when no window is
+selected). With an empty query, Enter and window cycling stay scoped to the
+selected workspace even though other workspaces' windows remain visible.
+Escape clears a non-empty query before closing Task View. While the search
+input owns initial focus, Ctrl+Tab and Ctrl+Shift+Tab enter native focus
+traversal; when a workspace, window, or close control owns focus, Tab and
+Shift+Tab traverse native focus stops. This provides a separate route from the
+QML-compatible window-cycling shortcut.
+
+The current GPUI prototype renders at most 12 window controls per workspace and
+limits keyboard selection to the first 24 visible matches across workspaces,
+while displaying the exact full match count. QML has no such cap, so this is a
+documented prototype gap and must be removed or virtualized before declaring
+Task View parity.
+
+```gherkin
+Feature: Waffle Task View output-scoped geometry and search
+
+  Scenario: Size workspace cards from the host output
+    Given the Task View output has logical size W by H
+    When Task View renders workspace cards
+    Then each card width is min(0.38 times W, 600 logical pixels)
+    And each card height follows the output aspect ratio
+    And neighboring cards have 48 logical pixels of spacing
+
+  Scenario: Use the explicit output-size fallback
+    Given the host output size is missing or invalid
+    When Task View renders workspace cards
+    Then it uses the 1920 by 1080 fallback dimensions
+    And it labels that fallback as unavailable output geometry
+
+  Scenario: Avoid showing windows from other outputs
+    Given the host cannot identify the Task View output
+    When Task View reads Niri state
+    Then it shows an unavailable filtering state
+    And it does not display unfiltered windows
+
+  Scenario: Project valid Niri tile geometry
+    Given every shown window has valid tile size and scrolling-layout position
+    When Task View lays out the workspace's window metadata tiles
+    Then the tiles follow Niri column and row order
+    And each tile width is proportional to its Niri tile width
+    And no tile is presented as a live screenshot
+
+  Scenario: Fall back without synthesizing missing geometry
+    Given one or more shown windows lacks valid tile geometry
+    When Task View lays out the window metadata tiles
+    Then tiles have uniform widths in source order
+    And no missing coordinates are fabricated
+
+  Scenario: Show cached windows for every workspace without a query
+    Given no search query is entered
+    When Task View renders window metadata tiles
+    Then every workspace on the current output shows its windows
+    And the count includes windows from every current-output workspace
+    When the user presses Tab or Shift+Tab from the search input
+    Then window selection cycles only within the selected workspace
+    When the user presses Enter without a selected window
+    Then Task View switches to the selected workspace
+
+  Scenario: Search all workspaces on the current output
+    Given the user enters a non-empty query
+    When Task View searches window title and app ID
+    Then matching is case-insensitive across current-output workspaces
+    And the first match is selected and its workspace is centered
+    And the count reports every match, including matches beyond the keyboard selection limit
+    And Tab and Shift+Tab cycle up to 24 visible matches in visual order, with at most 12 per workspace
+    And the selected window has a visible keyboard selection state
+    And Enter focuses the selected window
+
+  Scenario: Cycle current-workspace windows before searching
+    Given the query is empty and the search input owns initial focus
+    When the user presses Tab or Shift+Tab
+    Then Tab selects the first and Shift+Tab selects the last visible window
+    And selection does not move native focus out of the search input
+    When the user presses Ctrl+Tab or Ctrl+Shift+Tab
+    Then native focus moves to the next or previous workspace, window, or close control
+
+  Scenario: Traverse controls after entering native focus mode
+    Given a workspace, window, or close control owns keyboard focus
+    When the user presses Tab or Shift+Tab
+    Then native focus moves to the next or previous focusable control
+
+  Scenario: Update results as the query changes
+    Given the Task View search input is focused
+    When the query changes
+    Then the result model reflects the query immediately
+    And the result count is not capped by keyboard navigation limits
+
+  Scenario: Show keyboard focus on interactive controls
+    Given a workspace, window, close, or search control receives keyboard focus
+    Then the focused control has a visible outline or accent border
+
+  Scenario: Preserve Task View keyboard behavior
+    Given a search query is non-empty
+    When the user presses Escape
+    Then the query is cleared and Task View remains open
+    When the user presses Escape again
+    Then Task View closes
+    When the search field owns keyboard focus and the user presses Left or Right
+    Then Task View changes the selected desktop without moving the text caret
+    When the search field owns keyboard focus and the user presses plain Delete
+    Then Task View closes the selected window
+    And Backspace continues to edit the search query
+```
+
 ## Horizontal ii bar slice
 
 The horizontal ii bar uses five ordered layout zones (`left`, `centerLeft`,
@@ -26,6 +152,38 @@ The horizontal ii bar uses five ordered layout zones (`left`, `centerLeft`,
 order; the two right-aligned zones must not be replaced by duplicates of earlier
 zones. Workspace buttons expose their number, active state, and occupancy to
 assistive technology in addition to their visual state.
+
+The horizontal bar must keep all controls within the output bounds when the
+configured modules and transient connection status compete for space. The
+connection status may truncate visually but retains its complete accessible
+label. The settings row is a bounded horizontal viewport; its controls must not
+paint across the bar or outside the output.
+
+```gherkin
+Feature: ii horizontal bar remains within its output
+
+  Scenario: Preserve five configured zones on a constrained output
+    Given all five bar zones contain configured modules
+    And their combined preferred width exceeds the output width
+    When the ii horizontal bar renders
+    Then the center zone remains centered in the output
+    And each edge zone remains clipped or scrollable within its own viewport
+    And no module is painted beyond the output bounds
+
+  Scenario: Keep launcher controls distinct from connection status
+    Given Niri is still connecting or unavailable
+    When the right side of the bar renders
+    Then Apps and Settings remain separately visible and operable
+    And the connection status truncates before it overlaps either button
+    And assistive technology can read the full status text
+
+  Scenario: Constrain the settings row to the bar output
+    Given the settings row contains more controls than fit horizontally
+    When the settings overlay is open
+    Then its surface remains within the output bounds
+    And its controls are reachable by horizontal scrolling
+    And the controls do not overlap or paint outside the overlay viewport
+```
 
 The current GPUI prototype also renders a text resource strip in Memory,
 Temperature, CPU, GPU order. CPU and memory readings come from `/proc` at the
@@ -2409,3 +2567,470 @@ Feature: ii Widgets cryptocurrency ticker
     Then its loading state is exposed
     And the refresh control cannot issue a duplicate request
 ```
+
+## Material ii Control Panel
+
+The QML reference is `modules/controlPanel/ControlPanel.qml` and
+`ControlPanelContent.qml`. The panel opens from `GlobalStates.controlPanelOpen`,
+uses an overlay surface, and takes exclusive keyboard focus while open. Escape
+and clicks outside the content close it; clicks inside must not bubble to the
+backdrop. The overlay window remains visible for the 250 ms close transition,
+then hides. `keepLoaded` controls whether content stays instantiated while
+closed. The panel is centered in the area left by the configured bar and dock,
+has a 380 px maximum width, a 260 px minimum height, and scrolls when its
+content exceeds the available height.
+
+The content order is Profile, Date & time, then the configurable Media,
+Wallpaper, Weather, System, Sliders, and Quick Actions sections. The six
+`show*Section` options gate only their corresponding sections. `compactMode`
+changes padding and control sizing; `style` selects panel or island appearance;
+`showWallpaperSchemeChips` controls wallpaper chips. QML also animates the
+panel entrance and cascades section opacity. Media playback, slider changes,
+and quick actions invoke live services; a GPUI control without a connected
+adapter must be visibly unavailable and must not appear to perform an action.
+
+```gherkin
+Feature: Material ii Control Panel surface
+
+  Background:
+    Given the ii family is selected
+    And the ii Control Panel is enabled for the output
+
+  Scenario: Open and close with the matching focus lifecycle
+    Given the Control Panel is closed
+    When its launcher toggles the panel open
+    Then the overlay becomes visible and receives exclusive keyboard focus
+    And its content is centered inside the bar and dock safe area
+    When the user presses Escape or clicks outside the panel card
+    Then the panel begins its close transition
+    And a click inside the card does not close the panel
+    And the overlay window hides after the 250 ms close delay
+
+  Scenario: Honor the keep-loaded option
+    Given the Control Panel is closed
+    When keepLoaded is false
+    Then its content is released after closing
+    When keepLoaded is true
+    Then its content remains resident without capturing keyboard focus
+
+  Scenario: Respect section order and visibility options
+    Given all six optional sections are enabled
+    When the Control Panel opens
+    Then sections appear in Profile, Date & time, Media, Wallpaper, Weather,
+      System, Sliders, Quick Actions order
+    When one show*Section option is false
+    Then only that optional section is omitted
+    And Profile and Date & time remain visible
+
+  Scenario: Match panel bounds and support constrained output sizes
+    Given the output size, bar edge, dock edge, and dock dimensions are known
+    When the Control Panel lays out
+    Then the panel is at most 380 logical pixels wide
+    And it respects the configured safe area and remains within the output
+    And its content scrolls when taller than the available area
+
+  Scenario: Apply compact mode and panel style
+    Given compactMode or style changes in configuration
+    When the panel renders
+    Then control sizing and spacing follow compactMode
+    And panel or island appearance follows the selected style
+    And wallpaper scheme chips appear only when showWallpaperSchemeChips is true
+
+  Scenario: Never present disconnected controls as working
+    Given a media, system, slider, wallpaper, weather, or quick-action adapter
+      is unavailable
+    When the corresponding section is visible
+    Then it shows an explicit unavailable state
+    And its controls are disabled or omitted
+    And it does not display fabricated values or report a successful action
+
+  Scenario: Operate connected controls through their live adapters
+    Given a live adapter is available for a visible control
+    When the user activates the control or changes its value
+    Then the action targets that adapter
+    And the visible state updates from its live response
+```
+
+These scenarios define the required behavior; they are not evidence that the
+current prototype passes. A hosted view remains `partial` until its services,
+styles, motion, focus behavior, and paired QML/GPUI captures are verified.
+
+## Material ii Notification Popup
+
+The reference route is `modules/notificationPopup/NotificationPopup.qml`;
+notification cards are composed by `modules/common/widgets/NotificationListView.qml`,
+`NotificationGroup.qml`, and `NotificationItem.qml`. This is the transient
+popup surface, distinct from the notification center. It has no keyboard
+focus, captures pointer input only over notification content, follows the
+configured corner and output list (falling back to all outputs if no names
+match), and hides while the screen is locked or game mode suppresses
+notifications. The popup list remains resident for 450 ms after becoming empty
+to absorb rapid notification changes; the visible window is otherwise content
+sized with a maximum height of 80% of its output.
+
+```gherkin
+Feature: Material ii Notification Popup
+
+  Background:
+    Given the ii family is selected
+    And the ii Notification Popup is enabled
+    And the GPUI notification service is opted in
+
+  Scenario: Place popup on configured outputs and corner
+    Given notifications.screenList matches one or more connected outputs
+    And notifications.position is topRight, topLeft, bottomRight, or bottomLeft
+    When a live notification arrives
+    Then one popup is shown on each selected output at the configured corner
+    And the popup width follows notificationPopupWidth
+    And the popup height does not exceed 80 percent of the output height
+    When no configured screen name matches
+    Then popup routing falls back to all connected outputs
+
+  Scenario: Avoid capturing focus or unrelated pointer input
+    Given the notification popup is visible
+    Then it does not take keyboard focus
+    And its input region covers only the notification list
+    And pointer input outside that region reaches the underlying surface
+
+  Scenario: Suppress transient popup visibility
+    Given a notification is live
+    When the screen becomes locked or game mode suppresses notifications
+    Then the popup becomes invisible without dismissing the notification
+
+  Scenario: Retain the popup loader briefly after the list empties
+    Given the last popup notification is dismissed or expires
+    When the notification list becomes empty
+    Then popup content remains resident for the 450 ms grace period
+    When another notification arrives during that period
+    Then the grace timer is cancelled and the popup remains resident
+    When the grace period ends with no notifications
+    Then popup content is released
+
+  Scenario: Reflect live notification updates and actions
+    Given a live notification contains app identity, summary, body, urgency,
+      image data, and zero or more actions
+    When its popup card is rendered
+    Then the card displays only data supplied by the live notification
+    And each offered action invokes only an action still attached to that ID
+    And dismissing or expiring one notification removes only that notification
+    And a replaced or closed notification is removed from the popup list
+
+  Scenario: Show no fabricated popup when the service is unavailable
+    Given the notification service has not been opted in or is unavailable
+    When the popup surface is evaluated
+    Then no fake notification card is rendered
+    And the surface does not claim to own notifications
+```
+
+These criteria apply to the Material ii popup only. They do not establish Waffle
+notification-center or Iris banner parity; those surfaces have separate QML
+contracts. Source registration and unit tests do not replace paired runtime
+captures and input/lifecycle checks. The GPUI popup has validated artwork and
+icon fallback at source level, but still lacks rich-body link handling,
+timestamp-based ordering for replaced notifications, drag-to-dismiss, and
+QML-equivalent entry/removal transitions. Keep this surface `partial` until
+those gaps and the host lifecycle scenarios above are closed.
+
+## Material ii On-Screen Display
+
+The QML owner is `modules/onScreenDisplay/OnScreenDisplay.qml`, with indicator
+views in `modules/onScreenDisplay/indicators/`. Indicators are transient and
+share one current-indicator state. Volume, brightness, microphone, media,
+voice-search, keyboard-layout, and connection changes can open the surface;
+media and connection notices use the configured timeout plus 1500 ms, while
+voice search remains visible until recording ends. Keyboard-layout and
+connection notices sit below the top bar; level indicators follow the bar
+edge. Hover dismisses ordinary indicators and extends the media indicator's
+timer. Media actions appear only when the player advertises that capability.
+
+```gherkin
+Feature: Material ii On-Screen Display
+
+  Background:
+    Given the ii family is selected
+    And iiOnScreenDisplay is enabled
+
+  Scenario: Route to configured outputs with a stale-name fallback
+    Given osd.screenList matches one or more connected outputs
+    When a supported OSD event opens an indicator
+    Then the indicator is rendered on every matched output
+    When no configured output name matches
+    Then the indicator is routed to every connected output
+
+  Scenario: Place level indicators relative to the bar
+    Given the current indicator is volume, brightness, microphone, or media
+    When the OSD renders
+    Then it is centered horizontally at the configured bar edge
+    And it remains within the output bounds
+
+  Scenario: Place keyboard and connection notices below the top bar
+    Given the current indicator is keyboard layout or connection
+    When the OSD renders
+    Then it is centered horizontally below the top bar regardless of bar edge
+    And it remains within the output bounds
+
+  Scenario: Render values without inventing unavailable provider state
+    Given a provider is loading, unavailable, or returns an unknown value
+    When its indicator renders
+    Then the OSD presents an explicit loading, unavailable, or unknown state
+    And it does not substitute zero or a fabricated device value
+
+  Scenario: Respect transient visibility and pointer behavior
+    Given a supported OSD event opens an ordinary indicator
+    When the configured timeout elapses or the pointer enters the card
+    Then the ordinary indicator is dismissed
+    Given the media indicator is visible
+    When the pointer enters or leaves its card
+    Then its timeout is paused or restarted according to the QML behavior
+
+  Scenario: Keep an open media indicator synchronized with the active player
+    Given the media indicator is visible
+    When the active player's track, title, artist, or artwork changes
+    Then the media indicator updates to the latest confirmed snapshot
+    And its timeout is restarted while it remains visible
+
+  Scenario: Reconcile media OSD after output names or geometry change
+    Given the media indicator is visible on configured outputs
+    When an output is added, removed, resized, or renamed
+    Then the active indicator is moved or recreated on the latest selected outputs
+    And a stale configured output list falls back to all available outputs
+
+  Scenario: Expose only supported media actions
+    Given the active media player advertises a subset of previous, toggle,
+      and next capabilities
+    When the media OSD renders
+    Then only the advertised controls are shown
+    And each control targets the current active player
+```
+
+These criteria describe required parity and are not evidence that a GPUI host
+or provider currently passes them. GPUI has MPRIS state/actions and a limited
+read-only PipeWire snapshot, but no complete brightness, microphone, keyboard
+layout, device-event, or voice-search adapters. Keep this surface partial until
+event routing, provider behavior, timeout/lifecycle, and paired runtime captures
+are verified.
+
+## Material ii Session Screen
+
+The reference is `modules/sessionScreen/SessionScreen.qml` and
+`SessionActionButton.qml`. The GPUI source component is
+`families/ii/session_screen.rs`, hosted by an opt-in explicit-display
+layer-shell route in `surface_manager.rs`. The preview uses the supplied
+zero-based GPUI display-list index; it does not resolve the compositor-focused
+output. Wallpaper, translated labels, warning providers, hibernate capability,
+and a production Session adapter are not connected. A typed action handler
+must return an acknowledgement before the menu starts closing; a missing or
+rejecting handler leaves the screen open. It must preserve the existing
+`modules/common/functions/Session.qml` behavior before any action is wired.
+
+```gherkin
+Feature: Material ii session screen
+
+  Scenario: Preview the session screen on an explicitly selected output
+    Given the preview is launched with an explicit display-list index
+    When that display is present
+    Then one fullscreen exclusive layer-shell session surface uses that display's dimensions
+    And its first selected action is Lock
+    And the host-owned root focus routes arrow keys through the QML action graph
+    And selected action changes update the visible description and host-localized accessible action description
+    And keyboard focus remains on the host-owned root rather than moving between buttons
+    And the title, keyboard instructions, action grid, and selected-action description are shown
+    And no focused-output or wallpaper provider is implied by the preview
+
+  Scenario: Show hibernate until capability is known
+    Given hibernation capability has not been resolved
+    When the session screen is rendered
+    Then Hibernate is shown
+    When the host reports that hibernation is unavailable
+    Then Hibernate is hidden
+    And the QML navigation fallbacks for the remaining actions are used
+
+  Scenario: Compact grid columns when Hibernate is hidden
+    Given Hibernate is the only action hidden by capability state
+    When the four-column session action grid is laid out
+    Then the visible actions flow in source order without an empty Hibernate cell
+    And Shutdown, Reboot, and Firmware occupy columns one, two, and three of row two
+    And the whole grid stays centered while that partial row remains left-aligned
+
+  Scenario Outline: Request the selected session operation
+    Given the session screen is open
+    When the user activates <action>
+    Then the host receives the <request> action request
+    And the session screen closes after the host handles that request
+
+    Examples:
+      | action                     | request          |
+      | Lock                       | Lock             |
+      | Sleep                      | Sleep            |
+      | Logout                     | Logout           |
+      | Task Manager               | TaskManager      |
+      | Hibernate                  | Hibernate        |
+      | Shutdown                   | Shutdown         |
+      | Reboot                     | Reboot           |
+      | Reboot to firmware settings| FirmwareReboot   |
+
+  Scenario: Leave the preview open when no action handler acknowledges
+    Given the session screen is open without an injected action handler
+    When the user activates Sleep
+    Then the typed Sleep request is reported as unhandled
+    And the session screen remains open
+    And no power, lock, logout, or application command is executed
+
+  Scenario: Navigate using the QML action graph
+    Given the session screen is open and Lock is selected
+    When the user presses Right then Down
+    Then selection moves to Sleep then Hibernate when hibernate is shown
+    When hibernate is hidden and the user presses Down from Lock
+    Then selection moves to Shutdown
+    And the selected action's accessible description uses the host-supplied localized selected-action string
+    And the other action buttons use the host-supplied localized ordinary-action string
+
+  Scenario: Dismiss without requesting a session operation
+    Given the session screen is open
+    When the user presses Escape or clicks outside the action panel
+    Then the host receives Dismiss
+    And no session operation is requested
+
+  Scenario: Preserve concurrent-operation warnings
+    Given the package manager is running
+    And a download is running
+    When the session screen is rendered
+    Then both warnings are shown independently
+
+  Scenario: Close the menu after the lock state becomes active
+    Given the session screen is open
+    When the shared lock state becomes active
+    Then the session surface enters its closing grace period
+
+  Scenario: Ignore a stale close timer after reopening
+    Given the session screen is closing with timer generation <old>
+    When the user reopens the session screen during the close grace period
+    And the old close timer expires
+    Then the reopened session screen remains open
+    And its close generation is greater than <old>
+
+  Scenario: Keep close timer generations unique when the surface is replaced
+    Given the first session screen surface was dismissed with timer generation 1
+    When an explicit Open request replaces the surface before timer 1 expires
+    And the replacement surface is dismissed
+    Then its close generation is greater than 1
+    When timer 1 expires
+    Then the replacement surface remains mounted with its own close timer pending
+
+  Scenario: Hide unavailable Hibernate and normalize selection
+    Given Hibernate is selected
+    When the host explicitly reports that hibernation is unavailable
+    Then selection moves to Lock
+    And subsequent attempts to select or activate Hibernate are ignored
+```
+
+The GPUI prototype now has an opt-in explicit-output host and a generation-
+guarded focus/close lifecycle. It does not yet have a real Quickshell Session
+action adapter, current wallpaper blur and zoom, mascot art, or the QML close
+animation. Its layer-shell surface is a session menu, not the compositor's
+secure lock surface. These remaining differences are not visual/runtime parity.
+
+## Shared Session Lock
+
+The current reference implementation is `modules/lock/Lock.qml` and
+`modules/lock/LockContext.qml`. It owns a compositor session-lock surface,
+recovery state, PAM and fingerprint attempts, and the shared unlock action
+flow. It selects Material, Waffle, Waffle Safe, or Iris visuals and keeps that
+selection stable while the screen is locked. A normal layer-shell overlay does
+not satisfy the compositor lock contract.
+
+```gherkin
+Feature: Shared session lock
+
+  Scenario: Do not treat a pending lock request as a secure lock
+    Given a session lock request has been sent to the compositor
+    When the compositor has not yet reported the session as locked
+    Then status reports "locked" when lock activation is pending
+    And it does not expose a normal overlay as the lock surface
+    And prepareSleep reports "locking" rather than "secure"
+    And status reports "secure" only after the protocol confirms the lock
+
+  Scenario: Activate the compositor lock before showing a lock view
+    Given the compositor reports the session lock as locked
+    When GPUI lock surfaces are presented
+    Then one configured lock surface is attached to each active output
+    And each lock surface owns the keyboard and pointer input
+    And ordinary desktop surfaces and their input regions are hidden
+    And an added output receives a configured lock surface before it is shown
+
+  Scenario: Keep the selected family presentation stable while locked
+    Given the screen is locked with a selected family
+    When runtime configuration changes the selected family
+    Then the active lock presentation remains on the family captured at lock
+    And the new family is applied only after the session is unlocked
+
+  Scenario: Handle rejected authentication without releasing the lock
+    Given a lock surface is active
+    When password PAM authentication is rejected
+    Then the compositor session remains locked
+    And password input is cleared from UI state
+    And an appropriate error or retry state is shown
+
+  Scenario: Keep retryable input when authentication times out or fingerprint fails
+    Given a lock surface is active
+    When PAM times out or a fingerprint attempt fails
+    Then the compositor session remains locked
+    And the password input is retained until reset or its clear timer expires
+    And an appropriate error or fingerprint retry state is shown
+
+  Scenario: Unlock only after an accepted authentication result
+    Given a lock surface is active
+    When PAM or fingerprint authentication succeeds
+    Then the session-lock protocol is released
+    And ordinary surfaces are restored only after the compositor reports unlock
+    And keyring or idle-inhibitor actions follow the configured post-unlock policy
+
+  Scenario Outline: Apply the configured authentication policy to power actions
+    Given a lock surface is active
+    And requirePasswordToPower is <required>
+    When poweroff or reboot is requested from the lock view
+    Then the action <result>
+    And a failed authentication, when requested, leaves the session locked
+
+    Examples:
+      | required | result                                      |
+      | false    | executes without an authentication attempt  |
+      | true     | waits for successful authentication         |
+
+  Scenario: Preserve lock ownership through output and session changes
+    Given the session is locked
+    When an output is added or removed, or the session suspends and resumes
+    Then every active output remains covered by a lock surface
+    And no ordinary surface becomes interactive before authenticated unlock
+
+  Scenario: Recover an interrupted compositor lock safely
+    Given the GPUI process exits while the compositor session is locked
+    When the shell restarts in the same compositor session
+    Then it restores the locked state before exposing ordinary surfaces
+    And recovery data contains no password, authentication response, or secret
+
+  Scenario Outline: Validate lock recovery against the current compositor session
+    Given the recovery record says the session was <saved_state>
+    And its saved Niri socket is <socket_match>
+    When the shell reads the recovery record
+    Then it <recovery_result>
+    And a missing, malformed, or stale record does not override the current session lock state
+
+    Examples:
+      | saved_state | socket_match | recovery_result                                  |
+      | locked      | the same     | restores lock state before desktop surfaces load |
+      | locked      | different    | records the current session state                 |
+      | unlocked    | the same     | leaves the current session state unchanged         |
+
+  Scenario: Ignore authentication results from an earlier lock attempt
+    Given a lock attempt has been reset or superseded
+    When a delayed PAM or fingerprint result for the earlier attempt arrives
+    Then it does not clear or unlock the current attempt
+    And no authentication secret is logged or persisted
+```
+
+These are migration acceptance requirements, not claims about current GPUI
+support. Before replacing the QML owner, verify that the pinned GPUI backend can
+create and release the Wayland session-lock protocol, then compare each family
+variant against live QML captures. Until those checks pass, the existing QML
+lock remains the production security boundary.
