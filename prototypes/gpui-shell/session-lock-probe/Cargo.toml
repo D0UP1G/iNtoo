@@ -1,0 +1,13 @@
+[package]
+name = "intoo-session-lock-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Isolated SHM probe for Wayland ext-session-lock-v1"
+
+[dependencies]
+libc = "=0.2.191"
+memmap2 = "=0.9.11"
+wayland-client = "=0.31.15"
+wayland-protocols = { version = "=0.32.13", features = ["client", "staging"] }
+
