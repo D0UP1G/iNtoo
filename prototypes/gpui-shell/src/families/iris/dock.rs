@@ -4,11 +4,11 @@
 //! geometry from IrisFrame/IrisStyle. This renderer accepts those resolved
 //! values and never invents an application list or touches global state.
 
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use gpui::{
-    Context, Hsla, IntoElement, KeyDownEvent, Render, Role, SharedString, Window, div, prelude::*,
-    px,
+    Context, Hsla, IntoElement, KeyDownEvent, Render, Role, SharedString, Window, div, img,
+    prelude::*, px,
 };
 
 use crate::theme::ThemeTokens;
@@ -43,6 +43,12 @@ pub struct IrisDockApp {
     pub name: Option<String>,
     /// A glyph/icon fallback supplied by the host's icon resolver.
     pub glyph: Option<String>,
+    /// Resolved local desktop icon file, if one was found in the XDG catalog.
+    pub icon_path: Option<PathBuf>,
+    /// Whether this app is pinned in the dock model.
+    pub pinned: bool,
+    /// Insert a visual divider immediately before this entry.
+    pub separator_before: bool,
     pub running: bool,
     pub focused: bool,
     pub urgent: bool,
@@ -71,9 +77,10 @@ pub fn apps_from_windows(
         let app = apps.entry(key).or_insert_with(|| IrisDockApp {
             id: app_id.to_owned(),
             name,
-            // Dock's current renderer accepts text glyphs, not icon-theme
-            // names or image handles; avoid drawing a misleading fake icon.
             glyph: None,
+            icon_path: catalog.resolve_icon_path_for_size(app_id, 40),
+            pinned: false,
+            separator_before: false,
             running: true,
             focused: false,
             urgent: false,
@@ -204,6 +211,7 @@ pub fn render(input: IrisDockInput) -> impl IntoElement {
                 "iris.dock.launcher",
                 "Applications",
                 "▦",
+                None,
                 icon_size,
                 slot,
                 &style,
@@ -218,6 +226,9 @@ pub fn render(input: IrisDockInput) -> impl IntoElement {
         );
     }
     for app in &input.apps {
+        if app.separator_before {
+            cells.push(separator(vertical, icon_size, &style).into_any_element());
+        }
         let id = app.id.clone();
         let label = app.name.clone().unwrap_or_else(|| app.id.clone());
         let glyph = app.glyph.clone().unwrap_or_else(|| "•".to_owned());
@@ -232,6 +243,7 @@ pub fn render(input: IrisDockInput) -> impl IntoElement {
                 &format!("iris.dock.app.{id}"),
                 &accessible_label,
                 &glyph,
+                app.icon_path.clone(),
                 icon_size,
                 slot,
                 &style,
@@ -245,9 +257,8 @@ pub fn render(input: IrisDockInput) -> impl IntoElement {
             .into_any_element(),
         );
     }
-    // A separator only appears when both app entries and edge pieces exist,
-    // matching IrisDock's source grouping rule.
-    if !input.apps.is_empty() && !input.pieces.is_empty() {
+    // IrisDock always separates absorbed pieces from the app/launcher group.
+    if !input.pieces.is_empty() {
         cells.push(separator(vertical, icon_size, &style).into_any_element());
     }
     for piece in &input.pieces {
@@ -267,6 +278,7 @@ pub fn render(input: IrisDockInput) -> impl IntoElement {
                 &format!("iris.dock.piece.{}", piece.id),
                 &accessible_label,
                 &piece.glyph,
+                None,
                 icon_size * 0.92,
                 slot,
                 &style,
@@ -332,6 +344,7 @@ fn dock_cell(
     id: &str,
     label: &str,
     glyph: &str,
+    icon_path: Option<PathBuf>,
     icon_size: f32,
     slot: f32,
     style: &IrisDockStyle,
@@ -348,6 +361,20 @@ fn dock_cell(
         style.icon_plate
     };
     let marker = if urgent { style.accent } else { style.muted };
+    let icon: gpui::AnyElement = if let Some(path) = icon_path {
+        let loading_glyph = glyph.to_owned();
+        let fallback_glyph = glyph.to_owned();
+        let color = style.text;
+        img(path)
+            .w(px(icon_size))
+            .h(px(icon_size))
+            .object_fit(gpui::ObjectFit::Contain)
+            .with_loading(move || dock_icon_fallback(&loading_glyph, icon_size, color))
+            .with_fallback(move || dock_icon_fallback(&fallback_glyph, icon_size, color))
+            .into_any_element()
+    } else {
+        dock_icon_fallback(glyph, icon_size, style.text)
+    };
     div()
         .id(id.to_owned())
         .aria_label(SharedString::from(label))
@@ -374,11 +401,7 @@ fn dock_cell(
         .rounded(px((icon_size + 6.0) / 2.0))
         .bg(background)
         .text_color(style.text)
-        .child(
-            div()
-                .text_size(px(icon_size.min(30.0)))
-                .child(glyph.to_owned()),
-        )
+        .child(icon)
         .when(running, |this| {
             this.child(
                 div()
@@ -409,6 +432,18 @@ fn dock_cell(
                     .child(badge_count.to_string()),
             )
         })
+}
+
+fn dock_icon_fallback(glyph: &str, icon_size: f32, color: Hsla) -> gpui::AnyElement {
+    div()
+        .size_full()
+        .flex()
+        .items_center()
+        .justify_center()
+        .text_color(color)
+        .text_size(px(icon_size.min(30.0)))
+        .child(glyph.to_owned())
+        .into_any_element()
 }
 
 fn is_activate_key(event: &KeyDownEvent) -> bool {

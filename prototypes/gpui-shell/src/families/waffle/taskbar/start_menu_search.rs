@@ -30,6 +30,7 @@ pub struct StartMenuSearch {
     selecting: bool,
     on_query_changed: QueryAction,
     pending_controlled_query: Option<String>,
+    task_view_key_passthrough: bool,
 }
 
 impl StartMenuSearch {
@@ -67,6 +68,7 @@ impl StartMenuSearch {
             selecting: false,
             on_query_changed,
             pending_controlled_query: None,
+            task_view_key_passthrough: false,
         }
     }
 
@@ -100,6 +102,12 @@ impl StartMenuSearch {
 
     pub fn set_placeholder(&mut self, placeholder: impl Into<String>) {
         self.placeholder = placeholder.into();
+    }
+
+    /// Let the Task View parent handle compositor navigation and close keys
+    /// while the search field owns keyboard focus.
+    pub fn enable_task_view_key_passthrough(&mut self) {
+        self.task_view_key_passthrough = true;
     }
 
     /// Keeps the editor controlled while avoiding rolling back a keystroke
@@ -239,6 +247,18 @@ impl StartMenuSearch {
         cx: &mut Context<Self>,
     ) {
         let key = event.keystroke.key.as_str();
+        let modifiers = event.keystroke.modifiers;
+        if self.task_view_key_passthrough
+            && is_task_view_parent_key(
+                key,
+                modifiers.shift,
+                modifiers.control,
+                modifiers.alt,
+                modifiers.platform,
+            )
+        {
+            return;
+        }
         let shift = event.keystroke.modifiers.shift;
         let command = event.keystroke.modifiers.control || event.keystroke.modifiers.platform;
         let handled = match key {
@@ -409,6 +429,16 @@ impl StartMenuSearch {
             previous
         }
     }
+}
+
+fn is_task_view_parent_key(
+    key: &str,
+    shift: bool,
+    control: bool,
+    alt: bool,
+    platform: bool,
+) -> bool {
+    !shift && !control && !alt && !platform && matches!(key, "left" | "right" | "delete")
 }
 
 fn utf16_offset_to_byte(text: &str, offset: usize, round_up: bool) -> usize {
@@ -608,6 +638,37 @@ impl Render for StartMenuSearch {
                     .items_center()
                     .child(SearchTextElement { input: cx.entity() }),
             )
+    }
+}
+
+#[cfg(test)]
+mod task_view_key_policy_tests {
+    use super::is_task_view_parent_key;
+
+    #[test]
+    fn task_view_parent_key_policy_is_limited_to_navigation_and_close() {
+        assert!(is_task_view_parent_key("left", false, false, false, false));
+        assert!(is_task_view_parent_key("right", false, false, false, false));
+        assert!(is_task_view_parent_key(
+            "delete", false, false, false, false
+        ));
+        assert!(!is_task_view_parent_key("left", true, false, false, false));
+        assert!(!is_task_view_parent_key("right", false, true, false, false));
+        assert!(!is_task_view_parent_key(
+            "delete", false, false, true, false
+        ));
+        assert!(!is_task_view_parent_key(
+            "delete", false, false, false, true
+        ));
+        assert!(!is_task_view_parent_key(
+            "backspace",
+            false,
+            false,
+            false,
+            false
+        ));
+        assert!(!is_task_view_parent_key("tab", false, false, false, false));
+        assert!(!is_task_view_parent_key("a", false, false, false, false));
     }
 }
 

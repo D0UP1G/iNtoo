@@ -27,6 +27,7 @@ pub struct WaffleTaskViewOverlay {
     query_changed: Arc<dyn Fn(String) + Send + Sync>,
     theme: ThemeTokens,
     output_name: Option<String>,
+    output_size: Option<[f32; 2]>,
     display_id: gpui::DisplayId,
     mode: TaskViewMode,
     close_on_select: bool,
@@ -50,15 +51,18 @@ impl WaffleTaskViewOverlay {
         cx: &mut Context<Self>,
     ) -> Self {
         let query = Arc::new(Mutex::new(String::new()));
-        let query_changed = query_action(&query);
+        let (query_sender, query_receiver) = async_channel::unbounded();
+        let query_changed = query_action(&query, query_sender);
         let search_editor = cx.new(|cx| {
-            StartMenuSearch::new_with_labels(
+            let mut editor = StartMenuSearch::new_with_labels(
                 String::new(),
                 "Search windows".to_owned(),
                 "Search windows".to_owned(),
                 query_changed.clone(),
                 cx,
-            )
+            );
+            editor.enable_task_view_key_passthrough();
+            editor
         });
         let snapshot = niri::Snapshot::default();
         let on_close = close_action(events.clone(), display_id);
@@ -68,6 +72,8 @@ impl WaffleTaskViewOverlay {
             close_on_select,
             selected_workspace,
             display_id,
+            None,
+            output_name.is_some(),
             events.clone(),
             snapshot.clone(),
             TaskViewLoadState::Loading,
@@ -84,6 +90,7 @@ impl WaffleTaskViewOverlay {
             query_changed,
             theme,
             output_name,
+            output_size: None,
             display_id,
             mode,
             close_on_select,
@@ -94,14 +101,31 @@ impl WaffleTaskViewOverlay {
             focus_on_first_render: true,
         };
         cx.spawn(async move |this, cx| {
+            while let Ok(query) = query_receiver.recv().await {
+                let update = this.update(cx, |view, cx| {
+                    view.publish_query(query, cx);
+                });
+                if update.is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
+        cx.spawn(async move |this, cx| {
             loop {
                 let output = this
                     .update(cx, |view, _| view.output_name.clone())
                     .unwrap_or_default();
-                let snapshot = cx
-                    .background_executor()
-                    .spawn(async move { niri::snapshot(output.as_deref()) })
-                    .await;
+                let snapshot = if output.is_some() {
+                    cx.background_executor()
+                        .spawn(async move { niri::snapshot(output.as_deref()) })
+                        .await
+                } else {
+                    niri::Snapshot {
+                        error: Some("Current output name is unavailable; refusing to show unfiltered windows".to_owned()),
+                        ..niri::Snapshot::default()
+                    }
+                };
                 let update = this.update(cx, |view, cx| {
                     view.snapshot = snapshot;
                     view.publish_input(cx, TaskViewLoadState::Ready);
@@ -123,6 +147,13 @@ impl WaffleTaskViewOverlay {
         self.publish_input(cx, TaskViewLoadState::Ready);
     }
 
+    fn publish_query(&mut self, query: String, cx: &mut Context<Self>) {
+        self.task_view.update(cx, |task_view, cx| {
+            task_view.set_query(query, cx);
+        });
+        cx.notify();
+    }
+
     fn publish_input(&mut self, cx: &mut Context<Self>, load_state: TaskViewLoadState) {
         let query = self
             .query
@@ -135,6 +166,8 @@ impl WaffleTaskViewOverlay {
             self.close_on_select,
             self.selected_workspace,
             self.display_id,
+            self.output_size,
+            self.output_name.is_some(),
             self.events.clone(),
             self.snapshot.clone(),
             load_state,
@@ -157,6 +190,16 @@ impl Focusable for WaffleTaskViewOverlay {
 
 impl Render for WaffleTaskViewOverlay {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let bounds = window.bounds().size;
+        let output_size = [f32::from(bounds.width), f32::from(bounds.height)];
+        if output_size
+            .iter()
+            .all(|value| value.is_finite() && *value > 0.0)
+            && self.output_size != Some(output_size)
+        {
+            self.output_size = Some(output_size);
+            self.publish_input(cx, TaskViewLoadState::Ready);
+        }
         if self.focus_on_first_render {
             window.focus(&self.search_editor.focus_handle(cx), cx);
             self.focus_on_first_render = false;
@@ -186,12 +229,16 @@ fn close_action(
     })
 }
 
-fn query_action(query: &Arc<Mutex<String>>) -> Arc<dyn Fn(String) + Send + Sync> {
+fn query_action(
+    query: &Arc<Mutex<String>>,
+    events: async_channel::Sender<String>,
+) -> Arc<dyn Fn(String) + Send + Sync> {
     let query = Arc::clone(query);
     Arc::new(move |value| {
         if let Ok(mut current) = query.lock() {
-            *current = value;
+            *current = value.clone();
         }
+        let _ = events.try_send(value);
     })
 }
 
@@ -219,6 +266,8 @@ fn make_input(
     close_on_select: bool,
     selected_workspace: Option<u8>,
     display_id: gpui::DisplayId,
+    output_size: Option<[f32; 2]>,
+    output_filter_available: bool,
     events: Sender<TaskViewEvent>,
     snapshot: niri::Snapshot,
     load_state: TaskViewLoadState,
@@ -245,6 +294,8 @@ fn make_input(
                     app_id: window.app_id.clone(),
                     focused: window.focused,
                     urgent: window.urgent,
+                    pos_in_scrolling_layout: window.pos_in_scrolling_layout,
+                    tile_size: window.tile_size,
                 })
                 .collect(),
         })
@@ -259,6 +310,8 @@ fn make_input(
             load_state
         },
         workspaces,
+        output_size,
+        output_filter_available,
         selected_workspace,
         close_on_select,
         query,
@@ -280,5 +333,23 @@ fn make_input(
         }),
         on_query_change,
         on_close,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::query_action;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn query_action_updates_controlled_value_and_notifies_immediately() {
+        let query = Arc::new(Mutex::new(String::new()));
+        let (sender, receiver) = async_channel::unbounded();
+        let action = query_action(&query, sender);
+
+        action("niri".to_owned());
+
+        assert_eq!(&*query.lock().unwrap(), "niri");
+        assert_eq!(receiver.try_recv().unwrap(), "niri");
     }
 }

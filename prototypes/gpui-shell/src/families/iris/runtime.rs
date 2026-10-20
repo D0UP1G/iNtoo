@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     rc::Rc,
     sync::{
         Arc, Mutex,
@@ -49,6 +49,7 @@ pub struct IrisRuntime {
     palette_query_action: crate::families::waffle::taskbar::start_menu::QueryAction,
     palette_editor: Option<Entity<StartMenuSearch>>,
     palette_selected: Arc<AtomicUsize>,
+    dock_launcher_requests: usize,
     palette_opener_focus: Option<FocusHandle>,
     palette_focus: Option<FocusHandle>,
     palette_scroll: ScrollHandle,
@@ -99,6 +100,7 @@ impl IrisRuntime {
         theme: ThemeTokens,
         options: Option<&serde_json::Value>,
         dock_options: Option<&serde_json::Value>,
+        pinned_app_ids: Vec<String>,
         output_size: Size<gpui::Pixels>,
         dock_enabled: bool,
         output_name: Option<String>,
@@ -147,6 +149,7 @@ impl IrisRuntime {
         )?;
         let palette_source = XdgDesktopEntrySource::new().map(Arc::new);
         let palette_selected = Arc::new(AtomicUsize::new(0));
+        let (dock_launcher_sender, dock_launcher_receiver) = async_channel::unbounded::<()>();
         let palette_scroll = ScrollHandle::new();
         let palette_focus = cx.focus_handle();
         let orbit_opener_focus = cx.focus_handle();
@@ -187,6 +190,7 @@ impl IrisRuntime {
             palette_query_action,
             palette_editor: Some(palette_editor),
             palette_selected,
+            dock_launcher_requests: 0,
             palette_opener_focus: Some(cx.focus_handle()),
             palette_focus: Some(palette_focus),
             palette_scroll,
@@ -237,7 +241,9 @@ impl IrisRuntime {
                         .unwrap_or(true),
                     apps: Vec::new(),
                     pieces: Vec::new(),
-                    on_launch: None,
+                    on_launch: Some(Arc::new(move || {
+                        let _ = dock_launcher_sender.try_send(());
+                    })),
                     on_activate: None,
                     on_piece_activate: None,
                 })
@@ -262,34 +268,78 @@ impl IrisRuntime {
         };
 
         let dock_windows = Arc::new(Mutex::new(Vec::<niri::Window>::new()));
-        let dock_catalog = XdgDesktopEntrySource::new().map(Arc::new);
+        let dock_catalog = view.palette_source.clone();
+        let dock_arrange_opened = dock_options
+            .and_then(|options| options.get("arrange"))
+            .and_then(serde_json::Value::as_str)
+            == Some("opened");
         let activate_windows = Arc::clone(&dock_windows);
+        let activate_catalog = dock_catalog.clone();
         if let Some(dock_input) = view.dock.as_mut() {
             dock_input.on_activate = Some(Arc::new(move |app_id| {
-                let Ok(windows) = activate_windows.lock() else {
-                    return;
+                let (app_windows, current) = match activate_windows.lock() {
+                    Ok(windows) => {
+                        let app_windows = windows
+                            .iter()
+                            .filter(|window| {
+                                window
+                                    .app_id
+                                    .as_deref()
+                                    .is_some_and(|id| dock_app_key(id) == dock_app_key(&app_id))
+                            })
+                            .collect::<Vec<_>>();
+                        let current = app_windows
+                            .iter()
+                            .position(|window| window.focused)
+                            .unwrap_or(usize::MAX);
+                        (
+                            app_windows
+                                .iter()
+                                .map(|window| window.id)
+                                .collect::<Vec<_>>(),
+                            (current != usize::MAX).then_some(current),
+                        )
+                    }
+                    Err(_) => return,
                 };
-                let app_windows = windows
-                    .iter()
-                    .filter(|window| {
-                        window
-                            .app_id
-                            .as_deref()
-                            .is_some_and(|id| id.eq_ignore_ascii_case(&app_id))
-                    })
-                    .collect::<Vec<_>>();
                 if app_windows.is_empty() {
+                    if let Some(catalog) = &activate_catalog {
+                        launch_dock_app(catalog, &app_id);
+                    } else {
+                        eprintln!("Iris Dock: application catalog unavailable for {app_id}");
+                    }
                     return;
                 }
-                let current = app_windows.iter().position(|window| window.focused);
                 let next = current.map_or(0, |index| (index + 1) % app_windows.len());
-                let _ = niri::focus_window(app_windows[next].id);
+                if !niri::focus_window(app_windows[next]) {
+                    eprintln!(
+                        "Iris Dock: could not focus Niri window {}",
+                        app_windows[next]
+                    );
+                }
             }));
         }
         let live_dock_windows = Arc::clone(&dock_windows);
+        let pinned_app_ids = normalize_pinned_app_ids(pinned_app_ids);
+        let dock_show_launcher = view.dock.as_ref().is_some_and(|dock| dock.show_launcher);
+        cx.spawn(async move |this, cx| {
+            while dock_launcher_receiver.recv().await.is_ok() {
+                if this
+                    .update(cx, |view, cx| {
+                        view.dock_launcher_requests = view.dock_launcher_requests.saturating_add(1);
+                        cx.notify();
+                    })
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        })
+        .detach();
         let orbit_output = output_name.clone();
         let orbit_output_size = [f32::from(output_size.width), f32::from(output_size.height)];
         cx.spawn(async move |this, cx| {
+            let mut dock_open_order = Vec::<String>::new();
             loop {
                 let output = orbit_output.clone();
                 let snapshot = cx
@@ -302,10 +352,17 @@ impl IrisRuntime {
                             *windows = snapshot.windows.clone();
                         }
                         if let Some(dock) = view.dock.as_mut() {
-                            dock.apps = dock_catalog
-                                .as_deref()
-                                .map(|catalog| dock::apps_from_windows(&snapshot.windows, catalog))
-                                .unwrap_or_default();
+                            dock.apps = dock_catalog.as_deref().map_or_else(Vec::new, |catalog| {
+                                ordered_dock_apps(
+                                    &snapshot.windows,
+                                    catalog,
+                                    &pinned_app_ids,
+                                    dock_arrange_opened,
+                                    dock_show_launcher,
+                                    dock.geometry.icon_size.round().max(1.0) as u32,
+                                    &mut dock_open_order,
+                                )
+                            });
                         }
                         view.orbit_error = snapshot.error.clone();
                         view.orbit_status = if snapshot.error.is_some() {
@@ -394,6 +451,7 @@ impl IrisRuntime {
             palette_query_action: Arc::new(|_| {}),
             palette_editor: None,
             palette_selected: Arc::new(AtomicUsize::new(0)),
+            dock_launcher_requests: 0,
             palette_opener_focus: None,
             palette_focus: None,
             palette_scroll: ScrollHandle::new(),
@@ -776,10 +834,176 @@ fn valid_orbit_bounds([x, y, width, height]: [f32; 4]) -> bool {
         && y + height <= 1.0
 }
 
+fn dock_app_key(app_id: &str) -> String {
+    let app_id = app_id.trim().rsplit('/').next().unwrap_or_default();
+    let lowered = app_id.to_lowercase();
+    lowered
+        .strip_suffix(".desktop")
+        .unwrap_or(&lowered)
+        .to_owned()
+}
+
+fn normalize_pinned_app_ids(app_ids: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    app_ids
+        .iter()
+        .map(|app_id| dock_app_key(app_id))
+        .filter(|app_id| !app_id.is_empty() && seen.insert(app_id.clone()))
+        .collect()
+}
+
+fn launch_dock_app(catalog: &XdgDesktopEntrySource, app_id: &str) {
+    match catalog.spawn_app_id(app_id) {
+        Ok(mut child) => {
+            let app_id = app_id.to_owned();
+            std::thread::spawn(move || match child.wait() {
+                Ok(status) if !status.success() => {
+                    eprintln!("Iris Dock: gio launch for '{app_id}' exited with {status}");
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    eprintln!("Iris Dock: could not reap launched app '{app_id}': {error}");
+                }
+            });
+        }
+        Err(error) => eprintln!("Iris Dock: {error}"),
+    }
+}
+
+fn ordered_dock_apps(
+    windows: &[niri::Window],
+    catalog: &XdgDesktopEntrySource,
+    pinned_app_ids: &[String],
+    arrange_opened: bool,
+    show_launcher: bool,
+    icon_size: u32,
+    open_order: &mut Vec<String>,
+) -> Vec<dock::IrisDockApp> {
+    let mut running = HashMap::<String, dock::IrisDockApp>::new();
+    for mut app in dock::apps_from_windows(windows, catalog) {
+        let key = dock_app_key(&app.id);
+        if key.is_empty() {
+            continue;
+        }
+        app.id = key.clone();
+        app.icon_path = catalog.resolve_icon_path_for_size(&key, icon_size);
+        if let Some(existing) = running.get_mut(&key) {
+            existing.focused |= app.focused;
+            existing.urgent |= app.urgent;
+            if existing.name.is_none() {
+                existing.name = app.name;
+            }
+            if existing.icon_path.is_none() {
+                existing.icon_path = app.icon_path;
+            }
+        } else {
+            running.insert(key, app);
+        }
+    }
+
+    let mut first_window = HashMap::<String, u64>::new();
+    for window in windows {
+        let Some(app_id) = window.app_id.as_deref() else {
+            continue;
+        };
+        let key = dock_app_key(app_id);
+        if key.is_empty() {
+            continue;
+        }
+        first_window
+            .entry(key)
+            .and_modify(|first| *first = (*first).min(window.id))
+            .or_insert(window.id);
+    }
+
+    let running_ids = running.keys().cloned().collect::<HashSet<_>>();
+    let mut live_order = Vec::with_capacity(running.len());
+    for id in open_order.iter() {
+        if running_ids.contains(id) && !live_order.contains(id) {
+            live_order.push(id.clone());
+        }
+    }
+    let mut fresh = running_ids
+        .iter()
+        .filter(|id| !live_order.contains(id))
+        .cloned()
+        .collect::<Vec<_>>();
+    fresh.sort_by_key(|id| {
+        (
+            first_window.get(id).copied().unwrap_or(u64::MAX),
+            id.clone(),
+        )
+    });
+    live_order.extend(fresh);
+    *open_order = live_order.clone();
+
+    let pinned_set = pinned_app_ids.iter().cloned().collect::<HashSet<_>>();
+    let mut pinned = Vec::<dock::IrisDockApp>::new();
+    for id in pinned_app_ids {
+        let app = if let Some(app) = running.get(id) {
+            if arrange_opened {
+                continue;
+            }
+            let mut app = app.clone();
+            app.pinned = true;
+            app
+        } else if let Some((name, _)) = catalog.resolve_app(id) {
+            dock::IrisDockApp {
+                id: id.clone(),
+                name: Some(name),
+                glyph: None,
+                icon_path: catalog.resolve_icon_path_for_size(id, icon_size),
+                pinned: true,
+                separator_before: false,
+                running: false,
+                focused: false,
+                urgent: false,
+                badge_count: 0,
+            }
+        } else {
+            continue;
+        };
+        pinned.push(app);
+    }
+
+    let mut open = live_order
+        .iter()
+        .filter(|id| arrange_opened || !pinned_set.contains(*id))
+        .filter_map(|id| {
+            let mut app = running.get(id)?.clone();
+            app.pinned = pinned_set.contains(id);
+            Some(app)
+        })
+        .collect::<Vec<_>>();
+
+    if show_launcher {
+        // The launcher separator is placed before the first app, regardless
+        // of whether the first app belongs to the pinned or running group.
+        if let Some(first) = pinned.first_mut() {
+            first.separator_before = true;
+        } else if let Some(first) = open.first_mut() {
+            first.separator_before = true;
+        }
+    }
+    if !pinned.is_empty() && !open.is_empty() {
+        open[0].separator_before = true;
+    }
+
+    pinned.extend(open);
+    pinned
+}
+
 impl Render for IrisRuntime {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if self.unavailable {
             return div().size_full().into_any_element();
+        }
+        if std::mem::take(&mut self.dock_launcher_requests) % 2 == 1 {
+            if self.palette_open {
+                self.close_palette(window, cx);
+            } else {
+                self.open_palette(window, cx);
+            }
         }
         let input = IrisChassisInput {
             style: self.style.clone(),

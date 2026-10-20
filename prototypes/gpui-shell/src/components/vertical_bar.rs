@@ -44,6 +44,57 @@ pub struct MediaState {
     pub can_previous: bool,
     pub can_next: bool,
     pub can_change_volume: bool,
+    /// Ordered MPRIS player snapshots. `status` and the other top-level fields
+    /// remain the active-player compatibility view used by legacy bar/panel UI.
+    pub players: Vec<MediaPlayerSnapshot>,
+}
+
+/// Stable, per-service MPRIS snapshot used by multi-player controls.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MediaPlayerSnapshot {
+    pub service_bus_name: String,
+    pub identity: Option<String>,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub source_url: Option<String>,
+    pub art_url: Option<String>,
+    pub track_id: Option<String>,
+    pub status: MediaStatus,
+    pub position_seconds: Option<u64>,
+    pub duration_seconds: Option<u64>,
+    pub position_microseconds: Option<u64>,
+    pub duration_microseconds: Option<u64>,
+    pub can_toggle_playback: bool,
+    pub can_previous: bool,
+    pub can_next: bool,
+    pub can_seek: bool,
+    pub can_change_volume: bool,
+}
+
+impl MediaPlayerSnapshot {
+    pub fn as_media_state(&self) -> MediaState {
+        let position_percent = self
+            .position_seconds
+            .zip(self.duration_seconds)
+            .filter(|(_, duration)| *duration > 0)
+            .map(|(position, duration)| {
+                ((position as f64 / duration as f64) * 100.0)
+                    .round()
+                    .clamp(0.0, 100.0) as u8
+            });
+        MediaState {
+            status: self.status,
+            title: self.title.clone(),
+            artist: self.artist.clone(),
+            position_percent,
+            can_toggle_playback: self.can_toggle_playback,
+            can_previous: self.can_previous,
+            can_next: self.can_next,
+            can_change_volume: self.can_change_volume,
+            players: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,13 +106,33 @@ pub enum MediaStatus {
     Stopped,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MediaAction {
     TogglePlayback,
     Previous,
     Next,
     OpenControls,
+    CloseControls,
     VolumeDelta(f32),
+    /// Absolute seek request emitted by a single-player card before its
+    /// enclosing popup binds it to a stable service bus name.
+    SeekTo {
+        seconds: u64,
+        track_id: String,
+    },
+    /// A card action pinned to the exact service name from its snapshot.
+    ForPlayer {
+        service_bus_name: String,
+        command: PlayerMediaCommand,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PlayerMediaCommand {
+    TogglePlayback,
+    Previous,
+    Next,
+    Seek { seconds: u64, track_id: String },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,6 +143,12 @@ pub struct BatteryState {
     pub percentage: Option<u8>,
     /// QML `battery.low`, expressed as a percentage in 0..=100.
     pub low_threshold: f64,
+    /// UPower `TimeToFull`, when the device reports a valid estimate.
+    pub time_to_full_seconds: Option<u64>,
+    /// UPower `TimeToEmpty`, when the device reports a valid estimate.
+    pub time_to_empty_seconds: Option<u64>,
+    /// UPower `EnergyRate` / QML `changeRate`, in watts.
+    pub energy_rate_watts: Option<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

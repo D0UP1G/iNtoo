@@ -186,6 +186,8 @@ fn control(
 ) -> impl IntoElement {
     let key_action = action.clone();
     let click_action = action;
+    let click_command = command.clone();
+    let key_command = command;
     div()
         .id(SharedString::from(format!("ii.media-player.{id}")))
         .min_w(px(36.))
@@ -206,10 +208,10 @@ fn control(
             move |s| s.border_1().border_color(border)
         })
         .child(glyph)
-        .on_click(move |_, _, _| click_action(command))
+        .on_click(move |_, _, _| click_action(click_command.clone()))
         .on_key_down(move |event: &KeyDownEvent, _, cx| {
             if activate(event) {
-                key_action(command);
+                key_action(key_command.clone());
                 cx.stop_propagation();
             }
         })

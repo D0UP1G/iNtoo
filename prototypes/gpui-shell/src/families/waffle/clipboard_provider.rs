@@ -186,6 +186,21 @@ impl CliphistProvider {
         Ok(())
     }
 
+    /// Decode a text entry for the Material clipboard's browser-markup filter.
+    /// The caller decides whether the payload is text; image rows should use
+    /// `copy` so their bytes remain untouched.
+    pub fn decode_for_copy(&self, id: &str) -> Result<Vec<u8>, ProviderError> {
+        validate_id(id)?;
+        self.run(&self.cliphist, "decode", &[id], None)
+            .map(|output| output.stdout)
+    }
+
+    /// Copy already-decoded content without passing it through a shell.
+    pub fn copy_bytes(&self, bytes: &[u8]) -> Result<(), ProviderError> {
+        self.run(&self.wl_copy, "copy filtered text", &[], Some(bytes))
+            .map(|_| ())
+    }
+
     /// Copy an externally configured pin without invoking `cliphist`. The
     /// bound matches the maximum pin size accepted by this adapter.
     pub fn copy_pinned(&self, text: &str) -> Result<(), ProviderError> {

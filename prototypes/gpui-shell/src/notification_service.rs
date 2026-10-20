@@ -12,17 +12,141 @@ use std::{
 
 use async_channel::{Receiver, Sender};
 use futures_lite::future::{block_on, race};
+use image::{DynamicImage, ImageBuffer, ImageFormat as EncoderImageFormat};
 use zbus::message::Header;
 use zbus::{
     connection,
     fdo::{RequestNameFlags, RequestNameReply},
     interface,
     object_server::SignalEmitter,
-    zvariant::OwnedValue,
+    zvariant::{OwnedValue, Structure},
 };
 
 const SERVICE_NAME: &str = "org.freedesktop.Notifications";
 const OBJECT_PATH: &str = "/org/freedesktop/Notifications";
+const MAX_NOTIFICATION_IMAGE_BYTES: usize = 4 * 1024 * 1024;
+const MAX_NOTIFICATION_IMAGE_DIMENSION: u32 = 4096;
+const MAX_NOTIFICATION_IMAGE_PIXELS: u64 = 16 * 1024 * 1024;
+const MAX_NOTIFICATION_IMAGE_PNG_BYTES: usize = 1024 * 1024;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum NotificationImage {
+    /// Local resource supplied by the sender. Network URLs are rejected because
+    /// GPUI's URI image loader performs outbound HTTP requests.
+    Resource(String),
+    /// Standard image-data payload normalized to PNG after validating bounds.
+    Png(Arc<[u8]>),
+}
+
+fn parse_notification_image(hints: &HashMap<String, OwnedValue>) -> Option<NotificationImage> {
+    for key in ["image-data", "image_data"] {
+        if let Some(value) = hints.get(key)
+            && let Some(png) = parse_image_data(value)
+        {
+            return Some(NotificationImage::Png(png.into()));
+        }
+    }
+    for key in ["image-path", "image_path", "image-url", "image_url"] {
+        if let Some(value) = hints.get(key)
+            && let Ok(resource) = String::try_from(value.try_clone().ok()?)
+            && let Some(resource) = validate_image_resource(resource)
+        {
+            return Some(NotificationImage::Resource(resource));
+        }
+    }
+    None
+}
+
+fn validate_image_resource(value: String) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 4096 || value.chars().any(char::is_control) {
+        return None;
+    }
+    if value.starts_with("file://") || value.starts_with('/') {
+        return Some(value.to_owned());
+    }
+    None
+}
+
+fn parse_image_data(value: &OwnedValue) -> Option<Vec<u8>> {
+    let structure = Structure::try_from(value.try_clone().ok()?).ok()?;
+    let (width, height, rowstride, has_alpha, bits_per_sample, channels, data) =
+        <(i32, i32, i32, bool, i32, i32, Vec<u8>)>::try_from(structure).ok()?;
+    encode_notification_image_data(
+        width,
+        height,
+        rowstride,
+        has_alpha,
+        bits_per_sample,
+        channels,
+        &data,
+    )
+}
+
+fn encode_notification_image_data(
+    width: i32,
+    height: i32,
+    rowstride: i32,
+    has_alpha: bool,
+    bits_per_sample: i32,
+    channels: i32,
+    data: &[u8],
+) -> Option<Vec<u8>> {
+    let (width, height, rowstride) = (
+        u32::try_from(width).ok()?,
+        u32::try_from(height).ok()?,
+        usize::try_from(rowstride).ok()?,
+    );
+    let channel_count = usize::try_from(channels).ok()?;
+    if width == 0
+        || height == 0
+        || width > MAX_NOTIFICATION_IMAGE_DIMENSION
+        || height > MAX_NOTIFICATION_IMAGE_DIMENSION
+        || u64::from(width).checked_mul(u64::from(height))? > MAX_NOTIFICATION_IMAGE_PIXELS
+        || bits_per_sample != 8
+        || channel_count != if has_alpha { 4 } else { 3 }
+        || data.len() > MAX_NOTIFICATION_IMAGE_BYTES
+    {
+        return None;
+    }
+    let minimum_row = usize::try_from(width).ok()?.checked_mul(channel_count)?;
+    let expected_data_len = rowstride.checked_mul(usize::try_from(height).ok()?)?;
+    if rowstride < minimum_row
+        || rowstride > MAX_NOTIFICATION_IMAGE_BYTES
+        || expected_data_len > MAX_NOTIFICATION_IMAGE_BYTES
+        || data.len() != expected_data_len
+    {
+        return None;
+    }
+
+    let pixels = width.checked_mul(height)?;
+    let rgba_len = usize::try_from(pixels).ok()?.checked_mul(4)?;
+    let mut rgba = Vec::with_capacity(rgba_len);
+    for y in 0..usize::try_from(height).ok()? {
+        let row = &data[y.checked_mul(rowstride)?..][..minimum_row];
+        for sample in row.chunks_exact(channel_count) {
+            rgba.extend_from_slice(&[
+                sample[0],
+                sample[1],
+                sample[2],
+                if has_alpha { sample[3] } else { 255 },
+            ]);
+        }
+    }
+    let image = if has_alpha {
+        DynamicImage::ImageRgba8(ImageBuffer::from_raw(width, height, rgba)?)
+    } else {
+        let mut rgb = Vec::with_capacity(usize::try_from(pixels).ok()?.checked_mul(3)?);
+        for pixel in rgba.chunks_exact(4) {
+            rgb.extend_from_slice(&pixel[..3]);
+        }
+        DynamicImage::ImageRgb8(ImageBuffer::from_raw(width, height, rgb)?)
+    };
+    let mut encoded = std::io::Cursor::new(Vec::new());
+    image.write_to(&mut encoded, EncoderImageFormat::Png).ok()?;
+    let png = encoded.into_inner();
+    (png.len() <= MAX_NOTIFICATION_IMAGE_PNG_BYTES).then_some(png)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NotificationServiceStatus {
@@ -49,6 +173,7 @@ pub struct LiveNotification {
     pub sender: String,
     pub app_name: String,
     pub app_icon: String,
+    pub image: Option<NotificationImage>,
     pub summary: String,
     pub body: String,
     /// Pairs are (action identifier, user-facing label), as defined by the protocol.
@@ -111,12 +236,16 @@ enum ServiceCommand {
         actions: Vec<(String, String)>,
         urgency: NotificationUrgency,
         expire_timeout_ms: i32,
+        image: Option<NotificationImage>,
         sender: String,
         reply: Sender<Result<u32, String>>,
     },
     Dismiss {
         id: u32,
         reason: u32,
+    },
+    CancelTimeout {
+        id: u32,
     },
     InvokeAction {
         id: u32,
@@ -249,6 +378,21 @@ impl NotificationServiceHandle {
             .send_blocking(ServiceCommand::Dismiss { id, reason });
     }
 
+    /// Cancels the current automatic expiry for a live notification.
+    ///
+    /// Cancellation is idempotent. The expiration is invalidated under the
+    /// state lock before the scheduler is notified, so an already queued stale
+    /// expiration command cannot close the notification afterward.
+    pub fn cancel_timeout(&self, id: u32) {
+        {
+            let mut state = self.state.lock().expect("notification state poisoned");
+            cancel_notification_timeout(&mut state, id);
+        }
+        let _ = self
+            .commands
+            .send_blocking(ServiceCommand::CancelTimeout { id });
+    }
+
     /// Invokes only an action retained from the live sender session.
     pub fn invoke_action(&self, id: u32, action_id: &str) -> bool {
         let found = self
@@ -347,6 +491,7 @@ async fn run_service(
                 actions,
                 urgency,
                 expire_timeout_ms,
+                image,
                 sender,
                 reply,
             }) => {
@@ -376,6 +521,7 @@ async fn run_service(
                         sender,
                         app_name,
                         app_icon,
+                        image,
                         summary,
                         body,
                         actions,
@@ -442,6 +588,9 @@ async fn run_service(
                 let _ = expiry_commands.send(ExpiryCommand::Cancel { id });
                 let _ = events.send(NotificationEvent::Closed { id, reason }).await;
             }
+            WorkerInput::Command(ServiceCommand::CancelTimeout { id }) => {
+                let _ = expiry_commands.send(ExpiryCommand::Cancel { id });
+            }
             WorkerInput::Command(ServiceCommand::InvokeAction { id, action_id }) => {
                 let exists = state
                     .lock()
@@ -502,21 +651,10 @@ async fn run_service(
                 let _ = reply.send(CloseResult::Closed).await;
             }
             WorkerInput::Command(ServiceCommand::Expire { id, generation }) => {
-                let expired =
-                    {
-                        let mut state = state.lock().expect("notification state poisoned");
-                        let matches_current = state.expirations.get(&id).is_some_and(
-                            |(deadline, current_generation)| {
-                                *current_generation == generation && *deadline <= Instant::now()
-                            },
-                        );
-                        if matches_current {
-                            state.expirations.remove(&id);
-                            state.live.remove(&id).is_some()
-                        } else {
-                            false
-                        }
-                    };
+                let expired = {
+                    let mut state = state.lock().expect("notification state poisoned");
+                    expire_notification_if_current(&mut state, id, generation, Instant::now())
+                };
                 if !expired {
                     continue;
                 }
@@ -577,6 +715,7 @@ impl NotificationInterface {
                 _ => NotificationUrgency::Normal,
             })
             .unwrap_or_default();
+        let image = parse_notification_image(&hints);
         let action_pairs = actions
             .chunks_exact(2)
             .map(|pair| (pair[0].clone(), pair[1].clone()))
@@ -592,6 +731,7 @@ impl NotificationInterface {
                 actions: action_pairs,
                 urgency,
                 expire_timeout_ms: expire_timeout,
+                image,
                 sender,
                 reply,
             })
@@ -668,6 +808,31 @@ fn effective_expiration_timeout_ms(
     }
 }
 
+fn cancel_notification_timeout(state: &mut ServiceState, id: u32) -> bool {
+    state.expirations.remove(&id).is_some()
+}
+
+fn expire_notification_if_current(
+    state: &mut ServiceState,
+    id: u32,
+    generation: u64,
+    now: Instant,
+) -> bool {
+    let matches_current =
+        state
+            .expirations
+            .get(&id)
+            .is_some_and(|(deadline, current_generation)| {
+                *current_generation == generation && *deadline <= now
+            });
+    if !matches_current {
+        return false;
+    }
+
+    state.expirations.remove(&id);
+    state.live.remove(&id).is_some()
+}
+
 fn run_expiry_scheduler(
     commands: mpsc::Receiver<ExpiryCommand>,
     service_commands: Sender<ServiceCommand>,
@@ -726,5 +891,145 @@ fn run_expiry_scheduler(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn live_notification(id: u32) -> LiveNotification {
+        LiveNotification {
+            id,
+            sender: ":1.42".into(),
+            app_name: "Test app".into(),
+            app_icon: String::new(),
+            image: None,
+            summary: "Test".into(),
+            body: "Body".into(),
+            actions: Vec::new(),
+            urgency: NotificationUrgency::Normal,
+            expire_timeout_ms: 1_000,
+        }
+    }
+
+    #[test]
+    fn canceled_timeout_rejects_queued_expiration_generation() {
+        let now = Instant::now();
+        let mut state = ServiceState {
+            service: Some(NotificationServiceStatus::OwnerReady),
+            next_id: 2,
+            live: HashMap::from([(1, live_notification(1))]),
+            expirations: HashMap::from([(1, (now - Duration::from_millis(1), 7))]),
+            next_expiration_generation: 8,
+        };
+
+        assert!(cancel_notification_timeout(&mut state, 1));
+        assert!(!cancel_notification_timeout(&mut state, 1));
+        assert!(!expire_notification_if_current(&mut state, 1, 7, now));
+        assert!(state.live.contains_key(&1));
+    }
+
+    #[test]
+    fn stale_expiration_generation_cannot_remove_replacement_timeout() {
+        let now = Instant::now();
+        let mut state = ServiceState {
+            service: Some(NotificationServiceStatus::OwnerReady),
+            next_id: 2,
+            live: HashMap::from([(1, live_notification(1))]),
+            expirations: HashMap::from([(1, (now - Duration::from_millis(1), 8))]),
+            next_expiration_generation: 9,
+        };
+
+        assert!(!expire_notification_if_current(&mut state, 1, 7, now));
+        assert!(state.live.contains_key(&1));
+        assert_eq!(
+            state.expirations.get(&1).map(|(_, generation)| *generation),
+            Some(8)
+        );
+    }
+
+    #[test]
+    fn valid_rgba_image_data_is_normalized_to_png() {
+        let png = encode_notification_image_data(1, 1, 4, true, 8, 4, &[12, 34, 56, 78])
+            .expect("valid image payload is encoded");
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+        assert!(png.len() <= MAX_NOTIFICATION_IMAGE_PNG_BYTES);
+    }
+
+    #[test]
+    fn standard_dbus_image_data_structure_is_parsed() {
+        let structure = Structure::try_from((
+            1_i32,
+            1_i32,
+            4_i32,
+            true,
+            8_i32,
+            4_i32,
+            vec![12_u8, 34, 56, 78],
+        ))
+        .expect("valid D-Bus image tuple");
+        let value = OwnedValue::try_from(structure).expect("owned image-data hint");
+        let hints = HashMap::from([("image-data".to_owned(), value)]);
+        assert!(matches!(
+            parse_notification_image(&hints),
+            Some(NotificationImage::Png(bytes)) if bytes.starts_with(b"\x89PNG\r\n\x1a\n")
+        ));
+    }
+
+    #[test]
+    fn malformed_and_oversized_image_payloads_fall_back_cleanly() {
+        assert!(encode_notification_image_data(1, 1, 3, true, 8, 4, &[1, 2, 3]).is_none());
+        assert!(encode_notification_image_data(1, 1, 4, true, 16, 4, &[1, 2, 3, 4]).is_none());
+        assert!(encode_notification_image_data(5000, 1, 20000, false, 8, 3, &[]).is_none());
+        assert!(encode_notification_image_data(1, 1, 3, false, 8, 3, &[1, 2, 3, 4]).is_none());
+        assert!(encode_notification_image_data(2048, 2048, 8192, true, 8, 4, &[]).is_none());
+        assert!(validate_image_resource("javascript:alert(1)".to_owned()).is_none());
+        assert!(validate_image_resource("https://example.invalid/art.png".to_owned()).is_none());
+        assert!(validate_image_resource("http://127.0.0.1:8080/art.png".to_owned()).is_none());
+        assert_eq!(
+            validate_image_resource("/tmp/notification.png".to_owned()),
+            Some("/tmp/notification.png".to_owned())
+        );
+    }
+
+    #[test]
+    fn malformed_image_hint_does_not_hide_valid_path_hint() {
+        let mut hints = HashMap::new();
+        hints.insert("image-data".into(), OwnedValue::from(42_u32));
+        hints.insert(
+            "image-path".into(),
+            OwnedValue::try_from(zbus::zvariant::Value::from(String::from(
+                "file:///tmp/notification.png",
+            )))
+            .expect("owned image-path hint"),
+        );
+        assert_eq!(
+            parse_notification_image(&hints),
+            Some(NotificationImage::Resource(
+                "file:///tmp/notification.png".into()
+            ))
+        );
+    }
+
+    #[test]
+    fn replacing_live_notification_replaces_its_artwork() {
+        let old = live_notification(7);
+        let fresh_png: Arc<[u8]> = Arc::from(
+            encode_notification_image_data(1, 1, 4, true, 8, 4, &[1, 2, 3, 255])
+                .expect("replacement art encodes"),
+        );
+        let replacement = LiveNotification {
+            image: Some(NotificationImage::Png(fresh_png.clone())),
+            ..old
+        };
+        let mut state = ServiceState::default();
+        state.live.insert(7, live_notification(7));
+        state.live.insert(7, replacement.clone());
+        assert_eq!(
+            state.live.get(&7).and_then(|item| item.image.clone()),
+            replacement.image
+        );
+        assert_eq!(state.live.get(&7).map(|item| item.id), Some(7));
     }
 }

@@ -27,6 +27,74 @@ layer-shell protocol, startup fails. The first build fetches Rust dependencies;
 GPUI is pinned in `Cargo.lock` to a Zed revision that provides the required
 layer-shell API.
 
+To render the ii Session Screen on a specific output for a visual check, pass
+its zero-based index from GPUI's current `cx.displays()` list:
+
+```sh
+cargo run --locked --manifest-path prototypes/gpui-shell/Cargo.toml -- \
+  --session-screen-preview-display 0
+```
+
+The index must be supplied explicitly; it does not follow compositor focus.
+Current output ordering is only a preview selector and is not verified as a
+stable output identity. This ordinary layer-shell menu is not a secure lock
+surface. Session actions remain open and log a missing-handler message unless
+a real action handler is injected.
+
+To open the opt-in Iris background preview on one explicitly selected display:
+
+```sh
+cargo run --locked --manifest-path prototypes/gpui-shell/Cargo.toml -- \
+  --iris-background-preview-display 0
+```
+
+This creates a full-output, opaque Bottom-layer test surface. The index selects
+the GPUI display directly; the wallpaper resolver uses a Niri output name only
+when the Niri snapshot matches that display's bounds. Until then it shows the
+opaque theme fallback and reports that output identity is awaiting. The view
+uses the typed config snapshot for supported still images; wallpaper preview,
+Awww ownership, animation providers, desktop widgets, and the production Iris
+QML lifecycle are not connected.
+
+To render the Material ii Clipboard preview on an explicitly selected output:
+
+```sh
+cargo run --locked --manifest-path prototypes/gpui-shell/Cargo.toml -- \
+  --ii-clipboard-preview-display 0
+```
+
+This is an opt-in preview route; no GPUI shortcut or launcher action opens it
+yet. Opening it reads clipboard history through `cliphist`; copy, delete, pin,
+and clear actions use the provider's normal `wl-copy`/`cliphist` operations.
+Pin changes merge into the current runtime config and are written by atomic
+replacement; running GPUI hosts also reconcile pins when the config watcher
+observes an external update. A QML writer does not share the GPUI file lock, so
+a narrow compare-to-rename race remains if both writers update pins at once.
+
+To open the Material ii Cheatsheet on a selected output:
+
+```sh
+cargo run --locked --manifest-path prototypes/gpui-shell/Cargo.toml -- \
+  --ii-cheatsheet-preview-display 0
+```
+
+This opens a full-output Overlay layer with exclusive keyboard focus on the
+exact GPUI display selected by the zero-based index. The card has Keybinds and
+Periodic table tabs. The keybind page has a real text search editor; Ctrl+F
+selects Keybinds and focuses the editor. Escape clears a non-empty search and
+closes when it is empty. The periodic table copies an element symbol to the
+GPUI clipboard and briefly marks it as copied. Clicking outside the card closes
+the preview. On outputs too small for the card, Escape closes the constrained
+state directly. Opening this opt-in route runs the existing keybind parser in a
+worker thread against the active compositor's config. It chooses Niri only when
+`NIRI_SOCKET` is present, or Hyprland only when
+`HYPRLAND_INSTANCE_SIGNATURE` is present. Missing or conflicting signals
+show an unavailable state without starting either parser. Niri parser errors
+render the QML fallback shortcuts with the diagnostic retained. This verifies
+source wiring and interaction structure only; a live compositor visual and
+keybind comparison is still required. The selected tab is host-local and is
+not persisted; production trigger and config-reload parity are also open.
+
 ## Current scope
 
 The prototype has a shared, token-backed Material UI module. The `ii`

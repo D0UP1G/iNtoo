@@ -28,8 +28,14 @@ pub struct ShellConfig {
     pub panel_family: Option<String>,
     pub enabled_panels: Vec<String>,
     pub bar: BarConfig,
+    pub media: MediaConfig,
+    pub notifications: NotificationsConfig,
+    pub osd: OsdConfig,
+    pub control_panel: ControlPanelConfig,
     pub appearance: AppearanceConfig,
     pub background: BackgroundConfig,
+    /// Iris desktop/background inputs, kept separate from II and Waffle surfaces.
+    pub iris_background: IrisBackgroundConfig,
     /// Configured `wallpapers.directory`; empty or absent uses Pictures/Wallpapers.
     pub wallpapers_directory: Option<String>,
     pub waffle: WaffleConfig,
@@ -40,6 +46,140 @@ pub struct ShellConfig {
     pub battery_low: Option<f64>,
     /// Settings owned by the standalone GPUI MVP and namespaced in `gpuiMvp`.
     pub gpui_mvp: crate::mvp_settings::MvpSettings,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MediaConfig {
+    /// QML `media.screenList`; an empty or unmatched list means all outputs.
+    pub screen_list: Vec<String>,
+    /// QML `media.filterDuplicatePlayers`.
+    pub filter_duplicate_players: bool,
+}
+
+impl Default for MediaConfig {
+    fn default() -> Self {
+        Self {
+            screen_list: Vec::new(),
+            filter_duplicate_players: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum NotificationPopupPosition {
+    TopLeft,
+    #[default]
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NotificationsConfig {
+    pub position: NotificationPopupPosition,
+    pub screen_list: Vec<String>,
+    pub edge_margin: u32,
+}
+
+impl Default for NotificationsConfig {
+    fn default() -> Self {
+        Self {
+            position: NotificationPopupPosition::TopRight,
+            screen_list: Vec::new(),
+            edge_margin: 4,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OsdConfig {
+    /// QML `osd.screenList`; empty or fully stale lists target all outputs.
+    pub screen_list: Vec<String>,
+    pub timeout_ms: u64,
+    pub media_enabled: bool,
+}
+
+impl Default for OsdConfig {
+    fn default() -> Self {
+        Self {
+            screen_list: Vec::new(),
+            timeout_ms: 2_000,
+            media_enabled: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlPanelStyle {
+    Panel,
+    Island,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ControlPanelSection {
+    Profile,
+    DateTime,
+    Media,
+    Wallpaper,
+    Weather,
+    System,
+    Sliders,
+    QuickActions,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ControlPanelConfig {
+    pub keep_loaded: bool,
+    pub compact_mode: bool,
+    pub style: ControlPanelStyle,
+    pub show_media_section: bool,
+    pub show_weather_section: bool,
+    pub show_wallpaper_section: bool,
+    pub show_system_section: bool,
+    pub show_sliders_section: bool,
+    pub show_quick_actions_section: bool,
+    pub show_wallpaper_scheme_chips: bool,
+}
+
+impl Default for ControlPanelConfig {
+    fn default() -> Self {
+        Self {
+            keep_loaded: false,
+            compact_mode: true,
+            style: ControlPanelStyle::Panel,
+            show_media_section: true,
+            show_weather_section: true,
+            show_wallpaper_section: true,
+            show_system_section: true,
+            show_sliders_section: true,
+            show_quick_actions_section: true,
+            show_wallpaper_scheme_chips: false,
+        }
+    }
+}
+
+impl ControlPanelConfig {
+    /// QML keeps Profile and DateTime visible and follows this fixed order for
+    /// optional content sections.
+    pub fn visible_sections(&self) -> Vec<ControlPanelSection> {
+        let mut sections = vec![ControlPanelSection::Profile, ControlPanelSection::DateTime];
+        for (enabled, section) in [
+            (self.show_media_section, ControlPanelSection::Media),
+            (self.show_wallpaper_section, ControlPanelSection::Wallpaper),
+            (self.show_weather_section, ControlPanelSection::Weather),
+            (self.show_system_section, ControlPanelSection::System),
+            (self.show_sliders_section, ControlPanelSection::Sliders),
+            (
+                self.show_quick_actions_section,
+                ControlPanelSection::QuickActions,
+            ),
+        ] {
+            if enabled {
+                sections.push(section);
+            }
+        }
+        sections
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -294,9 +434,93 @@ pub struct WaffleBarConfig {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct BackgroundConfig {
     pub wallpaper_path: Option<String>,
+    pub thumbnail_path: Option<String>,
+    pub fill_mode: Option<String>,
+    pub use_main_wallpaper: Option<bool>,
+    pub enable_animation: Option<bool>,
+    pub pause_animation_on_battery: Option<bool>,
+    pub video_pause: Option<String>,
+    pub hide_when_fullscreen: Option<bool>,
+    pub transition: BackgroundTransitionConfig,
+    pub effects: BackgroundEffectsConfig,
+    pub parallax: BackgroundParallaxConfig,
     pub multi_monitor_enabled: Option<bool>,
     pub wallpapers_by_monitor: Vec<WallpaperOutputConfig>,
     pub backdrop: BackdropConfig,
+}
+
+/// The desktop-widget background and overview backdrop are sourced from the
+/// shared `background` tree, while the menu and module gate live under `iris`.
+/// Raw source objects are retained alongside typed fields so new QML keys are
+/// not discarded before their GPUI adapter is implemented.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IrisBackgroundConfig {
+    pub source: ConfigSource,
+    pub desktop_widgets_enabled: bool,
+    pub desktop_menu_wallpaper: bool,
+    pub desktop_menu_items: Vec<String>,
+    pub raw_runtime_sections: BTreeMap<String, Value>,
+    pub raw_default_sections: BTreeMap<String, Value>,
+}
+
+impl Default for IrisBackgroundConfig {
+    fn default() -> Self {
+        Self {
+            source: ConfigSource::BundledDefaults,
+            desktop_widgets_enabled: true,
+            desktop_menu_wallpaper: true,
+            desktop_menu_items: vec![
+                "widgets",
+                "customize",
+                "screenshot",
+                "terminal",
+                "settings",
+                "restart",
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect(),
+            raw_runtime_sections: BTreeMap::new(),
+            raw_default_sections: BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BackgroundTransitionConfig {
+    pub enabled: Option<bool>,
+    pub kind: Option<String>,
+    pub direction: Option<String>,
+    pub duration_ms: Option<u64>,
+    pub bezier: Vec<f64>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BackgroundEffectsConfig {
+    pub blur_enabled: Option<bool>,
+    pub blur_radius: Option<f64>,
+    pub thumbnail_blur_strength: Option<f64>,
+    pub animated_blur_enabled: Option<bool>,
+    pub dim: Option<f64>,
+    pub dynamic_dim: Option<f64>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct BackgroundParallaxConfig {
+    pub enabled: Option<bool>,
+    pub axis: Option<String>,
+    pub vertical: Option<bool>,
+    pub auto_vertical: Option<bool>,
+    pub workspace_enabled: Option<bool>,
+    pub workspace_shift: Option<f64>,
+    pub workspace_zoom: Option<f64>,
+    pub zoom: Option<f64>,
+    pub sidebar_enabled: Option<bool>,
+    pub panel_shift: Option<f64>,
+    pub widgets_factor: Option<f64>,
+    pub widget_depth: Option<f64>,
+    pub pause_during_transitions: Option<bool>,
+    pub transition_settle_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -305,6 +529,9 @@ pub struct BackdropConfig {
     pub hide_wallpaper: Option<bool>,
     pub use_main_wallpaper: Option<bool>,
     pub wallpaper_path: Option<String>,
+    pub thumbnail_path: Option<String>,
+    /// Legacy persisted `fillMode`; rendering currently always covers output.
+    pub fill_mode: Option<String>,
     pub blur_radius: Option<f64>,
     pub dim: Option<f64>,
     pub saturation: Option<f64>,
@@ -325,7 +552,14 @@ pub struct WallpaperOutputConfig {
     pub backdrop_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum MediaPopupMode {
+    #[default]
+    Dock,
+    Bar,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BarConfig {
     /// `bottom` and `vertical` are the source configuration's placement flags.
     pub bottom: Option<bool>,
@@ -339,11 +573,39 @@ pub struct BarConfig {
     pub appearance_style: Option<String>,
     pub show_background: Option<bool>,
     pub borderless: Option<bool>,
+    /// QML `bar.verbose`, defaulting to true.
+    pub verbose: bool,
+    /// QML `bar.media.maxWidth`, normalized to the media component's minimum.
+    pub media_max_width: f64,
+    /// QML `bar.media.popupMode`; defaults to the full-screen dock controls.
+    pub media_popup_mode: MediaPopupMode,
     pub modules: BTreeMap<String, bool>,
     pub resources: ResourceConfig,
     pub layout: BarLayout,
     pub workspace: WorkspaceConfig,
     pub weather: WeatherConfig,
+}
+
+impl Default for BarConfig {
+    fn default() -> Self {
+        Self {
+            bottom: None,
+            vertical: None,
+            height: None,
+            screen_list: Vec::new(),
+            appearance_style: None,
+            show_background: None,
+            borderless: None,
+            verbose: true,
+            media_max_width: 220.0,
+            media_popup_mode: MediaPopupMode::Dock,
+            modules: BTreeMap::new(),
+            resources: ResourceConfig::default(),
+            layout: BarLayout::default(),
+            workspace: WorkspaceConfig::default(),
+            weather: WeatherConfig::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -392,6 +654,17 @@ pub struct BarLayout {
     pub center: Vec<String>,
     pub center_right: Vec<String>,
     pub right: Vec<String>,
+    pub spacer_mode: SpacerMode,
+    /// Minimum QML `bar.layout.spacerWidth`, clamped to zero or above.
+    pub spacer_width: f64,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SpacerMode {
+    #[default]
+    Auto,
+    Fill,
+    Fixed,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -468,9 +741,213 @@ impl ConfigLoad {
         let defaults = serde_json::from_str::<Value>(DEFAULT_CONFIG).unwrap_or(Value::Null);
         let bar = section(&root, "bar").or_else(|| section(&defaults, "bar"));
         let appearance = section(&root, "appearance").or_else(|| section(&defaults, "appearance"));
-        let background = section(&root, "background").or_else(|| section(&defaults, "background"));
+        let runtime_background = section(&root, "background");
+        let default_background = section(&defaults, "background");
+        let background = runtime_background.or(default_background);
         let battery = section(&root, "battery").or_else(|| section(&defaults, "battery"));
+        let media = section(&root, "media").or_else(|| section(&defaults, "media"));
+        let control_panel = section(&root, "controlPanel");
+        let default_control_panel = section(&defaults, "controlPanel");
         let mut cfg = ShellConfig::default();
+        cfg.iris_background = iris_background_config(&root, &defaults, source, &mut diagnostics);
+        cfg.control_panel.keep_loaded = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "keepLoaded",
+            "controlPanel.keepLoaded",
+            false,
+            &mut diagnostics,
+        );
+        cfg.control_panel.compact_mode = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "compactMode",
+            "controlPanel.compactMode",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_media_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showMediaSection",
+            "controlPanel.showMediaSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_weather_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showWeatherSection",
+            "controlPanel.showWeatherSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_wallpaper_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showWallpaperSection",
+            "controlPanel.showWallpaperSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_system_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showSystemSection",
+            "controlPanel.showSystemSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_sliders_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showSlidersSection",
+            "controlPanel.showSlidersSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_quick_actions_section = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showQuickActionsSection",
+            "controlPanel.showQuickActionsSection",
+            true,
+            &mut diagnostics,
+        );
+        cfg.control_panel.show_wallpaper_scheme_chips = bool_with_default(
+            control_panel,
+            default_control_panel,
+            "showWallpaperSchemeChips",
+            "controlPanel.showWallpaperSchemeChips",
+            false,
+            &mut diagnostics,
+        );
+        cfg.control_panel.style = match control_panel
+            .and_then(|value| string_at(value, "style", "controlPanel.style", &mut diagnostics))
+            .or_else(|| {
+                default_control_panel.and_then(|value| {
+                    string_at(
+                        value,
+                        "style",
+                        "defaults.controlPanel.style",
+                        &mut diagnostics,
+                    )
+                })
+            })
+            .as_deref()
+        {
+            None | Some("panel") => ControlPanelStyle::Panel,
+            Some("island") => ControlPanelStyle::Island,
+            Some(_) => {
+                diagnostics.push("controlPanel.style must be panel or island".into());
+                ControlPanelStyle::Panel
+            }
+        };
+        cfg.media.screen_list = string_list(
+            media.and_then(|value| value.get("screenList")),
+            "media.screenList",
+            &mut diagnostics,
+        );
+        cfg.media.filter_duplicate_players = media
+            .and_then(|value| {
+                bool_at(
+                    value,
+                    "filterDuplicatePlayers",
+                    "media.filterDuplicatePlayers",
+                    &mut diagnostics,
+                )
+            })
+            .unwrap_or(true);
+        let notifications = root.get("notifications");
+        let default_notifications = defaults.get("notifications");
+        cfg.notifications.screen_list = string_list(
+            notifications
+                .and_then(|value| value.get("screenList"))
+                .or_else(|| default_notifications.and_then(|value| value.get("screenList"))),
+            "notifications.screenList",
+            &mut diagnostics,
+        );
+        cfg.notifications.position = match notifications
+            .and_then(|value| {
+                string_at(
+                    value,
+                    "position",
+                    "notifications.position",
+                    &mut diagnostics,
+                )
+            })
+            .or_else(|| {
+                default_notifications.and_then(|value| {
+                    string_at(
+                        value,
+                        "position",
+                        "defaults.notifications.position",
+                        &mut diagnostics,
+                    )
+                })
+            })
+            .as_deref()
+        {
+            Some("topLeft") => NotificationPopupPosition::TopLeft,
+            Some("bottomLeft") => NotificationPopupPosition::BottomLeft,
+            Some("bottomRight") => NotificationPopupPosition::BottomRight,
+            None | Some("topRight") => NotificationPopupPosition::TopRight,
+            Some(_) => {
+                diagnostics.push(
+                    "notifications.position must be topRight, topLeft, bottomRight, or bottomLeft"
+                        .into(),
+                );
+                NotificationPopupPosition::TopRight
+            }
+        };
+        cfg.notifications.edge_margin = notifications
+            .and_then(|value| {
+                number_at(
+                    value,
+                    "edgeMargin",
+                    "notifications.edgeMargin",
+                    &mut diagnostics,
+                )
+            })
+            .or_else(|| {
+                default_notifications.and_then(|value| {
+                    number_at(
+                        value,
+                        "edgeMargin",
+                        "defaults.notifications.edgeMargin",
+                        &mut diagnostics,
+                    )
+                })
+            })
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .map(|value| value.min(256.0) as u32)
+            .unwrap_or(4);
+        let osd = root.get("osd");
+        let default_osd = defaults.get("osd");
+        cfg.osd.screen_list = string_list(
+            osd.and_then(|value| value.get("screenList"))
+                .or_else(|| default_osd.and_then(|value| value.get("screenList"))),
+            "osd.screenList",
+            &mut diagnostics,
+        );
+        let configured_osd_timeout = osd
+            .and_then(|value| number_at(value, "timeout", "osd.timeout", &mut diagnostics))
+            .filter(|value| value.is_finite() && *value >= 0.0);
+        let default_osd_timeout = default_osd
+            .and_then(|value| number_at(value, "timeout", "defaults.osd.timeout", &mut diagnostics))
+            .filter(|value| value.is_finite() && *value >= 0.0);
+        cfg.osd.timeout_ms = configured_osd_timeout
+            .or(default_osd_timeout)
+            .map(|value| value.min(60_000.0) as u64)
+            .unwrap_or(2_000);
+        cfg.osd.media_enabled = bool_with_default(
+            osd,
+            default_osd,
+            "mediaEnabled",
+            "osd.mediaEnabled",
+            true,
+            &mut diagnostics,
+        );
         cfg.gpui_mvp = gpui_mvp;
         cfg.battery_low = battery
             .and_then(|value| number_at(value, "low", "battery.low", &mut diagnostics))
@@ -1018,6 +1495,59 @@ impl ConfigLoad {
                     )
                 })
             });
+            cfg.bar.verbose = bool_at(bar, "verbose", "bar.verbose", &mut diagnostics)
+                .or_else(|| {
+                    default_bar.and_then(|value| {
+                        bool_at(value, "verbose", "defaults.bar.verbose", &mut diagnostics)
+                    })
+                })
+                .unwrap_or(true);
+            let media = bar
+                .get("media")
+                .filter(|value| !value.is_null())
+                .or_else(|| default_bar.and_then(|value| value.get("media")));
+            cfg.bar.media_max_width = media
+                .and_then(|value| {
+                    number_at(value, "maxWidth", "bar.media.maxWidth", &mut diagnostics)
+                })
+                .or_else(|| {
+                    default_bar
+                        .and_then(|value| value.get("media"))
+                        .and_then(|value| {
+                            number_at(
+                                value,
+                                "maxWidth",
+                                "defaults.bar.media.maxWidth",
+                                &mut diagnostics,
+                            )
+                        })
+                })
+                .unwrap_or(220.0)
+                .max(120.0);
+            let popup_mode = media
+                .and_then(|value| {
+                    string_at(value, "popupMode", "bar.media.popupMode", &mut diagnostics)
+                })
+                .or_else(|| {
+                    default_bar
+                        .and_then(|value| value.get("media"))
+                        .and_then(|value| {
+                            string_at(
+                                value,
+                                "popupMode",
+                                "defaults.bar.media.popupMode",
+                                &mut diagnostics,
+                            )
+                        })
+                });
+            cfg.bar.media_popup_mode = match popup_mode.as_deref() {
+                None | Some("dock") => MediaPopupMode::Dock,
+                Some("bar") => MediaPopupMode::Bar,
+                Some(_) => {
+                    diagnostics.push("bar.media.popupMode must be one of: dock, bar".into());
+                    MediaPopupMode::Dock
+                }
+            };
             let weather = bar
                 .get("weather")
                 .or_else(|| defaults.get("bar").and_then(|value| value.get("weather")));
@@ -1144,7 +1674,66 @@ impl ConfigLoad {
                     ),
                 };
             }
-            if let Some(layout) = bar.get("layout").and_then(Value::as_object) {
+            let runtime_layout = bar.get("layout");
+            let default_layout = defaults
+                .get("bar")
+                .and_then(|defaults_bar| defaults_bar.get("layout"));
+            if runtime_layout.is_some_and(|layout| !layout.is_object()) {
+                diagnostics.push("bar.layout must be an object".into());
+            }
+            let spacer_mode = runtime_layout
+                .and_then(|layout| {
+                    string_at(
+                        layout,
+                        "spacerMode",
+                        "bar.layout.spacerMode",
+                        &mut diagnostics,
+                    )
+                })
+                .or_else(|| {
+                    default_layout.and_then(|layout| {
+                        string_at(
+                            layout,
+                            "spacerMode",
+                            "defaults.bar.layout.spacerMode",
+                            &mut diagnostics,
+                        )
+                    })
+                })
+                .unwrap_or_else(|| "auto".into());
+            cfg.bar.layout.spacer_mode = match spacer_mode.as_str() {
+                "auto" => SpacerMode::Auto,
+                "fill" => SpacerMode::Fill,
+                "fixed" => SpacerMode::Fixed,
+                _ => {
+                    diagnostics.push(
+                        "bar.layout.spacerMode must be one of auto, fill, fixed; using auto".into(),
+                    );
+                    SpacerMode::Auto
+                }
+            };
+            cfg.bar.layout.spacer_width = runtime_layout
+                .and_then(|layout| {
+                    number_at(
+                        layout,
+                        "spacerWidth",
+                        "bar.layout.spacerWidth",
+                        &mut diagnostics,
+                    )
+                })
+                .or_else(|| {
+                    default_layout.and_then(|layout| {
+                        number_at(
+                            layout,
+                            "spacerWidth",
+                            "defaults.bar.layout.spacerWidth",
+                            &mut diagnostics,
+                        )
+                    })
+                })
+                .unwrap_or(0.0)
+                .clamp(0.0, 480.0);
+            if let Some(layout) = runtime_layout.and_then(Value::as_object) {
                 cfg.bar.layout.left =
                     string_list(layout.get("left"), "bar.layout.left", &mut diagnostics);
                 cfg.bar.layout.center_left = string_list(
@@ -1489,95 +2078,193 @@ impl ConfigLoad {
             }
         }
         if let Some(background) = background {
-            cfg.background.wallpaper_path = string_at(
-                background,
+            cfg.background.wallpaper_path = string_field(
+                runtime_background,
+                default_background,
                 "wallpaperPath",
                 "background.wallpaperPath",
                 &mut diagnostics,
             );
-            if let Some(backdrop) = background.get("backdrop") {
+            cfg.background.thumbnail_path = string_field(
+                runtime_background,
+                default_background,
+                "thumbnailPath",
+                "background.thumbnailPath",
+                &mut diagnostics,
+            );
+            cfg.background.fill_mode = string_field(
+                runtime_background,
+                default_background,
+                "fillMode",
+                "background.fillMode",
+                &mut diagnostics,
+            )
+            .or_else(|| Some("fill".into()));
+            cfg.background.use_main_wallpaper = bool_field(
+                runtime_background,
+                default_background,
+                "useMainWallpaper",
+                "background.useMainWallpaper",
+                &mut diagnostics,
+            );
+            cfg.background.enable_animation = bool_field(
+                runtime_background,
+                default_background,
+                "enableAnimation",
+                "background.enableAnimation",
+                &mut diagnostics,
+            );
+            cfg.background.pause_animation_on_battery = bool_field(
+                runtime_background,
+                default_background,
+                "pauseAnimationOnBattery",
+                "background.pauseAnimationOnBattery",
+                &mut diagnostics,
+            );
+            cfg.background.video_pause = string_field(
+                runtime_background,
+                default_background,
+                "videoPause",
+                "background.videoPause",
+                &mut diagnostics,
+            );
+            cfg.background.hide_when_fullscreen = bool_field(
+                runtime_background,
+                default_background,
+                "hideWhenFullscreen",
+                "background.hideWhenFullscreen",
+                &mut diagnostics,
+            );
+            cfg.background.transition = parse_background_transition(
+                runtime_background,
+                default_background,
+                &mut diagnostics,
+            );
+            cfg.background.effects =
+                parse_background_effects(runtime_background, default_background, &mut diagnostics);
+            cfg.background.parallax =
+                parse_background_parallax(runtime_background, default_background, &mut diagnostics);
+            let runtime_backdrop = runtime_background.and_then(|value| value.get("backdrop"));
+            let default_backdrop = default_background.and_then(|value| value.get("backdrop"));
+            let backdrop = merged_object(runtime_backdrop, default_backdrop);
+            if backdrop.is_some() {
                 cfg.background.backdrop = BackdropConfig {
-                    enabled: bool_at(
-                        backdrop,
+                    enabled: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "enable",
                         "background.backdrop.enable",
                         &mut diagnostics,
                     ),
-                    hide_wallpaper: bool_at(
-                        backdrop,
+                    hide_wallpaper: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "hideWallpaper",
                         "background.backdrop.hideWallpaper",
                         &mut diagnostics,
                     ),
-                    use_main_wallpaper: bool_at(
-                        backdrop,
+                    use_main_wallpaper: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "useMainWallpaper",
                         "background.backdrop.useMainWallpaper",
                         &mut diagnostics,
                     ),
-                    wallpaper_path: string_at(
-                        backdrop,
+                    wallpaper_path: string_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "wallpaperPath",
                         "background.backdrop.wallpaperPath",
                         &mut diagnostics,
                     ),
-                    blur_radius: number_at(
-                        backdrop,
+                    thumbnail_path: string_field(
+                        runtime_backdrop,
+                        default_backdrop,
+                        "thumbnailPath",
+                        "background.backdrop.thumbnailPath",
+                        &mut diagnostics,
+                    ),
+                    fill_mode: string_field(
+                        runtime_backdrop,
+                        default_backdrop,
+                        "fillMode",
+                        "background.backdrop.fillMode",
+                        &mut diagnostics,
+                    )
+                    .or_else(|| Some("fill".into())),
+                    blur_radius: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "blurRadius",
                         "background.backdrop.blurRadius",
                         &mut diagnostics,
                     ),
-                    dim: number_at(backdrop, "dim", "background.backdrop.dim", &mut diagnostics),
-                    saturation: number_at(
-                        backdrop,
+                    dim: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
+                        "dim",
+                        "background.backdrop.dim",
+                        &mut diagnostics,
+                    ),
+                    saturation: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "saturation",
                         "background.backdrop.saturation",
                         &mut diagnostics,
                     ),
-                    contrast: number_at(
-                        backdrop,
+                    contrast: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "contrast",
                         "background.backdrop.contrast",
                         &mut diagnostics,
                     ),
-                    vignette_enabled: bool_at(
-                        backdrop,
+                    vignette_enabled: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "vignetteEnabled",
                         "background.backdrop.vignetteEnabled",
                         &mut diagnostics,
                     ),
-                    vignette_intensity: number_at(
-                        backdrop,
+                    vignette_intensity: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "vignetteIntensity",
                         "background.backdrop.vignetteIntensity",
                         &mut diagnostics,
                     ),
-                    vignette_radius: number_at(
-                        backdrop,
+                    vignette_radius: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "vignetteRadius",
                         "background.backdrop.vignetteRadius",
                         &mut diagnostics,
                     ),
-                    enable_animation: bool_at(
-                        backdrop,
+                    enable_animation: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "enableAnimation",
                         "background.backdrop.enableAnimation",
                         &mut diagnostics,
                     ),
-                    enable_animated_blur: bool_at(
-                        backdrop,
+                    enable_animated_blur: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "enableAnimatedBlur",
                         "background.backdrop.enableAnimatedBlur",
                         &mut diagnostics,
                     ),
-                    use_aurora_style: bool_at(
-                        backdrop,
+                    use_aurora_style: bool_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "useAuroraStyle",
                         "background.backdrop.useAuroraStyle",
                         &mut diagnostics,
                     ),
-                    aurora_overlay_opacity: number_at(
-                        backdrop,
+                    aurora_overlay_opacity: number_field(
+                        runtime_backdrop,
+                        default_backdrop,
                         "auroraOverlayOpacity",
                         "background.backdrop.auroraOverlayOpacity",
                         &mut diagnostics,
@@ -1719,6 +2406,404 @@ pub fn runtime_path() -> std::path::PathBuf {
 fn section<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
     value.get(key).filter(|v| v.is_object())
 }
+
+fn merged_object(runtime: Option<&Value>, defaults: Option<&Value>) -> Option<Value> {
+    let mut merged = defaults?.as_object()?.clone();
+    if let Some(runtime) = runtime.and_then(Value::as_object) {
+        merged.extend(runtime.clone());
+    }
+    Some(Value::Object(merged))
+}
+
+fn selected_field<'a>(
+    runtime: Option<&'a Value>,
+    defaults: Option<&'a Value>,
+    key: &str,
+) -> Option<&'a Value> {
+    runtime
+        .and_then(|value| value.get(key))
+        .or_else(|| defaults.and_then(|value| value.get(key)))
+}
+
+fn bool_field(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    key: &str,
+    path: &str,
+    diagnostics: &mut Vec<String>,
+) -> Option<bool> {
+    let runtime_value = runtime.and_then(|value| value.get(key));
+    if let Some(value) = runtime_value {
+        match value.as_bool() {
+            Some(value) => return Some(value),
+            None => diagnostics.push(format!("{path} must be a boolean")),
+        }
+    }
+    let default_value = defaults.and_then(|value| value.get(key));
+    default_value.and_then(|value| match value.as_bool() {
+        Some(value) => Some(value),
+        None => {
+            diagnostics.push(format!("defaults.{path} must be a boolean"));
+            None
+        }
+    })
+}
+
+fn string_field(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    key: &str,
+    path: &str,
+    diagnostics: &mut Vec<String>,
+) -> Option<String> {
+    let runtime_value = runtime.and_then(|value| value.get(key));
+    if let Some(value) = runtime_value {
+        match value.as_str() {
+            Some(value) => return Some(value.to_owned()),
+            None => diagnostics.push(format!("{path} must be a string")),
+        }
+    }
+    defaults
+        .and_then(|value| value.get(key))
+        .and_then(|value| match value.as_str() {
+            Some(value) => Some(value.to_owned()),
+            None => {
+                diagnostics.push(format!("defaults.{path} must be a string"));
+                None
+            }
+        })
+}
+
+fn number_field(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    key: &str,
+    path: &str,
+    diagnostics: &mut Vec<String>,
+) -> Option<f64> {
+    let parse = |value: &Value| value.as_f64().filter(|number| number.is_finite());
+    if let Some(value) = runtime.and_then(|value| value.get(key)) {
+        if let Some(number) = parse(value) {
+            return Some(number);
+        }
+        diagnostics.push(format!("{path} must be a finite number"));
+    }
+    defaults
+        .and_then(|value| value.get(key))
+        .and_then(|value| match parse(value) {
+            Some(number) => Some(number),
+            None => {
+                diagnostics.push(format!("defaults.{path} must be a finite number"));
+                None
+            }
+        })
+}
+
+fn u64_field(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    key: &str,
+    path: &str,
+    diagnostics: &mut Vec<String>,
+) -> Option<u64> {
+    if let Some(value) = runtime.and_then(|value| value.get(key)) {
+        if let Some(number) = value.as_u64() {
+            return Some(number);
+        }
+        diagnostics.push(format!("{path} must be a nonnegative integer"));
+    }
+    defaults
+        .and_then(|value| value.get(key))
+        .and_then(|value| match value.as_u64() {
+            Some(number) => Some(number),
+            None => {
+                diagnostics.push(format!("defaults.{path} must be a nonnegative integer"));
+                None
+            }
+        })
+}
+
+fn iris_background_config(
+    root: &Value,
+    defaults: &Value,
+    source: ConfigSource,
+    diagnostics: &mut Vec<String>,
+) -> IrisBackgroundConfig {
+    let runtime_iris = root.get("iris");
+    let default_iris = defaults.get("iris");
+    let runtime_modules = runtime_iris.and_then(|value| value.get("modules"));
+    let default_modules = default_iris.and_then(|value| value.get("modules"));
+    let runtime_menu = runtime_iris.and_then(|value| value.get("desktopMenu"));
+    let default_menu = default_iris.and_then(|value| value.get("desktopMenu"));
+    let desktop_widgets_enabled = bool_field(
+        runtime_modules,
+        default_modules,
+        "desktopWidgets",
+        "iris.modules.desktopWidgets",
+        diagnostics,
+    )
+    .unwrap_or(true);
+    let desktop_menu_wallpaper = bool_field(
+        runtime_menu,
+        default_menu,
+        "wallpaper",
+        "iris.desktopMenu.wallpaper",
+        diagnostics,
+    )
+    .unwrap_or(true);
+    let menu_items_value = selected_field(runtime_menu, default_menu, "items");
+    let desktop_menu_items = match menu_items_value {
+        Some(value) if value.is_array() => {
+            string_list(Some(value), "iris.desktopMenu.items", diagnostics)
+        }
+        Some(_) => {
+            diagnostics.push("iris.desktopMenu.items must be an array".into());
+            default_menu
+                .and_then(|menu| menu.get("items"))
+                .map(|items| {
+                    string_list(Some(items), "defaults.iris.desktopMenu.items", diagnostics)
+                })
+                .unwrap_or_default()
+        }
+        None => Vec::new(),
+    };
+    let mut raw_runtime_sections = BTreeMap::new();
+    let mut raw_default_sections = BTreeMap::new();
+    for (key, runtime, default) in [
+        (
+            "background",
+            root.get("background"),
+            defaults.get("background"),
+        ),
+        ("iris.modules", runtime_modules, default_modules),
+        ("iris.desktopMenu", runtime_menu, default_menu),
+    ] {
+        if source == ConfigSource::Runtime {
+            if let Some(value) = runtime {
+                raw_runtime_sections.insert(key.to_owned(), value.clone());
+            }
+        }
+        if let Some(value) = default {
+            raw_default_sections.insert(key.to_owned(), value.clone());
+        }
+    }
+    IrisBackgroundConfig {
+        source,
+        desktop_widgets_enabled,
+        desktop_menu_wallpaper,
+        desktop_menu_items,
+        raw_runtime_sections,
+        raw_default_sections,
+    }
+}
+
+fn parse_background_transition(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    diagnostics: &mut Vec<String>,
+) -> BackgroundTransitionConfig {
+    let rt = runtime.and_then(|value| value.get("transition"));
+    let df = defaults.and_then(|value| value.get("transition"));
+    let bezier_value = selected_field(rt, df, "bezier");
+    let bezier = match bezier_value.and_then(Value::as_array) {
+        Some(items) => items
+            .iter()
+            .enumerate()
+            .filter_map(
+                |(index, value)| match value.as_f64().filter(|n| n.is_finite()) {
+                    Some(n) => Some(n),
+                    None => {
+                        diagnostics.push(format!(
+                            "background.transition.bezier[{index}] must be a finite number"
+                        ));
+                        None
+                    }
+                },
+            )
+            .collect(),
+        None => Vec::new(),
+    };
+    BackgroundTransitionConfig {
+        enabled: bool_field(
+            rt,
+            df,
+            "enable",
+            "background.transition.enable",
+            diagnostics,
+        ),
+        kind: string_field(rt, df, "type", "background.transition.type", diagnostics),
+        direction: string_field(
+            rt,
+            df,
+            "direction",
+            "background.transition.direction",
+            diagnostics,
+        ),
+        duration_ms: u64_field(
+            rt,
+            df,
+            "duration",
+            "background.transition.duration",
+            diagnostics,
+        ),
+        bezier,
+    }
+}
+
+fn parse_background_effects(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    diagnostics: &mut Vec<String>,
+) -> BackgroundEffectsConfig {
+    let rt = runtime.and_then(|value| value.get("effects"));
+    let df = defaults.and_then(|value| value.get("effects"));
+    BackgroundEffectsConfig {
+        blur_enabled: bool_field(
+            rt,
+            df,
+            "enableBlur",
+            "background.effects.enableBlur",
+            diagnostics,
+        ),
+        blur_radius: number_field(
+            rt,
+            df,
+            "blurRadius",
+            "background.effects.blurRadius",
+            diagnostics,
+        ),
+        thumbnail_blur_strength: number_field(
+            rt,
+            df,
+            "thumbnailBlurStrength",
+            "background.effects.thumbnailBlurStrength",
+            diagnostics,
+        ),
+        animated_blur_enabled: bool_field(
+            rt,
+            df,
+            "enableAnimatedBlur",
+            "background.effects.enableAnimatedBlur",
+            diagnostics,
+        ),
+        dim: number_field(rt, df, "dim", "background.effects.dim", diagnostics),
+        dynamic_dim: number_field(
+            rt,
+            df,
+            "dynamicDim",
+            "background.effects.dynamicDim",
+            diagnostics,
+        ),
+    }
+}
+
+fn parse_background_parallax(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    diagnostics: &mut Vec<String>,
+) -> BackgroundParallaxConfig {
+    let rt = runtime.and_then(|value| value.get("parallax"));
+    let df = defaults.and_then(|value| value.get("parallax"));
+    BackgroundParallaxConfig {
+        enabled: bool_field(rt, df, "enable", "background.parallax.enable", diagnostics),
+        axis: string_field(rt, df, "axis", "background.parallax.axis", diagnostics),
+        vertical: bool_field(
+            rt,
+            df,
+            "vertical",
+            "background.parallax.vertical",
+            diagnostics,
+        ),
+        auto_vertical: bool_field(
+            rt,
+            df,
+            "autoVertical",
+            "background.parallax.autoVertical",
+            diagnostics,
+        ),
+        workspace_enabled: bool_field(
+            rt,
+            df,
+            "enableWorkspace",
+            "background.parallax.enableWorkspace",
+            diagnostics,
+        ),
+        workspace_shift: number_field(
+            rt,
+            df,
+            "workspaceShift",
+            "background.parallax.workspaceShift",
+            diagnostics,
+        ),
+        workspace_zoom: number_field(
+            rt,
+            df,
+            "workspaceZoom",
+            "background.parallax.workspaceZoom",
+            diagnostics,
+        ),
+        zoom: number_field(rt, df, "zoom", "background.parallax.zoom", diagnostics),
+        sidebar_enabled: bool_field(
+            rt,
+            df,
+            "enableSidebar",
+            "background.parallax.enableSidebar",
+            diagnostics,
+        ),
+        panel_shift: number_field(
+            rt,
+            df,
+            "panelShift",
+            "background.parallax.panelShift",
+            diagnostics,
+        ),
+        widgets_factor: number_field(
+            rt,
+            df,
+            "widgetsFactor",
+            "background.parallax.widgetsFactor",
+            diagnostics,
+        ),
+        widget_depth: number_field(
+            rt,
+            df,
+            "widgetDepth",
+            "background.parallax.widgetDepth",
+            diagnostics,
+        ),
+        pause_during_transitions: bool_field(
+            rt,
+            df,
+            "pauseDuringTransitions",
+            "background.parallax.pauseDuringTransitions",
+            diagnostics,
+        ),
+        transition_settle_ms: u64_field(
+            rt,
+            df,
+            "transitionSettleMs",
+            "background.parallax.transitionSettleMs",
+            diagnostics,
+        ),
+    }
+}
+
+fn bool_with_default(
+    runtime: Option<&Value>,
+    defaults: Option<&Value>,
+    key: &str,
+    path: &str,
+    fallback: bool,
+    diagnostics: &mut Vec<String>,
+) -> bool {
+    runtime
+        .and_then(|value| bool_at(value, key, path, diagnostics))
+        .or_else(|| {
+            defaults.and_then(|value| bool_at(value, key, &format!("defaults.{path}"), diagnostics))
+        })
+        .unwrap_or(fallback)
+}
+
 fn bool_at(v: &Value, key: &str, path: &str, d: &mut Vec<String>) -> Option<bool> {
     v.get(key)
         .map(|x| match x.as_bool() {
@@ -1951,7 +3036,266 @@ fn bool_map(v: Option<&Value>, path: &str, d: &mut Vec<String>) -> BTreeMap<Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{ConfigLoad, ConfigSource};
+    use super::{
+        ConfigLoad, ConfigSource, ControlPanelSection, ControlPanelStyle, MediaPopupMode,
+        NotificationPopupPosition, SpacerMode,
+    };
+
+    #[test]
+    fn notification_popup_configuration_defaults_and_overrides_are_typed() {
+        let defaults = ConfigLoad::from_defaults();
+        assert_eq!(
+            defaults.config.notifications.position,
+            NotificationPopupPosition::TopRight
+        );
+        assert!(defaults.config.notifications.screen_list.is_empty());
+        assert_eq!(defaults.config.notifications.edge_margin, 4);
+
+        let configured = ConfigLoad::from_bytes(
+            br#"{"notifications":{"position":"bottomLeft","screenList":["DP-1"],"edgeMargin":12}}"#,
+        );
+        assert_eq!(
+            configured.config.notifications.position,
+            NotificationPopupPosition::BottomLeft
+        );
+        assert_eq!(configured.config.notifications.screen_list, ["DP-1"]);
+        assert_eq!(configured.config.notifications.edge_margin, 12);
+    }
+
+    #[test]
+    fn invalid_notification_position_and_margin_fall_back_safely() {
+        let configured =
+            ConfigLoad::from_bytes(br#"{"notifications":{"position":"center","edgeMargin":-1}}"#);
+        assert_eq!(
+            configured.config.notifications.position,
+            NotificationPopupPosition::TopRight
+        );
+        assert_eq!(configured.config.notifications.edge_margin, 4);
+        assert!(
+            configured
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("notifications.position"))
+        );
+    }
+
+    #[test]
+    fn osd_configuration_reads_timeout_screen_list_and_media_gate() {
+        let defaults = ConfigLoad::from_defaults();
+        assert_eq!(defaults.config.osd.timeout_ms, 1_000);
+        assert!(defaults.config.osd.media_enabled);
+        assert!(defaults.config.osd.screen_list.is_empty());
+
+        let configured = ConfigLoad::from_bytes(
+            br#"{"osd":{"timeout":2750,"screenList":["DP-1"],"mediaEnabled":false}}"#,
+        );
+        assert_eq!(configured.config.osd.timeout_ms, 2_750);
+        assert_eq!(configured.config.osd.screen_list, ["DP-1"]);
+        assert!(!configured.config.osd.media_enabled);
+    }
+
+    #[test]
+    fn invalid_osd_timeout_falls_back_without_fabricating_screen_targets() {
+        let configured = ConfigLoad::from_bytes(
+            br#"{"osd":{"timeout":-5,"screenList":[7],"mediaEnabled":"yes"}}"#,
+        );
+        assert_eq!(configured.config.osd.timeout_ms, 1_000);
+        assert!(configured.config.osd.screen_list.is_empty());
+        assert!(configured.config.osd.media_enabled);
+        assert!(
+            configured
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("osd.screenList"))
+        );
+        assert!(
+            configured
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("osd.mediaEnabled"))
+        );
+    }
+
+    #[test]
+    fn control_panel_defaults_and_optional_section_order_match_qml() {
+        let loaded = ConfigLoad::from_defaults();
+        assert!(loaded.config.control_panel.compact_mode);
+        assert!(!loaded.config.control_panel.keep_loaded);
+        assert_eq!(loaded.config.control_panel.style, ControlPanelStyle::Panel);
+        assert_eq!(
+            loaded.config.control_panel.visible_sections(),
+            [
+                ControlPanelSection::Profile,
+                ControlPanelSection::DateTime,
+                ControlPanelSection::Media,
+                ControlPanelSection::Wallpaper,
+                ControlPanelSection::Weather,
+                ControlPanelSection::System,
+                ControlPanelSection::Sliders,
+                ControlPanelSection::QuickActions,
+            ]
+        );
+    }
+
+    #[test]
+    fn control_panel_runtime_overrides_flags_style_and_preserves_section_order() {
+        let loaded = ConfigLoad::from_bytes(
+            br#"{"controlPanel":{"keepLoaded":true,"compactMode":false,"style":"island","showMediaSection":false,"showWallpaperSection":false,"showSystemSection":false,"showWallpaperSchemeChips":true}}"#,
+        );
+        let config = &loaded.config.control_panel;
+        assert!(config.keep_loaded);
+        assert!(!config.compact_mode);
+        assert_eq!(config.style, ControlPanelStyle::Island);
+        assert!(config.show_wallpaper_scheme_chips);
+        assert_eq!(
+            config.visible_sections(),
+            [
+                ControlPanelSection::Profile,
+                ControlPanelSection::DateTime,
+                ControlPanelSection::Weather,
+                ControlPanelSection::Sliders,
+                ControlPanelSection::QuickActions,
+            ]
+        );
+    }
+
+    #[test]
+    fn malformed_control_panel_options_fall_back_to_defaults_with_diagnostics() {
+        let loaded = ConfigLoad::from_bytes(
+            br#"{"controlPanel":{"keepLoaded":"yes","style":"glass","showWeatherSection":0}}"#,
+        );
+        assert!(!loaded.config.control_panel.keep_loaded);
+        assert!(loaded.config.control_panel.show_weather_section);
+        assert_eq!(loaded.config.control_panel.style, ControlPanelStyle::Panel);
+        assert!(loaded.diagnostics.iter().any(|item| {
+            item == "controlPanel.keepLoaded must be a boolean"
+                || item == "defaults.controlPanel.keepLoaded must be a boolean"
+        }));
+        assert!(
+            loaded
+                .diagnostics
+                .iter()
+                .any(|item| item == "controlPanel.style must be panel or island")
+        );
+    }
+
+    #[test]
+    fn bar_spacer_uses_bundled_defaults_and_parses_modes() {
+        let defaults = ConfigLoad::from_defaults();
+        assert_eq!(defaults.config.bar.layout.spacer_mode, SpacerMode::Auto);
+        assert_eq!(defaults.config.bar.layout.spacer_width, 0.0);
+
+        for (mode, expected) in [
+            ("auto", SpacerMode::Auto),
+            ("fill", SpacerMode::Fill),
+            ("fixed", SpacerMode::Fixed),
+        ] {
+            let json =
+                format!(r#"{{"bar":{{"layout":{{"spacerMode":"{mode}","spacerWidth":18}}}}}}"#);
+            let loaded = ConfigLoad::from_bytes(json.as_bytes());
+            assert_eq!(loaded.config.bar.layout.spacer_mode, expected);
+            assert_eq!(loaded.config.bar.layout.spacer_width, 18.0);
+        }
+    }
+
+    #[test]
+    fn bar_spacer_malformed_values_fall_back_safely() {
+        let loaded = ConfigLoad::from_bytes(
+            br#"{"bar":{"layout":{"spacerMode":"stretch","spacerWidth":-12}}}"#,
+        );
+        assert_eq!(loaded.config.bar.layout.spacer_mode, SpacerMode::Auto);
+        assert_eq!(loaded.config.bar.layout.spacer_width, 0.0);
+        assert!(
+            loaded
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.contains("spacerMode must be one of"))
+        );
+    }
+
+    #[test]
+    fn bar_spacer_width_clamps_large_finite_values_before_float_conversion() {
+        let loaded = ConfigLoad::from_bytes(br#"{"bar":{"layout":{"spacerWidth":1e300}}}"#);
+        assert_eq!(loaded.config.bar.layout.spacer_width, 480.0);
+        assert!(loaded.config.bar.layout.spacer_width.is_finite());
+    }
+
+    #[test]
+    fn bar_verbose_and_media_width_use_bundled_defaults_and_runtime_overrides() {
+        let defaults = ConfigLoad::from_defaults();
+        assert!(defaults.config.bar.verbose);
+        assert_eq!(defaults.config.bar.media_max_width, 220.0);
+
+        let runtime =
+            ConfigLoad::from_bytes(br#"{"bar":{"verbose":false,"media":{"maxWidth":320}}}"#);
+        assert!(!runtime.config.bar.verbose);
+        assert_eq!(runtime.config.bar.media_max_width, 320.0);
+
+        // Each missing runtime field falls back independently.
+        let partial = ConfigLoad::from_bytes(br#"{"bar":{"verbose":false}}"#);
+        assert!(!partial.config.bar.verbose);
+        assert_eq!(partial.config.bar.media_max_width, 220.0);
+    }
+
+    #[test]
+    fn bar_media_width_enforces_qml_minimum_and_invalid_values_fall_back() {
+        let too_narrow = ConfigLoad::from_bytes(br#"{"bar":{"media":{"maxWidth":42}}}"#);
+        assert_eq!(too_narrow.config.bar.media_max_width, 120.0);
+
+        let invalid =
+            ConfigLoad::from_bytes(br#"{"bar":{"verbose":"yes","media":{"maxWidth":"wide"}}}"#);
+        assert!(invalid.config.bar.verbose);
+        assert_eq!(invalid.config.bar.media_max_width, 220.0);
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item == "bar.verbose must be a boolean")
+        );
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item == "bar.media.maxWidth must be a finite number")
+        );
+    }
+
+    #[test]
+    fn media_popup_mode_defaults_to_dock_and_accepts_runtime_override() {
+        let defaults = ConfigLoad::from_defaults();
+        assert_eq!(defaults.config.bar.media_popup_mode, MediaPopupMode::Dock);
+
+        let bar = ConfigLoad::from_bytes(br#"{"bar":{"media":{"popupMode":"bar"}}}"#);
+        assert_eq!(bar.config.bar.media_popup_mode, MediaPopupMode::Bar);
+
+        let dock = ConfigLoad::from_bytes(br#"{"bar":{"media":{"popupMode":"dock"}}}"#);
+        assert_eq!(dock.config.bar.media_popup_mode, MediaPopupMode::Dock);
+    }
+
+    #[test]
+    fn malformed_media_popup_mode_reports_diagnostic_and_falls_back_to_dock() {
+        let loaded = ConfigLoad::from_bytes(br#"{"bar":{"media":{"popupMode":"screen"}}}"#);
+        assert_eq!(loaded.config.bar.media_popup_mode, MediaPopupMode::Dock);
+        assert!(
+            loaded
+                .diagnostics
+                .iter()
+                .any(|item| item == "bar.media.popupMode must be one of: dock, bar")
+        );
+    }
+
+    #[test]
+    fn media_output_filter_defaults_and_runtime_overrides_follow_qml_contract() {
+        let defaults = ConfigLoad::from_defaults();
+        assert!(defaults.config.media.screen_list.is_empty());
+        assert!(defaults.config.media.filter_duplicate_players);
+
+        let configured = ConfigLoad::from_bytes(
+            br#"{"media":{"screenList":["DP-1","eDP-1"],"filterDuplicatePlayers":false}}"#,
+        );
+        assert_eq!(configured.config.media.screen_list, ["DP-1", "eDP-1"]);
+        assert!(!configured.config.media.filter_duplicate_players);
+    }
 
     #[test]
     fn waffle_background_uses_bundled_defaults() {
@@ -2053,5 +3397,174 @@ mod tests {
         assert_eq!(background.backdrop.blur_radius, Some(32.));
         assert_eq!(background.backdrop.dim, Some(12.));
         assert_eq!(background.backdrop.vignette_enabled, Some(false));
+    }
+
+    #[test]
+    fn iris_background_defaults_and_source_sections_match_bundled_schema() {
+        let loaded = ConfigLoad::from_defaults();
+        let iris = &loaded.config.iris_background;
+        let background = &loaded.config.background;
+
+        assert_eq!(iris.source, ConfigSource::BundledDefaults);
+        assert!(iris.desktop_widgets_enabled);
+        assert!(iris.desktop_menu_wallpaper);
+        assert_eq!(
+            iris.desktop_menu_items,
+            [
+                "widgets",
+                "customize",
+                "screenshot",
+                "terminal",
+                "settings",
+                "restart"
+            ]
+        );
+        assert!(iris.raw_runtime_sections.is_empty());
+        assert!(iris.raw_default_sections.contains_key("background"));
+        assert!(iris.raw_default_sections.contains_key("iris.modules"));
+        assert!(iris.raw_default_sections.contains_key("iris.desktopMenu"));
+
+        assert_eq!(background.wallpaper_path.as_deref(), Some(""));
+        assert_eq!(background.thumbnail_path.as_deref(), Some(""));
+        assert_eq!(background.fill_mode.as_deref(), Some("fill"));
+        assert_eq!(background.enable_animation, Some(true));
+        assert_eq!(background.pause_animation_on_battery, Some(true));
+        assert_eq!(background.video_pause.as_deref(), Some("covered"));
+        assert_eq!(background.hide_when_fullscreen, Some(true));
+        assert_eq!(background.transition.enabled, Some(true));
+        assert_eq!(background.transition.kind.as_deref(), Some("random"));
+        assert_eq!(background.transition.direction.as_deref(), Some("right"));
+        assert_eq!(background.transition.duration_ms, Some(800));
+        assert_eq!(background.transition.bezier, [0.54, 0.0, 0.34, 0.99]);
+        assert_eq!(background.effects.blur_enabled, Some(true));
+        assert_eq!(background.effects.blur_radius, Some(22.));
+        assert_eq!(background.effects.dim, Some(30.));
+        assert_eq!(background.effects.dynamic_dim, Some(20.));
+        assert_eq!(background.parallax.enabled, Some(false));
+        assert_eq!(background.parallax.axis.as_deref(), Some("vertical"));
+        assert_eq!(background.parallax.workspace_enabled, Some(true));
+        assert_eq!(background.parallax.pause_during_transitions, Some(true));
+        assert_eq!(background.backdrop.enabled, Some(true));
+        assert_eq!(background.backdrop.wallpaper_path.as_deref(), Some(""));
+        assert_eq!(background.backdrop.fill_mode.as_deref(), Some("fill"));
+        assert_eq!(background.backdrop.blur_radius, Some(40.));
+        assert_eq!(background.backdrop.dim, Some(40.));
+        assert_eq!(background.backdrop.saturation, Some(0.));
+        assert_eq!(background.backdrop.contrast, Some(0.));
+        assert_eq!(background.backdrop.vignette_intensity, Some(1.));
+    }
+
+    #[test]
+    fn iris_background_reads_runtime_fields_and_retains_unmapped_source_keys() {
+        let loaded = ConfigLoad::from_bytes(br#"{
+            "iris": {
+                "modules": {"desktopWidgets": false, "futureModule": {"enabled": true}},
+                "desktopMenu": {"wallpaper": false, "items": ["terminal", "settings"], "futureMenuKey": 9}
+            },
+            "background": {
+                "wallpaperPath": "/wall.jpg", "thumbnailPath": "/wall-thumb.jpg", "fillMode": "fit",
+                "enableAnimation": false, "pauseAnimationOnBattery": false, "videoPause": "fullscreen", "hideWhenFullscreen": false,
+                "transition": {"enable": false, "type": "wipe", "direction": "left", "duration": 450, "bezier": [0.1, 0.2, 0.8, 0.9]},
+                "effects": {"enableBlur": true, "blurRadius": 19, "thumbnailBlurStrength": 42, "enableAnimatedBlur": true, "dim": 13, "dynamicDim": 7},
+                "parallax": {"enable": true, "axis": "horizontal", "vertical": true, "autoVertical": true, "enableWorkspace": false, "workspaceShift": 0.4, "workspaceZoom": 1.3, "zoom": 1.2, "enableSidebar": false, "panelShift": 0.2, "widgetsFactor": 1.4, "widgetDepth": 0.7, "pauseDuringTransitions": false, "transitionSettleMs": 310},
+                "backdrop": {"enable": false, "useMainWallpaper": false, "wallpaperPath": "/overview.jpg", "thumbnailPath": "/overview-thumb.jpg", "fillMode": "center", "blurRadius": 51, "dim": 24, "saturation": 0.25, "contrast": -0.1, "vignetteEnabled": true, "vignetteIntensity": 0.6, "vignetteRadius": 0.8, "enableAnimation": true, "enableAnimatedBlur": true, "futureEffect": "kept"}
+            }
+        }"#);
+        let iris = &loaded.config.iris_background;
+        let background = &loaded.config.background;
+
+        assert_eq!(loaded.source, ConfigSource::Runtime);
+        assert_eq!(iris.source, ConfigSource::Runtime);
+        assert!(!iris.desktop_widgets_enabled);
+        assert!(!iris.desktop_menu_wallpaper);
+        assert_eq!(iris.desktop_menu_items, ["terminal", "settings"]);
+        assert_eq!(
+            iris.raw_runtime_sections["iris.modules"]["futureModule"]["enabled"],
+            true
+        );
+        assert_eq!(
+            iris.raw_runtime_sections["iris.desktopMenu"]["futureMenuKey"],
+            9
+        );
+        assert_eq!(background.wallpaper_path.as_deref(), Some("/wall.jpg"));
+        assert_eq!(background.fill_mode.as_deref(), Some("fit"));
+        assert_eq!(background.enable_animation, Some(false));
+        assert_eq!(background.pause_animation_on_battery, Some(false));
+        assert_eq!(background.video_pause.as_deref(), Some("fullscreen"));
+        assert_eq!(background.hide_when_fullscreen, Some(false));
+        assert_eq!(background.transition.kind.as_deref(), Some("wipe"));
+        assert_eq!(background.transition.duration_ms, Some(450));
+        assert_eq!(background.transition.bezier, [0.1, 0.2, 0.8, 0.9]);
+        assert_eq!(background.effects.blur_radius, Some(19.));
+        assert_eq!(background.effects.dynamic_dim, Some(7.));
+        assert_eq!(background.parallax.axis.as_deref(), Some("horizontal"));
+        assert_eq!(background.parallax.transition_settle_ms, Some(310));
+        assert_eq!(
+            background.backdrop.wallpaper_path.as_deref(),
+            Some("/overview.jpg")
+        );
+        assert_eq!(
+            background.backdrop.thumbnail_path.as_deref(),
+            Some("/overview-thumb.jpg")
+        );
+        assert_eq!(background.backdrop.fill_mode.as_deref(), Some("center"));
+        assert_eq!(background.backdrop.blur_radius, Some(51.));
+        assert_eq!(background.backdrop.saturation, Some(0.25));
+        assert_eq!(background.backdrop.contrast, Some(-0.1));
+        assert_eq!(background.backdrop.vignette_enabled, Some(true));
+        assert_eq!(background.backdrop.vignette_intensity, Some(0.6));
+        assert_eq!(background.backdrop.vignette_radius, Some(0.8));
+        assert_eq!(
+            iris.raw_runtime_sections["background"]["backdrop"]["futureEffect"],
+            "kept"
+        );
+    }
+
+    #[test]
+    fn sparse_and_invalid_iris_background_fields_use_bundled_defaults() {
+        let sparse = ConfigLoad::from_bytes(br#"{"background":{"backdrop":{"dim":12}}}"#);
+        assert_eq!(sparse.config.background.wallpaper_path.as_deref(), Some(""));
+        assert_eq!(sparse.config.background.enable_animation, Some(true));
+        assert_eq!(sparse.config.background.transition.duration_ms, Some(800));
+        assert_eq!(sparse.config.background.backdrop.blur_radius, Some(40.));
+        assert_eq!(sparse.config.background.backdrop.dim, Some(12.));
+        assert_eq!(sparse.config.iris_background.desktop_widgets_enabled, true);
+        assert_eq!(sparse.config.iris_background.desktop_menu_items.len(), 6);
+
+        let invalid = ConfigLoad::from_bytes(br#"{"iris":{"modules":{"desktopWidgets":"false"},"desktopMenu":{"wallpaper":5,"items":"none"}},"background":{"wallpaperPath":17,"enableAnimation":"no","transition":{"duration":-1},"backdrop":{"saturation":"high"}}}"#);
+        assert_eq!(
+            invalid.config.background.wallpaper_path.as_deref(),
+            Some("")
+        );
+        assert_eq!(invalid.config.iris_background.desktop_widgets_enabled, true);
+        assert_eq!(invalid.config.iris_background.desktop_menu_wallpaper, true);
+        assert_eq!(invalid.config.iris_background.desktop_menu_items.len(), 6);
+        assert_eq!(invalid.config.background.enable_animation, Some(true));
+        assert_eq!(invalid.config.background.transition.duration_ms, Some(800));
+        assert_eq!(invalid.config.background.backdrop.saturation, Some(0.));
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("iris.modules.desktopWidgets"))
+        );
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("iris.desktopMenu.items"))
+        );
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("background.transition.duration"))
+        );
+        assert!(
+            invalid
+                .diagnostics
+                .iter()
+                .any(|item| item.contains("background.wallpaperPath"))
+        );
     }
 }

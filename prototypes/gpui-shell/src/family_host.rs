@@ -10,11 +10,11 @@ use async_channel::Sender;
 use gpui::{
     Context, DisplayId, Entity, FocusHandle, IntoElement, Pixels, Size, Window, div, prelude::*,
 };
-use std::sync::Arc;
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
 };
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{
     components::{top_bar::TopBar, vertical_bar::VerticalBar},
@@ -44,6 +44,8 @@ pub enum FamilyComposition {
         theme: ThemeTokens,
         display_id: DisplayId,
         panel_events: Sender<IiPanelEvent>,
+        media_actions: async_channel::Sender<crate::components::vertical_bar::MediaAction>,
+        media_state: crate::components::vertical_bar::MediaState,
     },
     IiVertical {
         output_name: Option<String>,
@@ -79,6 +81,7 @@ pub enum FamilyComposition {
         theme: ThemeTokens,
         options: Option<serde_json::Value>,
         dock_options: Option<serde_json::Value>,
+        pinned_app_ids: Vec<String>,
         output_size: Size<Pixels>,
         dock_enabled: bool,
         output_name: Option<String>,
@@ -127,6 +130,8 @@ pub enum FamilyRuntimeInputs {
     IiHorizontal {
         display_id: DisplayId,
         panel_events: Sender<IiPanelEvent>,
+        media_actions: async_channel::Sender<crate::components::vertical_bar::MediaAction>,
+        media_state: crate::components::vertical_bar::MediaState,
     },
     IiVertical {
         display_id: DisplayId,
@@ -205,6 +210,8 @@ impl EnvironmentPlugin for IiEnvironment {
                 FamilyRuntimeInputs::IiHorizontal {
                     display_id,
                     panel_events,
+                    media_actions,
+                    media_state,
                 },
             ) => FamilyComposition::IiHorizontal {
                 output_name: inputs.output_name,
@@ -212,6 +219,8 @@ impl EnvironmentPlugin for IiEnvironment {
                 theme: inputs.theme,
                 display_id,
                 panel_events,
+                media_actions,
+                media_state,
             },
             _ => return Err(FamilyInputError::RuntimeInputMismatch("ii")),
         };
@@ -307,15 +316,40 @@ impl EnvironmentPlugin for IrisEnvironment {
         else {
             return Err(FamilyInputError::RuntimeInputMismatch("iris"));
         };
+        let mut seen_pins = HashSet::new();
+        let pinned_app_ids = inputs
+            .config
+            .appearance
+            .source_sections
+            .get("ii.dock")
+            .and_then(|dock| dock.get("pinnedApps"))
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(serde_json::Value::as_str)
+            .filter_map(normalize_iris_dock_app_id)
+            .filter(|id| seen_pins.insert(id.clone()))
+            .collect();
         Ok(FamilyComposition::IrisRuntime {
             theme: inputs.theme,
             options,
             dock_options,
+            pinned_app_ids,
             output_size,
             dock_enabled,
             output_name: inputs.output_name,
         })
     }
+}
+
+fn normalize_iris_dock_app_id(value: &str) -> Option<String> {
+    let value = value.trim().rsplit('/').next().unwrap_or(value.trim());
+    let normalized = value.to_lowercase();
+    let normalized = normalized
+        .strip_suffix(".desktop")
+        .unwrap_or(&normalized)
+        .to_owned();
+    (!normalized.is_empty()).then_some(normalized)
 }
 
 static II_ENVIRONMENT: IiEnvironment = IiEnvironment;
@@ -473,8 +507,14 @@ impl FamilyHost {
         state: crate::components::vertical_bar::MediaState,
         cx: &mut Context<Self>,
     ) {
-        if let HostedFamily::IiVertical(view, _) = &self.family {
-            let _ = view.update(cx, |view, cx| view.set_media_state(state, cx));
+        match &self.family {
+            HostedFamily::IiVertical(view, _) => {
+                let _ = view.update(cx, |view, cx| view.set_media_state(state, cx));
+            }
+            HostedFamily::IiHorizontal(view, _) => {
+                let _ = view.update(cx, |view, cx| view.set_media_state(state, cx));
+            }
+            _ => {}
         }
     }
 
@@ -482,6 +522,16 @@ impl FamilyHost {
         match &mut self.family {
             HostedFamily::IiHorizontal(_, launcher) | HostedFamily::IiVertical(_, launcher) => {
                 launcher.left_open = open;
+                cx.notify();
+            }
+            _ => {}
+        }
+    }
+
+    pub fn set_control_panel_open(&mut self, open: bool, cx: &mut Context<Self>) {
+        match &mut self.family {
+            HostedFamily::IiHorizontal(_, launcher) | HostedFamily::IiVertical(_, launcher) => {
+                launcher.control_panel_open = open;
                 cx.notify();
             }
             _ => {}
@@ -497,15 +547,27 @@ impl FamilyHost {
                 theme,
                 display_id,
                 panel_events,
+                media_actions,
+                media_state,
             } => {
                 let launcher = panel_launcher(
                     display_id,
-                    panel_events,
+                    panel_events.clone(),
                     &config,
                     overview_launcher_focus.clone(),
                 );
                 HostedFamily::IiHorizontal(
-                    cx.new(|cx| TopBar::new(output_name, config, theme, display_id, cx)),
+                    cx.new(|cx| {
+                        TopBar::new(
+                            output_name,
+                            config,
+                            theme,
+                            display_id,
+                            media_actions,
+                            media_state,
+                            cx,
+                        )
+                    }),
                     launcher,
                 )
             }
@@ -574,6 +636,7 @@ impl FamilyHost {
                 theme,
                 options,
                 dock_options,
+                pinned_app_ids,
                 output_size,
                 dock_enabled,
                 output_name,
@@ -586,6 +649,7 @@ impl FamilyHost {
                         theme,
                         options.as_ref(),
                         dock_options.as_ref(),
+                        pinned_app_ids,
                         output_size,
                         dock_enabled,
                         output_name,
@@ -660,6 +724,8 @@ fn panel_launcher(
         left_open: false,
         right_enabled: enabled("iiSidebarRight"),
         dashboard_enabled: enabled("iiDashboard") && config.dashboard.enabled,
+        control_panel_enabled: enabled("iiControlPanel"),
+        control_panel_open: false,
         overview_enabled: enabled("iiOverview"),
         overview_focus,
         volume_mixer_enabled: true,

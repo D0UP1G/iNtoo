@@ -181,6 +181,7 @@ use crate::families::ii::context_weather::ContextWeatherInput;
 use crate::families::ii::context_weather_state::{
     self as context_weather_state, ContextWeatherState, ContextWeatherStatus,
 };
+use crate::families::ii::control_panel::{self, DockInset};
 use crate::families::ii::controls_card::ControlsCardInput;
 use crate::families::ii::crypto_state::{self as crypto_state, CryptoState, CryptoStatus};
 use crate::families::ii::crypto_widget::{CryptoRefreshAction, CryptoWidgetInput};
@@ -225,6 +226,9 @@ pub struct IiPanelState {
     pub selected_left_tab_id: Option<String>,
     pub right_open: bool,
     pub dashboard_open: bool,
+    pub control_panel_open: bool,
+    pub control_panel_closing: bool,
+    pub control_panel_transition_generation: u64,
     pub volume_mixer_open: bool,
     pub volume_device_picker_open: bool,
     pub volume_mixer_tab: volume_mixer::VolumeMixerTab,
@@ -235,6 +239,7 @@ pub enum IiPanelKind {
     LeftSidebar,
     RightSidebar,
     Dashboard,
+    ControlPanel,
 }
 
 #[derive(Debug, Clone)]
@@ -246,6 +251,10 @@ pub enum IiPanelEvent {
     Close {
         display: DisplayId,
         panel: IiPanelKind,
+    },
+    FinishControlPanelClose {
+        display: DisplayId,
+        generation: u64,
     },
     ToggleExpand {
         display: DisplayId,
@@ -309,6 +318,8 @@ pub struct IiPanelLauncher {
     pub left_open: bool,
     pub right_enabled: bool,
     pub dashboard_enabled: bool,
+    pub control_panel_enabled: bool,
+    pub control_panel_open: bool,
     pub overview_enabled: bool,
     pub overview_focus: FocusHandle,
     pub volume_mixer_enabled: bool,
@@ -331,6 +342,11 @@ pub fn render_launchers(launcher: IiPanelLauncher) -> impl IntoElement {
             launcher.dashboard_enabled,
             "Dashboard",
         ),
+        (
+            IiPanelKind::ControlPanel,
+            launcher.control_panel_enabled,
+            "Control panel",
+        ),
     ];
     let display = launcher.display;
     let overview_focus = launcher.overview_focus.clone();
@@ -348,11 +364,16 @@ pub fn render_launchers(launcher: IiPanelLauncher) -> impl IntoElement {
             let events = launcher.events.clone();
             let keyboard_events = events.clone();
             let accessible = label.to_owned();
-            let is_active = panel == IiPanelKind::LeftSidebar && launcher.left_open;
+            let is_active = match panel {
+                IiPanelKind::LeftSidebar => launcher.left_open,
+                IiPanelKind::ControlPanel => launcher.control_panel_open,
+                IiPanelKind::RightSidebar | IiPanelKind::Dashboard => false,
+            };
             let glyph = match panel {
                 IiPanelKind::LeftSidebar => "◧",
                 IiPanelKind::RightSidebar => "◨",
                 IiPanelKind::Dashboard => "▦",
+                IiPanelKind::ControlPanel => "☷",
             };
             Some(
                 div()
@@ -484,8 +505,102 @@ pub fn render_launchers(launcher: IiPanelLauncher) -> impl IntoElement {
 }
 
 impl IiPanelState {
+    /// Toggle the panel and return the transition generation when a close timer is needed.
+    pub fn toggle_control_panel(&mut self) -> Option<u64> {
+        self.control_panel_transition_generation =
+            self.control_panel_transition_generation.wrapping_add(1);
+        if self.control_panel_open {
+            self.control_panel_open = false;
+            self.control_panel_closing = true;
+            Some(self.control_panel_transition_generation)
+        } else {
+            self.control_panel_open = true;
+            self.control_panel_closing = false;
+            None
+        }
+    }
+
+    /// Begin the QML-compatible close grace period if the panel is presented.
+    pub fn begin_control_panel_close(&mut self) -> Option<u64> {
+        if !self.control_panel_open {
+            return None;
+        }
+        self.control_panel_transition_generation =
+            self.control_panel_transition_generation.wrapping_add(1);
+        self.control_panel_open = false;
+        self.control_panel_closing = true;
+        Some(self.control_panel_transition_generation)
+    }
+
+    pub fn finish_control_panel_close(&mut self, generation: u64) -> bool {
+        if !self.control_panel_closing || self.control_panel_transition_generation != generation {
+            return false;
+        }
+        self.control_panel_closing = false;
+        true
+    }
+
     pub fn any_open(&self) -> bool {
-        self.left_open || self.right_open || self.dashboard_open || self.volume_mixer_open
+        self.left_open
+            || self.right_open
+            || self.dashboard_open
+            || self.control_panel_open
+            || self.control_panel_closing
+            || self.volume_mixer_open
+    }
+}
+
+#[cfg(test)]
+mod control_panel_state_tests {
+    use super::IiPanelState;
+
+    #[test]
+    fn control_panel_close_grace_keeps_surface_open_then_finishes() {
+        let mut state = IiPanelState::default();
+        assert!(!state.any_open());
+        assert_eq!(state.toggle_control_panel(), None);
+        assert!(state.control_panel_open);
+        assert!(state.any_open());
+
+        let generation = state.begin_control_panel_close().expect("close generation");
+        assert!(!state.control_panel_open);
+        assert!(state.control_panel_closing);
+        assert!(state.any_open());
+
+        assert!(state.finish_control_panel_close(generation));
+        assert!(!state.control_panel_closing);
+        assert!(!state.any_open());
+    }
+
+    #[test]
+    fn reopening_during_close_invalidates_pending_close_state() {
+        let mut state = IiPanelState {
+            control_panel_open: true,
+            ..IiPanelState::default()
+        };
+        assert!(state.toggle_control_panel().is_some());
+        assert!(state.control_panel_closing);
+        assert_eq!(state.toggle_control_panel(), None);
+        assert!(state.control_panel_open);
+        assert!(!state.control_panel_closing);
+        assert!(!state.finish_control_panel_close(1));
+        assert!(state.control_panel_open);
+        assert!(state.any_open());
+    }
+
+    #[test]
+    fn stale_close_timer_cannot_finish_a_later_close() {
+        let mut state = IiPanelState::default();
+        assert_eq!(state.toggle_control_panel(), None); // open
+        let close_a = state.toggle_control_panel().expect("first close");
+        assert_eq!(state.toggle_control_panel(), None); // reopen
+        let close_b = state.toggle_control_panel().expect("second close");
+
+        assert_ne!(close_a, close_b);
+        assert!(!state.finish_control_panel_close(close_a));
+        assert!(state.control_panel_closing);
+        assert!(state.finish_control_panel_close(close_b));
+        assert!(!state.any_open());
     }
 }
 
@@ -494,6 +609,7 @@ pub struct IiPanelActions {
     pub close_left: Arc<dyn Fn() + Send + Sync>,
     pub close_right: Arc<dyn Fn() + Send + Sync>,
     pub close_dashboard: Arc<dyn Fn() + Send + Sync>,
+    pub close_control_panel: Arc<dyn Fn() + Send + Sync>,
     pub expand_left: Arc<dyn Fn() + Send + Sync>,
     pub select_left_tab: Arc<dyn Fn(String) + Send + Sync>,
     pub launch_quick_command: Arc<dyn Fn(String) + Send + Sync>,
@@ -559,6 +675,8 @@ pub struct IiPanelSurface {
     wallpaper_gallery_scroll: ScrollHandle,
     left_tab_focus_handles: HashMap<String, FocusHandle>,
     left_tabs_scroll: ScrollHandle,
+    control_panel_focus: FocusHandle,
+    control_panel_was_open: bool,
     pub media: crate::components::vertical_bar::MediaState,
 }
 
@@ -638,6 +756,8 @@ impl IiPanelSurface {
             wallpaper_gallery_scroll: ScrollHandle::new(),
             left_tab_focus_handles,
             left_tabs_scroll: ScrollHandle::new(),
+            control_panel_focus: cx.focus_handle(),
+            control_panel_was_open: false,
             media: crate::vertical_provider::unavailable_media(),
         };
         cx.spawn(async move |this, cx| {
@@ -1352,7 +1472,17 @@ impl IiPanelSurface {
 }
 
 impl Render for IiPanelSurface {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.state.control_panel_open && !self.control_panel_was_open {
+            window.set_input_region(None);
+            window.focus(&self.control_panel_focus, cx);
+        } else if !self.state.control_panel_open && self.control_panel_was_open {
+            // Keep the visual close transition, but let pointer/touch input pass
+            // through the fullscreen overlay and clear GPUI's focused element.
+            window.set_input_region(Some(&[]));
+            window.blur(cx);
+        }
+        self.control_panel_was_open = self.state.control_panel_open;
         let style = sidebar_style(&self.config, &self.theme, self.output_size);
         let state = self.state.clone();
         let close_left = self.actions.close_left.clone();
@@ -1366,6 +1496,7 @@ impl Render for IiPanelSurface {
             }) as Arc<dyn Fn() + Send + Sync>
         };
         let close_dashboard = self.actions.close_dashboard.clone();
+        let close_control_panel = self.actions.close_control_panel.clone();
         let close_mixer = self.actions.close_volume_mixer.clone();
         let close_mixer_key = close_mixer.clone();
         let toggle_device_picker = self.actions.toggle_volume_device_picker.clone();
@@ -2540,6 +2671,38 @@ impl Render for IiPanelSurface {
                         ),
                 )
             })
+            .when(
+                state.control_panel_open || state.control_panel_closing,
+                |root| {
+                    let config = self.config.control_panel.clone();
+                    let control_style = style.clone();
+                    let output_width = self.output_size.width.as_f32();
+                    let output_height = self.output_size.height.as_f32();
+                    let bar_bottom = self.config.bar.bottom.unwrap_or(false);
+                    let bar_height =
+                        self.config.bar.height.unwrap_or(48.0).clamp(24.0, 128.0) as f32;
+                    let dock = DockInset::from_shell_config(&self.config);
+                    let focus = self.control_panel_focus.clone();
+                    let media = self.media.clone();
+                    let on_media_action = self.actions.media_action.clone();
+                    let on_close = close_control_panel.clone();
+                    root.child(control_panel::render(control_panel::ControlPanelInput {
+                        config,
+                        style: control_style,
+                        output_width,
+                        output_height,
+                        bar_bottom,
+                        bar_height,
+                        dock,
+                        media,
+                        on_media_action,
+                        focus,
+                        on_close,
+                        interactive: state.control_panel_open,
+                        transition_generation: state.control_panel_transition_generation,
+                    }))
+                },
+            )
             .when(!state.any_open(), |root| {
                 root.child(div().id("ii.panel.closed").size_full())
             })
